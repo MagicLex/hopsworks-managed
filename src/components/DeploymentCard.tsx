@@ -95,11 +95,13 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
           </span>
         </div>
       )}
-      <div className={`bg-white border flex flex-col transition-colors hover:border-gray-400 ${
+      <div className={`bg-white border flex flex-col transition-all hover:border-gray-400 ${
         deployment.isRecommended ? 'border-[#1eb182]' : 'border-gray-300'
+      } ${
+        (deployment.id === 'small' || deployment.id === 'medium') ? 'shadow-sm' : ''
       }`}>
         <div className="flex" style={{ minHeight: '120px' }}>
-          <div className="flex-none w-[180px] p-5 border-r border-gray-200 flex flex-col justify-center relative">
+          <div className="flex-none w-[180px] p-5 border-r border-gray-200 flex flex-col relative">
             <div className="absolute top-2 left-2">
               <div className="w-1.5 h-1.5 bg-[#1eb182] rounded-full animate-pulse" />
             </div>
@@ -122,7 +124,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
             </div>
           </div>
       
-          <div className="flex-1 p-5 flex gap-8 items-center">
+          <div className="flex-1 p-5 flex gap-8">
             {Object.entries(deployment.specs).map(([category, items]) => {
               const Icon = getIconForCategory(category);
               return (
@@ -153,7 +155,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
             })}
           </div>
       
-          <div className="flex-none w-36 p-5 flex items-center border-l border-gray-200">
+          <div className="flex-none w-36 p-5 flex flex-col justify-between border-l border-gray-200">
             <button 
               onClick={() => onDeploy(deployment)}
               className={`w-full py-2.5 px-4 text-xs font-mono uppercase tracking-wide transition-all border ${
@@ -164,9 +166,9 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
                   : 'border-[#1eb182] bg-[#1eb182] text-white hover:bg-[#1a9d6e]'
               }`}
             >
-              <div className="flex items-center justify-center gap-1.5">
+              <div className="flex items-center gap-1.5">
                 <Zap size={12} />
-                {getButtonText()}
+                <span>{getButtonText()}</span>
               </div>
             </button>
           </div>
