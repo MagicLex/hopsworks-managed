@@ -159,9 +159,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
             <button 
               onClick={() => onDeploy(deployment)}
               className={`w-full py-2.5 px-4 text-xs font-mono uppercase tracking-wide transition-all border text-left ${
-                deployment.buttonStyle === 'enterprise' 
-                  ? 'border-gray-800 bg-gray-800 text-white hover:bg-gray-900'
-                  : deployment.buttonStyle === 'secondary'
+                deployment.buttonStyle === 'secondary'
                   ? 'border-gray-400 bg-white text-gray-700 hover:bg-gray-50'
                   : 'border-[#1eb182] bg-[#1eb182] text-white hover:bg-[#1a9d6e]'
               }`}
