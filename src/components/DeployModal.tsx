@@ -37,7 +37,7 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
                 <h3 className="font-mono text-sm uppercase text-gray-900">Instant Access</h3>
               </div>
               <p className="text-sm font-mono text-gray-700">
-                You'll join the shared {deployment.name} cluster immediately after payment.
+                You&apos;ll join the shared {deployment.name} cluster immediately after payment.
                 Resources are pre-allocated and ready to use.
               </p>
             </div>
