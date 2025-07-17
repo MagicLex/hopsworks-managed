@@ -22,7 +22,7 @@ export const deploymentOptions: DeploymentOption[] = [
     specs: {
       compute: ['Shared resources', 'Auto-scaling'],
       storage: ['10GB SSD', '1 Project'],
-      capabilities: ['5 Models max', 'Community support'],
+      capabilities: ['Feature store only', 'No orchestration', 'No Jupyter'],
     },
   },
   {
@@ -33,7 +33,7 @@ export const deploymentOptions: DeploymentOption[] = [
     specs: {
       compute: ['4 vCPUs', '16GB RAM'],
       storage: ['100GB SSD', '5 Projects'],
-      capabilities: ['25 Models', 'T4 GPU optional'],
+      capabilities: ['Orchestration', 'Jupyter notebooks', 'T4 GPU optional'],
     },
   },
   {
@@ -45,7 +45,7 @@ export const deploymentOptions: DeploymentOption[] = [
     specs: {
       compute: ['16 vCPUs', '64GB RAM'],
       storage: ['1TB SSD', '25 Projects'],
-      capabilities: ['100 Models', '2x A10G GPUs'],
+      capabilities: ['Full platform', 'Jupyter + VS Code', '2x A10G GPUs'],
     },
   },
   {

@@ -3,12 +3,21 @@ import Head from 'next/head';
 import { BillingToggle } from '@/components/BillingToggle';
 import { DeploymentCard } from '@/components/DeploymentCard';
 import { deploymentOptions, DeploymentOption } from '@/data/deployments';
+import Navbar from '@/components/Navbar';
+import { DeployModal } from '@/components/DeployModal';
 
 export default function Home() {
   const [isYearly, setIsYearly] = useState(false);
+  const [selectedDeployment, setSelectedDeployment] = useState<DeploymentOption | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const handleDeploy = (deployment: DeploymentOption) => {
-    console.log(`Initiating deployment: ${deployment.name}`);
+    if (deployment.buttonStyle === 'enterprise') {
+      window.open('mailto:sales@hopsworks.com?subject=Enterprise Deployment Inquiry', '_blank');
+    } else {
+      setSelectedDeployment(deployment);
+      setIsModalOpen(true);
+    }
   };
 
   return (
@@ -18,6 +27,8 @@ export default function Home() {
         <meta name="description" content="Choose the infrastructure that matches your workload requirements" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
+      
+      <Navbar />
       
       <main className="min-h-screen py-10 px-5">
         <div className="max-w-6xl mx-auto">
@@ -47,6 +58,12 @@ export default function Home() {
           </div>
         </div>
       </main>
+      
+      <DeployModal 
+        isOpen={isModalOpen}
+        deployment={selectedDeployment}
+        onClose={() => setIsModalOpen(false)}
+      />
     </>
   );
 }
