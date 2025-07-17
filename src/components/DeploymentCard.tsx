@@ -158,7 +158,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
           <div className="flex-none w-36 p-5 flex flex-col justify-between border-l border-gray-200">
             <button 
               onClick={() => onDeploy(deployment)}
-              className={`w-full py-2.5 px-4 text-xs font-mono uppercase tracking-wide transition-all border ${
+              className={`w-full py-2.5 px-4 text-xs font-mono uppercase tracking-wide transition-all border text-left ${
                 deployment.buttonStyle === 'enterprise' 
                   ? 'border-gray-800 bg-gray-800 text-white hover:bg-gray-900'
                   : deployment.buttonStyle === 'secondary'
@@ -166,9 +166,9 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
                   : 'border-[#1eb182] bg-[#1eb182] text-white hover:bg-[#1a9d6e]'
               }`}
             >
-              <div className="flex items-center gap-1.5">
-                <Zap size={12} />
+              <div className="flex items-center justify-between">
                 <span>{getButtonText()}</span>
+                <Zap size={12} />
               </div>
             </button>
           </div>
