@@ -1,16 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import { BillingToggle } from '@/components/BillingToggle';
 import { DeploymentCard } from '@/components/DeploymentCard';
 import { deploymentOptions, DeploymentOption } from '@/data/deployments';
 import Navbar from '@/components/Navbar';
 import { DeployModal } from '@/components/DeployModal';
 import { Box, Title, Text, Flex } from 'tailwind-quartz';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Home() {
   const [isYearly, setIsYearly] = useState(false);
   const [selectedDeployment, setSelectedDeployment] = useState<DeploymentOption | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, loading, router]);
   
   const handleDeploy = (deployment: DeploymentOption) => {
     if (deployment.buttonStyle === 'enterprise') {
