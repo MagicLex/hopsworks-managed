@@ -15,7 +15,7 @@
     "next": "^15.4.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "tailwind-quartz": "latest"
+    "tailwind-quartz": "^0.1.4"
   },
   "devDependencies": {
     "@types/node": "^20",

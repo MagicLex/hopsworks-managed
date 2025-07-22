@@ -17,8 +17,7 @@ export const UserProfile: React.FC = () => {
   return (
     <Box className="relative">
       <Button
-        variant="ghost"
-        size="sm"
+        intent="ghost"
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
         className="flex items-center gap-2"
       >

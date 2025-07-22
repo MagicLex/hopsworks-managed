@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, Button, Input, Flex, Box, Title, Text, Labeling, Alert, Tab, Tabs } from 'tailwind-quartz';
+import { Modal, Button, Input, Flex, Box, Title, Text, Labeling, Card } from 'tailwind-quartz';
 import { User, LogIn } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -42,7 +42,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      size="sm"
       title={
         <Flex align="center" gap={8}>
           {activeTab === 'signin' ? <LogIn size={20} /> : <User size={20} />}
@@ -50,12 +49,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         </Flex>
       }
     >
-      <Tabs value={activeTab} onChange={(value) => setActiveTab(value as 'signin' | 'signup')}>
-        <Tab value="signin">Sign In</Tab>
-        <Tab value="signup">Sign Up</Tab>
-      </Tabs>
+      <Flex gap={8} className="mb-6">
+        <Button
+          intent={activeTab === 'signin' ? 'primary' : 'ghost'}
+          className="flex-1"
+          onClick={() => setActiveTab('signin')}
+        >
+          Sign In
+        </Button>
+        <Button
+          intent={activeTab === 'signup' ? 'primary' : 'ghost'}
+          className="flex-1"
+          onClick={() => setActiveTab('signup')}
+        >
+          Sign Up
+        </Button>
+      </Flex>
 
-      <Box className="mt-6">
+      <Box>
         <form onSubmit={handleSubmit}>
           <Flex direction="column" gap={16}>
             <Input
@@ -83,15 +94,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             )}
 
             {error && (
-              <Alert variant="danger" size="sm">
-                {error}
-              </Alert>
+              <Card className="border-red-500 bg-red-50 p-3">
+                <Text className="text-sm text-red-700">{error}</Text>
+              </Card>
             )}
 
             <Button
               type="submit"
               intent="primary"
-              loading={loading}
+              isLoading={loading}
               className="w-full"
             >
               {activeTab === 'signin' ? 'Sign In' : 'Create Account'}
@@ -102,10 +113,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         {activeTab === 'signin' && (
           <Box className="mt-4 text-center">
             <Labeling gray className="text-sm">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Button
-                variant="link"
-                size="sm"
+                intent="inline"
                 onClick={() => setActiveTab('signup')}
               >
                 Sign up

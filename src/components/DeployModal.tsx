@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, CreditCard, Zap, Globe, Terminal, User } from 'lucide-react';
 import { DeploymentOption } from '@/data/deployments';
-import { Modal, Button, Box, Flex, Title, Text, Labeling, Card, Badge, Input, Radio, Alert } from 'tailwind-quartz';
+import { Modal, Button, Box, Flex, Title, Text, Labeling, Card, Badge, Input, Radio } from 'tailwind-quartz';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthModal } from './AuthModal';
 
@@ -68,50 +68,50 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
             <Title as="h3" className="font-mono text-sm uppercase text-gray-600">Select Zone</Title>
           </Flex>
           <Flex direction="column" gap={8}>
-            <Box className="p-3 border border-grayShade2 hover:border-[#1eb182] cursor-pointer transition-colors">
-              <Radio 
-                name="zone" 
-                value="us-east-1" 
-                checked={selectedZone === 'us-east-1'}
-                onChange={() => setSelectedZone('us-east-1')}
-                className="accent-[#1eb182]" 
-                label={
-                  <Box>
-                    <Text className="font-mono text-sm">US-EAST-1</Text>
-                    <Labeling className="text-xs" gray>N. Virginia • Lowest latency for Americas</Labeling>
-                  </Box>
-                }
-              />
+            <Box className="p-3 border border-grayShade2 hover:border-[#1eb182] cursor-pointer transition-colors" onClick={() => setSelectedZone('us-east-1')}>
+              <Flex gap={12}>
+                <Radio 
+                  name="zone" 
+                  value="us-east-1" 
+                  checked={selectedZone === 'us-east-1'}
+                  onChange={() => setSelectedZone('us-east-1')}
+                  className="accent-[#1eb182]" 
+                />
+                <Box>
+                  <Text className="font-mono text-sm">US-EAST-1</Text>
+                  <Labeling className="text-xs" gray>N. Virginia • Lowest latency for Americas</Labeling>
+                </Box>
+              </Flex>
             </Box>
-            <Box className="p-3 border border-grayShade2 hover:border-[#1eb182] cursor-pointer transition-colors">
-              <Radio 
-                name="zone" 
-                value="eu-west-1" 
-                checked={selectedZone === 'eu-west-1'}
-                onChange={() => setSelectedZone('eu-west-1')}
-                className="accent-[#1eb182]"
-                label={
-                  <Box>
-                    <Text className="font-mono text-sm">EU-WEST-1</Text>
-                    <Labeling className="text-xs" gray>Ireland • GDPR compliant for Europe</Labeling>
-                  </Box>
-                }
-              />
+            <Box className="p-3 border border-grayShade2 hover:border-[#1eb182] cursor-pointer transition-colors" onClick={() => setSelectedZone('eu-west-1')}>
+              <Flex gap={12}>
+                <Radio 
+                  name="zone" 
+                  value="eu-west-1" 
+                  checked={selectedZone === 'eu-west-1'}
+                  onChange={() => setSelectedZone('eu-west-1')}
+                  className="accent-[#1eb182]"
+                />
+                <Box>
+                  <Text className="font-mono text-sm">EU-WEST-1</Text>
+                  <Labeling className="text-xs" gray>Ireland • GDPR compliant for Europe</Labeling>
+                </Box>
+              </Flex>
             </Box>
-            <Box className="p-3 border border-grayShade2 hover:border-[#1eb182] cursor-pointer transition-colors">
-              <Radio 
-                name="zone" 
-                value="ap-southeast-1"
-                checked={selectedZone === 'ap-southeast-1'}
-                onChange={() => setSelectedZone('ap-southeast-1')} 
-                className="accent-[#1eb182]"
-                label={
-                  <Box>
-                    <Text className="font-mono text-sm">AP-SOUTHEAST-1</Text>
-                    <Labeling className="text-xs" gray>Singapore • Optimized for Asia-Pacific</Labeling>
-                  </Box>
-                }
-              />
+            <Box className="p-3 border border-grayShade2 hover:border-[#1eb182] cursor-pointer transition-colors" onClick={() => setSelectedZone('ap-southeast-1')}>
+              <Flex gap={12}>
+                <Radio 
+                  name="zone" 
+                  value="ap-southeast-1"
+                  checked={selectedZone === 'ap-southeast-1'}
+                  onChange={() => setSelectedZone('ap-southeast-1')} 
+                  className="accent-[#1eb182]"
+                />
+                <Box>
+                  <Text className="font-mono text-sm">AP-SOUTHEAST-1</Text>
+                  <Labeling className="text-xs" gray>Singapore • Optimized for Asia-Pacific</Labeling>
+                </Box>
+              </Flex>
             </Box>
           </Flex>
         </Card>
