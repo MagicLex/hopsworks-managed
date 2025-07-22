@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: 'export',
+  // Removed static export to enable API routes for Auth0
+  // output: 'export',
   images: {
     unoptimized: true
   },
