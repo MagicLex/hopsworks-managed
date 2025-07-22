@@ -69,7 +69,7 @@ export default function Cluster() {
               <Box>
                 <Title as="h3" className="text-lg mb-2">Ready to Access Your Cluster</Title>
                 <Text className="text-sm text-gray-600">
-                  Click below to access your Hopsworks cluster. You'll be automatically authenticated.
+                  Click below to access your Hopsworks cluster. You&apos;ll be automatically authenticated.
                 </Text>
               </Box>
               <Button 
@@ -147,7 +147,7 @@ export default function Cluster() {
                   <Text className="text-sm">Single Sign-On via Auth0</Text>
                 </Card>
                 <Text className="text-xs text-gray-500 mt-2">
-                  You'll be automatically logged in using your current credentials
+                  You&apos;ll be automatically logged in using your current credentials
                 </Text>
               </Box>
             </Flex>
