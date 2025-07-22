@@ -187,7 +187,7 @@ fs.get_feature_groups()`}
         <Card className="bg-[#111511] border-grayShade2 p-6">
           <Title as="h3" className="text-lg font-mono uppercase mb-4">CLUSTER RESOURCES</Title>
           
-          <Flex gap={16} wrap="wrap">
+          <Flex gap={16} className="flex-wrap">
             <Badge variant="primary" className="font-mono">{cluster.specs.cpu}</Badge>
             <Badge variant="primary" className="font-mono">{cluster.specs.memory} RAM</Badge>
             <Badge variant="primary" className="font-mono">{cluster.specs.storage}</Badge>
