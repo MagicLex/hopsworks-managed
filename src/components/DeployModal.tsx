@@ -1,7 +1,9 @@
-import React from 'react';
-import { X, CreditCard, Zap, Globe, Terminal } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, CreditCard, Zap, Globe, Terminal, User } from 'lucide-react';
 import { DeploymentOption } from '@/data/deployments';
-import { Modal, Button, Box, Flex, Title, Text, Labeling, Card, Badge, Input, Radio } from 'tailwind-quartz';
+import { Modal, Button, Box, Flex, Title, Text, Labeling, Card, Badge, Input, Radio, Alert } from 'tailwind-quartz';
+import { useAuth } from '@/contexts/AuthContext';
+import { AuthModal } from './AuthModal';
 
 interface DeployModalProps {
   isOpen: boolean;
@@ -10,7 +12,20 @@ interface DeployModalProps {
 }
 
 export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, onClose }) => {
+  const { user } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [selectedZone, setSelectedZone] = useState('us-east-1');
+  
   if (!deployment) return null;
+
+  const handleStartNow = () => {
+    if (!user) {
+      setShowAuthModal(true);
+    } else {
+      // TODO: Process payment and create Hopsworks resources
+      console.log('Processing cluster join for:', user.email, 'Zone:', selectedZone);
+    }
+  };
 
   return (
     <Modal
@@ -27,6 +42,15 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
     >
 
       <Flex direction="column" gap={24}>
+        {user && (
+          <Card className="border-blue-500 bg-blue-50 p-4">
+            <Flex align="center" gap={8} className="mb-2">
+              <User size={16} className="text-blue-600" />
+              <Title as="h3" className="font-mono text-sm">Logged in as: {user.email}</Title>
+            </Flex>
+          </Card>
+        )}
+        
         <Card className="border-[#1eb182] bg-[#e8f5f0] p-4">
           <Flex align="center" gap={8} className="mb-2">
             <Zap size={16} className="text-[#1eb182]" />
@@ -45,7 +69,12 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
           </Flex>
           <Flex direction="column" gap={8}>
             <Box className="p-3 border border-grayShade2 hover:border-[#1eb182] cursor-pointer transition-colors">
-              <Radio name="zone" value="us-east-1" defaultChecked className="accent-[#1eb182]" 
+              <Radio 
+                name="zone" 
+                value="us-east-1" 
+                checked={selectedZone === 'us-east-1'}
+                onChange={() => setSelectedZone('us-east-1')}
+                className="accent-[#1eb182]" 
                 label={
                   <Box>
                     <Text className="font-mono text-sm">US-EAST-1</Text>
@@ -55,7 +84,12 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
               />
             </Box>
             <Box className="p-3 border border-grayShade2 hover:border-[#1eb182] cursor-pointer transition-colors">
-              <Radio name="zone" value="eu-west-1" className="accent-[#1eb182]"
+              <Radio 
+                name="zone" 
+                value="eu-west-1" 
+                checked={selectedZone === 'eu-west-1'}
+                onChange={() => setSelectedZone('eu-west-1')}
+                className="accent-[#1eb182]"
                 label={
                   <Box>
                     <Text className="font-mono text-sm">EU-WEST-1</Text>
@@ -65,7 +99,12 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
               />
             </Box>
             <Box className="p-3 border border-grayShade2 hover:border-[#1eb182] cursor-pointer transition-colors">
-              <Radio name="zone" value="ap-southeast-1" className="accent-[#1eb182]"
+              <Radio 
+                name="zone" 
+                value="ap-southeast-1"
+                checked={selectedZone === 'ap-southeast-1'}
+                onChange={() => setSelectedZone('ap-southeast-1')} 
+                className="accent-[#1eb182]"
                 label={
                   <Box>
                     <Text className="font-mono text-sm">AP-SOUTHEAST-1</Text>
@@ -131,10 +170,21 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
         <Button 
           intent="primary"
           className="font-mono text-sm uppercase"
+          onClick={handleStartNow}
         >
-          Start Now
+          {user ? 'Start Now' : 'Sign In to Continue'}
         </Button>
       </Flex>
+
+      <AuthModal 
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={() => {
+          setShowAuthModal(false);
+          // After successful auth, process the cluster join
+          handleStartNow();
+        }}
+      />
     </Modal>
   );
 };
