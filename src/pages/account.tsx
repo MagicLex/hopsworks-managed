@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
-import { Box, Flex, Title, Text, Button, Card, Modal } from 'tailwind-quartz';
-import { Terminal, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Box, Flex, Title, Text, Button, Card, Modal, Input } from 'tailwind-quartz';
+import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import Navbar from '@/components/Navbar';
 
 export default function Account() {
   const { user, loading, signOut } = useAuth();
@@ -19,8 +20,8 @@ export default function Account() {
 
   if (loading) {
     return (
-      <Box className="min-h-screen bg-[#0a0f0a] text-gray-100 flex items-center justify-center">
-        <Text className="font-mono">LOADING...</Text>
+      <Box className="min-h-screen flex items-center justify-center">
+        <Text>Loading...</Text>
       </Box>
     );
   }
@@ -37,79 +38,76 @@ export default function Account() {
   };
 
   return (
-    <Box className="min-h-screen bg-[#0a0f0a] text-gray-100">
-      <Box className="max-w-2xl mx-auto p-8">
-        <Link href="/dashboard">
-          <Button intent="ghost" className="font-mono text-sm mb-6">
-            <ArrowLeft size={16} className="mr-2" />
-            BACK TO DASHBOARD
-          </Button>
-        </Link>
+    <>
+      <Navbar />
+      <Box className="min-h-screen py-10 px-5">
+        <Box className="max-w-2xl mx-auto">
+          <Link href="/dashboard">
+            <Button intent="ghost" className="text-sm mb-6">
+              <ArrowLeft size={16} className="mr-2" />
+              Back to Dashboard
+            </Button>
+          </Link>
 
-        <Flex align="center" gap={12} className="mb-8">
-          <Terminal size={24} className="text-[#1eb182]" />
-          <Title as="h1" className="text-2xl font-mono uppercase">ACCOUNT SETTINGS</Title>
-        </Flex>
+          <Title as="h1" className="text-2xl mb-8">Account Settings</Title>
 
-        <Card className="bg-[#111511] border-grayShade2 p-6 mb-6">
-          <Title as="h2" className="text-lg font-mono mb-4">ACCOUNT INFORMATION</Title>
-          <Flex direction="column" gap={8}>
-            <Box>
-              <Text className="font-mono text-sm text-gray-400">EMAIL</Text>
-              <Text className="font-mono">{user.email}</Text>
-            </Box>
-            <Box>
-              <Text className="font-mono text-sm text-gray-400">USER ID</Text>
-              <Text className="font-mono text-xs">{user.sub}</Text>
-            </Box>
-          </Flex>
-        </Card>
+          <Card className="p-6 mb-6">
+            <Title as="h2" className="text-lg mb-4">Account Information</Title>
+            <Flex direction="column" gap={8}>
+              <Box>
+                <Text className="text-sm text-gray-600">Email</Text>
+                <Text>{user.email}</Text>
+              </Box>
+              <Box>
+                <Text className="text-sm text-gray-600">User ID</Text>
+                <Text className="text-xs">{user.sub}</Text>
+              </Box>
+            </Flex>
+          </Card>
 
-        <Card className="bg-[#111511] border-red-900 p-6">
-          <Flex align="center" gap={12} className="mb-4">
-            <AlertTriangle size={20} className="text-red-500" />
-            <Title as="h2" className="text-lg font-mono uppercase text-red-500">DANGER ZONE</Title>
-          </Flex>
-          <Text className="font-mono text-sm text-gray-400 mb-4">
-            Permanently delete your account and all associated data. This action cannot be undone.
-          </Text>
-          <Button 
-            intent="secondary"
-            className="font-mono uppercase border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
-            onClick={() => setShowDeleteModal(true)}
-          >
-            DELETE ACCOUNT
-          </Button>
-        </Card>
+          <Card className="p-6 border-red-200">
+            <Flex align="center" gap={12} className="mb-4">
+              <AlertTriangle size={20} className="text-red-500" />
+              <Title as="h2" className="text-lg text-red-500">Danger Zone</Title>
+            </Flex>
+            <Text className="text-sm text-gray-600 mb-4">
+              Permanently delete your account and all associated data. This action cannot be undone.
+            </Text>
+            <Button 
+              intent="secondary"
+              className="border-red-500 text-red-500 hover:bg-red-50"
+              onClick={() => setShowDeleteModal(true)}
+            >
+              Delete Account
+            </Button>
+          </Card>
+        </Box>
       </Box>
 
       <Modal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         size="sm"
-        className="font-mono"
         title={
           <Flex align="center" gap={12}>
             <AlertTriangle size={20} className="text-red-500" />
-            <Title as="span" className="text-lg uppercase">DELETE ACCOUNT</Title>
+            <Title as="span" className="text-lg">Delete Account</Title>
           </Flex>
         }
       >
         <Flex direction="column" gap={16}>
-          <Text className="font-mono text-sm">
+          <Text className="text-sm">
             This will permanently delete your account and all associated data. 
             Your cluster access will be immediately revoked.
           </Text>
           
           <Box>
-            <Text className="font-mono text-sm text-gray-400 mb-2">
+            <Text className="text-sm text-gray-600 mb-2">
               Type DELETE to confirm:
             </Text>
-            <input
-              type="text"
+            <Input
               value={deleteConfirmation}
               onChange={(e) => setDeleteConfirmation(e.target.value)}
-              className="w-full p-2 bg-[#111511] border border-grayShade2 rounded font-mono text-sm"
               placeholder="Type DELETE"
             />
           </Box>
@@ -118,21 +116,21 @@ export default function Account() {
             <Button 
               onClick={() => setShowDeleteModal(false)}
               intent="secondary"
-              className="font-mono text-sm uppercase"
+              className="text-sm"
             >
-              CANCEL
+              Cancel
             </Button>
             <Button 
               intent="primary"
-              className="font-mono text-sm uppercase bg-red-500 hover:bg-red-600"
+              className="text-sm bg-red-500 hover:bg-red-600"
               onClick={handleDeleteAccount}
               disabled={deleteConfirmation !== 'DELETE'}
             >
-              DELETE ACCOUNT
+              Delete Account
             </Button>
           </Flex>
         </Flex>
       </Modal>
-    </Box>
+    </>
   );
 }
