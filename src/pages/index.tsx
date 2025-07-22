@@ -5,6 +5,7 @@ import { DeploymentCard } from '@/components/DeploymentCard';
 import { deploymentOptions, DeploymentOption } from '@/data/deployments';
 import Navbar from '@/components/Navbar';
 import { DeployModal } from '@/components/DeployModal';
+import { Box, Title, Text, Flex } from 'tailwind-quartz';
 
 export default function Home() {
   const [isYearly, setIsYearly] = useState(false);
@@ -13,7 +14,9 @@ export default function Home() {
   
   const handleDeploy = (deployment: DeploymentOption) => {
     if (deployment.buttonStyle === 'enterprise') {
-      window.open('mailto:sales@hopsworks.com?subject=Enterprise Deployment Inquiry', '_blank');
+      window.open('https://www.hopsworks.ai/contact/main', '_blank');
+    } else if (deployment.monthlyPrice === 0) {
+      window.open('https://app.hopsworks.ai/', '_blank');
     } else {
       setSelectedDeployment(deployment);
       setIsModalOpen(true);
@@ -30,23 +33,23 @@ export default function Home() {
       
       <Navbar />
       
-      <main className="min-h-screen py-10 px-5">
-        <div className="max-w-6xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-2xl font-medium text-gray-900 mb-2">
+      <Box as="main" className="min-h-screen py-10 px-5">
+        <Box className="max-w-6xl mx-auto">
+          <Box className="mb-8">
+            <Title className="text-2xl mb-2">
               Select Deployment Configuration
-            </h1>
-            <p className="text-sm text-gray-600">
+            </Title>
+            <Text className="text-sm text-gray-600">
               Choose the infrastructure that matches your workload requirements
-            </p>
-          </div>
+            </Text>
+          </Box>
           
           <BillingToggle 
             isYearly={isYearly} 
             onToggle={() => setIsYearly(!isYearly)} 
           />
           
-          <div className="flex flex-col gap-4">
+          <Flex direction="column" gap={16}>
             {deploymentOptions.map((deployment) => (
               <DeploymentCard
                 key={deployment.id}
@@ -55,9 +58,9 @@ export default function Home() {
                 onDeploy={handleDeploy}
               />
             ))}
-          </div>
-        </div>
-      </main>
+          </Flex>
+        </Box>
+      </Box>
       
       <DeployModal 
         isOpen={isModalOpen}

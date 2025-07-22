@@ -4,7 +4,8 @@ const nextConfig = {
   output: 'export',
   images: {
     unoptimized: true
-  }
+  },
+  transpilePackages: ['@logicalclocks/tailwind-quartz']
 }
 
 module.exports = nextConfig
