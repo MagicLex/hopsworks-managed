@@ -22,8 +22,7 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
     if (!user) {
       setShowAuthModal(true);
     } else {
-      // TODO: Process payment and create Hopsworks resources
-      console.log('Processing cluster join for:', user.email, 'Zone:', selectedZone);
+      // Process payment and create Hopsworks resources
     }
   };
 
