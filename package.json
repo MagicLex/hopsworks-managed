@@ -2,6 +2,7 @@
   "name": "hopsworks-managed",
   "version": "0.1.0",
   "private": true,
+  "description": "Hopsworks managed clusters - Auth0 SDK v3 authentication",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
