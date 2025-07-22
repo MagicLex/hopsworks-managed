@@ -27,13 +27,13 @@ export default function Cluster() {
 
   if (!user) return null;
 
-  // Mock cluster data
+  // Cluster data
   const cluster = {
-    name: 'Starter Cluster US-East-1',
+    name: 'Demo Hopsworks Cluster',
     status: 'Running',
-    endpoint: 'https://starter-us-east-1.hopsworks.ai',
-    apiKey: 'hw_sk_1234567890abcdef',
-    region: 'US-East-1',
+    endpoint: 'https://demo.hops.works',
+    apiKey: 'Contact admin for API key',
+    region: 'EU-Central',
     created: '2025-07-15',
     specs: {
       nodes: 3,
@@ -62,6 +62,25 @@ export default function Cluster() {
           </Link>
 
           <Title as="h1" className="text-2xl mb-8">Cluster Access</Title>
+
+          {/* Quick Access Button */}
+          <Card className="p-6 mb-6 bg-green-50 border-green-200">
+            <Flex justify="between" align="center">
+              <Box>
+                <Title as="h3" className="text-lg mb-2">Ready to Access Your Cluster</Title>
+                <Text className="text-sm text-gray-600">
+                  Click below to access your Hopsworks cluster. You'll be automatically authenticated.
+                </Text>
+              </Box>
+              <Button 
+                intent="primary" 
+                className="text-lg px-6 py-3"
+                onClick={() => window.open(cluster.endpoint, '_blank')}
+              >
+                Access Hopsworks →
+              </Button>
+            </Flex>
+          </Card>
 
           {/* Cluster Status */}
           <Card className="p-6 mb-6">
@@ -123,19 +142,13 @@ export default function Cluster() {
               </Box>
 
               <Box>
-                <Text className="text-sm text-gray-600 mb-2">API Key</Text>
+                <Text className="text-sm text-gray-600 mb-2">Authentication</Text>
                 <Card variant="readOnly" className="p-3">
-                  <Flex justify="between" align="center">
-                    <Text className="text-sm">hw_sk_••••••••••••••••</Text>
-                    <Button 
-                      intent="ghost" 
-                      className="text-sm"
-                      onClick={() => copyToClipboard(cluster.apiKey, 'apikey')}
-                    >
-                      {copied === 'apikey' ? <CheckCircle size={16} /> : <Copy size={16} />}
-                    </Button>
-                  </Flex>
+                  <Text className="text-sm">Single Sign-On via Auth0</Text>
                 </Card>
+                <Text className="text-xs text-gray-500 mt-2">
+                  You'll be automatically logged in using your current credentials
+                </Text>
               </Box>
             </Flex>
           </Card>
@@ -152,16 +165,19 @@ export default function Cluster() {
               <pre className="overflow-x-auto">
 {`import hopsworks
 
+# Login via browser (SSO)
 connection = hopsworks.login(
-    host="${cluster.endpoint}",
-    api_key_value="${cluster.apiKey}"
+    host="${cluster.endpoint}"
 )
 
 # Get the feature store
 fs = connection.get_feature_store()
 
-# List all feature groups
-fs.get_feature_groups()`}
+# Create a new feature group
+fg = fs.create_feature_group(
+    name="sales_features",
+    version=1
+)`}
               </pre>
             </Card>
 
@@ -174,9 +190,9 @@ fs.get_feature_groups()`}
               </Button>
               <Button 
                 intent="secondary" 
-                onClick={() => window.open(`${cluster.endpoint}/jupyter`, '_blank')}
+                onClick={() => window.open(cluster.endpoint, '_blank')}
               >
-                Open Jupyter →
+                Access Cluster →
               </Button>
             </Flex>
           </Card>
