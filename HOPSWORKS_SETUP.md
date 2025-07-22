@@ -7,20 +7,23 @@ Add these URLs to your Auth0 application:
 ### Allowed Callback URLs
 ```
 https://hopsworks-managed.vercel.app/api/auth/callback
-https://your-hopsworks-instance.com/callback
-https://your-hopsworks-instance.com/auth/callback
+https://demo.hops.works/callback
+https://demo.hops.works/auth/callback
+https://demo.hops.works/oauth2/callback
+https://demo.hops.works/login/oauth2/code/auth0
 ```
 
 ### Allowed Logout URLs
 ```
 https://hopsworks-managed.vercel.app/
-https://your-hopsworks-instance.com/
+https://demo.hops.works/
+https://demo.hops.works/logout
 ```
 
 ### Allowed Web Origins
 ```
 https://hopsworks-managed.vercel.app
-https://your-hopsworks-instance.com
+https://demo.hops.works
 ```
 
 ## Hopsworks Identity Provider Configuration
