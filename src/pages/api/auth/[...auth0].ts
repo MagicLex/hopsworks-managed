@@ -1,21 +1,12 @@
-import { handleAuth, initAuth0 } from '@auth0/nextjs-auth0';
+import { handleAuth } from '@auth0/nextjs-auth0';
 
-const auth0 = initAuth0({
-  baseURL: process.env.AUTH0_BASE_URL!,
-  issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL!,
-  clientID: process.env.AUTH0_CLIENT_ID!,
-  clientSecret: process.env.AUTH0_CLIENT_SECRET!,
-  secret: process.env.AUTH0_SECRET!,
-  clockTolerance: 60,
-  httpTimeout: 5000,
-  authorizationParams: {
-    scope: 'openid profile email',
-  },
-  session: {
-    rolling: true,
-    rollingDuration: 86400,
-    absoluteDuration: 604800
-  }
-});
+// Debug environment variables
+console.log('AUTH0_BASE_URL:', process.env.AUTH0_BASE_URL);
+console.log('AUTH0_ISSUER_BASE_URL:', process.env.AUTH0_ISSUER_BASE_URL);
+console.log('AUTH0_CLIENT_ID:', process.env.AUTH0_CLIENT_ID);
+console.log('AUTH0_SECRET exists:', !!process.env.AUTH0_SECRET);
+console.log('AUTH0_CLIENT_SECRET exists:', !!process.env.AUTH0_CLIENT_SECRET);
 
-export default auth0.handleAuth();
+// For Auth0 SDK v3, we need to use the default configuration
+// The SDK will read from process.env automatically
+export default handleAuth();
