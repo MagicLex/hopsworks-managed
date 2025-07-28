@@ -165,7 +165,7 @@ export default function Cluster() {
                       <Button 
                         intent="ghost" 
                         className="text-sm"
-                        onClick={() => copyToClipboard(instance.endpoint, 'endpoint')}
+                        onClick={() => copyToClipboard(instanceData.endpoint || '', 'endpoint')}
                       >
                         {copied === 'endpoint' ? <CheckCircle size={16} /> : <Copy size={16} />}
                       </Button>
@@ -207,7 +207,7 @@ export default function Cluster() {
 
 # Login via browser (SSO)
 connection = hopsworks.login(
-    host="${instance.endpoint}"
+    host="${instanceData?.endpoint || 'your-hopsworks-instance.com'}"
 )
 
 # Get the feature store

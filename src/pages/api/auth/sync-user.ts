@@ -65,11 +65,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
     } else {
       // Update last login
+      // First get current login count
+      const { data: currentUser } = await supabaseAdmin
+        .from('users')
+        .select('login_count')
+        .eq('id', userId)
+        .single();
+      
       await supabaseAdmin
         .from('users')
         .update({
           last_login_at: new Date().toISOString(),
-          login_count: supabaseAdmin.sql`login_count + 1`
+          login_count: (currentUser?.login_count || 0) + 1
         })
         .eq('id', userId);
     }
