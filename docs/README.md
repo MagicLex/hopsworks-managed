@@ -1,26 +1,26 @@
-# Hopsworks Managed - Technical Overview
+# Hopsworks Managed - Documentation
 
 ## What This Is
 A SaaS frontend for Hopsworks ML platform. Users sign up, add payment method, and get access to a managed Hopsworks instance on pay-as-you-go pricing.
 
-## Tech Stack
-- **Frontend**: Next.js 15, TypeScript, Tailwind CSS
-- **UI Components**: tailwind-quartz
-- **Auth**: Auth0 (authentication only)
-- **Database**: Supabase (Postgres for user data, usage metrics, billing)
-- **Deployment**: Vercel
+## Documentation
 
-## Key Features
+### Core Docs
+- [Architecture Overview](ARCHITECTURE.md) - System design and tech stack
+- [Setup Guide](SETUP_GUIDE.md) - Local development and deployment
+- [Database Patterns](DATABASE_PATTERNS.md) - Schema and query patterns
+
+### Key Features
 - Pay-as-you-go billing ($0.10/CPU hour, $0.50/GPU hour)
+- Multi-cluster support with auto-assignment
+- Admin dashboard for user and cluster management
 - Usage tracking and billing dashboard
-- Automatic Hopsworks instance provisioning
-- Real-time usage metrics
+- Auth0 integration for authentication
 
-## Project Structure
-```
-src/
-  pages/          # Next.js pages and API routes
-  components/     # React components
+## Quick Links
+- Admin Panel: `/admin47392` (requires admin access)
+- [Main README](../README.md) - Project overview
+- [Known Issues](../KNOWN_ISSUES.md) - Current limitations
   contexts/       # Auth context
   hooks/          # Custom React hooks
   lib/            # Utilities (Supabase client, types)
