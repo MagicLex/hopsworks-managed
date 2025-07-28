@@ -149,14 +149,14 @@ export default function Cluster() {
                       <Button 
                         intent="ghost" 
                         className="text-sm"
-                        onClick={() => copyToClipboard(cluster.endpoint, 'endpoint')}
+                        onClick={() => copyToClipboard(instance.endpoint, 'endpoint')}
                       >
                         {copied === 'endpoint' ? <CheckCircle size={16} /> : <Copy size={16} />}
                       </Button>
                       <Button 
                         intent="ghost" 
                         className="text-sm"
-                        onClick={() => window.open(cluster.endpoint, '_blank')}
+                        onClick={() => window.open(instance.endpoint, '_blank')}
                       >
                         <ExternalLink size={16} />
                       </Button>
@@ -214,7 +214,7 @@ fg = fs.create_feature_group(
               </Button>
               <Button 
                 intent="secondary" 
-                onClick={() => window.open(cluster.endpoint, '_blank')}
+                onClick={() => window.open(instance.endpoint, '_blank')}
               >
                 Launch Instance →
               </Button>

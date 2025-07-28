@@ -66,14 +66,17 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
         <Card className="p-4">
           <Flex align="center" gap={8} className="mb-3">
             <Zap size={16} className="text-[#1eb182]" />
-            <Title as="h3" className="font-mono text-sm uppercase text-gray-600">What&apos;s Included</Title>
+            <Title as="h3" className="font-mono text-sm uppercase text-gray-600">Technical Capabilities</Title>
           </Flex>
           <Flex direction="column" gap={8}>
-            <Text className="font-mono text-sm">✓ Feature Store & Model Registry</Text>
-            <Text className="font-mono text-sm">✓ ML Pipelines & Orchestration</Text>
-            <Text className="font-mono text-sm">✓ Jupyter Notebooks & VS Code</Text>
-            <Text className="font-mono text-sm">✓ Real-time Feature Serving</Text>
-            <Text className="font-mono text-sm">✓ Model Deployment & Monitoring</Text>
+            <Text className="font-mono text-sm">✓ RonDB Online Store (&lt;1ms latency)</Text>
+            <Text className="font-mono text-sm">✓ Spark, Flink, Pandas compute engines</Text>
+            <Text className="font-mono text-sm">✓ Delta Lake, Hudi, Iceberg formats</Text>
+            <Text className="font-mono text-sm">✓ Airflow orchestration built-in</Text>
+            <Text className="font-mono text-sm">✓ JupyterLab with Python/Spark kernels</Text>
+            <Text className="font-mono text-sm">✓ KServe/vLLM model deployment</Text>
+            <Text className="font-mono text-sm">✓ Point-in-time correct training data</Text>
+            <Text className="font-mono text-sm">✓ BigQuery, Snowflake, S3 connectors</Text>
           </Flex>
         </Card>
 

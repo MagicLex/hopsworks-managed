@@ -20,9 +20,9 @@ export const deploymentOptions: DeploymentOption[] = [
     yearlyPrice: 0,
     buttonStyle: 'secondary',
     specs: {
-      compute: ['Shared CPU', '4GB Memory per Job', 'Limited compute time'],
-      storage: ['10GB Storage', '100K Features', 'Basic performance'],
-      capabilities: ['Feature Store', 'Model Registry', 'Community Support', 'No GPUs', 'Limited API calls'],
+      compute: ['Shared Spark cluster', '4GB memory limit', '1hr max job time'],
+      storage: ['10GB storage quota', '100K feature limit', 'Shared RonDB instance'],
+      capabilities: ['Feature store only', 'Python SDK access', 'No Airflow/Jupyter', 'No GPU access', 'Rate-limited APIs'],
     },
   },
   {
@@ -32,9 +32,9 @@ export const deploymentOptions: DeploymentOption[] = [
     yearlyPrice: 0,
     buttonStyle: 'primary',
     specs: {
-      compute: ['$0.10 per CPU hour', '$0.50 per GPU hour (T4)', 'Auto-scaling'],
-      storage: ['$0.02 per GB/month', 'Unlimited features', 'NVMe SSD performance'],
-      capabilities: ['Full Hopsworks Platform', 'Feature Store & Model Registry', 'ML Pipelines & Training', 'Jupyter & VS Code', 'Real-time Serving', 'Standard Support'],
+      compute: ['Spark/Flink/Pandas engines', 'Dynamic GPU allocation', 'Auto-scaling workers'],
+      storage: ['RonDB sub-ms latency', 'Delta/Hudi/Iceberg', 'Version-controlled features'],
+      capabilities: ['Airflow orchestration', 'JupyterLab + notebooks', 'KServe model serving', 'Feature transformations', 'Drift monitoring', 'JDBC/Cloud connectors'],
     },
   },
   {
@@ -44,9 +44,9 @@ export const deploymentOptions: DeploymentOption[] = [
     yearlyPrice: 0,
     buttonStyle: 'enterprise',
     specs: {
-      compute: ['Custom sizing', 'Dedicated resources', 'Multi-region'],
-      storage: ['Custom storage tiers', 'Unlimited features', 'Enterprise SLAs'],
-      capabilities: ['All Pay-As-You-Go features', 'A100 GPUs available', 'Private cloud deployment', 'On-premise option', '24/7 Premium Support', 'Custom integrations'],
+      compute: ['Dedicated clusters', 'A100/H100 GPUs', 'Multi-region failover'],
+      storage: ['Dedicated RonDB cluster', 'Custom retention', 'Private S3/ADLS/GCS'],
+      capabilities: ['VPC peering', 'SAML/LDAP SSO', 'Custom SLAs', 'On-premise deploy', '24/7 support', 'Professional services'],
     },
   },
 ];
