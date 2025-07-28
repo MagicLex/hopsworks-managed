@@ -7,10 +7,12 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  mode?: 'signin' | 'signup';
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess, mode = 'signup' }) => {
   const { signIn } = useAuth();
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>(mode);
 
   const handleSignIn = () => {
     // Auth0 will handle the authentication flow
@@ -25,15 +27,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       title={
         <Flex align="center" gap={8}>
           <LogIn size={20} />
-          <Title as="span">Join Hopsworks Cluster</Title>
+          <Title as="span">{authMode === 'signin' ? 'Log In to Hopsworks' : 'Sign Up for Hopsworks'}</Title>
         </Flex>
       }
     >
       <Flex direction="column" gap={24}>
         <Card className="border-[#1eb182] bg-[#e8f5f0] p-4">
           <Text className="text-sm">
-            Sign in with your Auth0 account to access Hopsworks clusters. 
-            You&apos;ll be redirected to our secure authentication page.
+            {authMode === 'signin' 
+              ? 'Welcome back! Sign in to access your Hopsworks instance.'
+              : 'Create a new account to start using Hopsworks. No credit card required to sign up.'}
           </Text>
         </Card>
 
@@ -43,8 +46,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             onClick={handleSignIn}
             className="w-full"
           >
-            Sign In with Auth0
+            {authMode === 'signin' ? 'Log In with Auth0' : 'Sign Up with Auth0'}
           </Button>
+          
+          <Text className="text-center text-sm text-gray-600">
+            {authMode === 'signin' 
+              ? "Don't have an account? "
+              : "Already have an account? "}
+            <Button
+              intent="ghost"
+              onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')}
+              className="text-[#1eb182] hover:underline p-0 h-auto"
+            >
+              {authMode === 'signin' ? 'Sign Up' : 'Log In'}
+            </Button>
+          </Text>
           
           <Button
             intent="ghost"

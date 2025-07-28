@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
-import { Box, Flex, Title, Text, Button, Card } from 'tailwind-quartz';
-import { CreditCard, Trash2, Server, LogOut } from 'lucide-react';
+import { Box, Flex, Title, Text, Button, Card, Badge } from 'tailwind-quartz';
+import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, HardDrive } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 
@@ -28,9 +29,14 @@ export default function Dashboard() {
 
   return (
     <>
+      <Head>
+        <title>Dashboard - Hopsworks</title>
+        <meta name="description" content="Manage your Hopsworks instance, monitor usage, and access your ML platform resources." />
+        <meta name="robots" content="noindex, nofollow" />
+      </Head>
       <Navbar />
       <Box className="min-h-screen py-10 px-5">
-        <Box className="max-w-4xl mx-auto">
+        <Box className="max-w-6xl mx-auto">
           <Title as="h1" className="text-2xl mb-8">User Dashboard</Title>
 
           <Card className="p-6 mb-6">
@@ -38,21 +44,61 @@ export default function Dashboard() {
             <Text className="text-lg">{user.email}</Text>
           </Card>
 
+          {/* Usage Metrics */}
+          <Box className="mb-6">
+            <Title as="h2" className="text-lg mb-4">Current Usage</Title>
+            <Flex gap={16} className="grid grid-cols-1 md:grid-cols-4">
+              <Card className="p-4">
+                <Flex align="center" gap={8} className="mb-2">
+                  <Cpu size={16} className="text-[#1eb182]" />
+                  <Text className="text-sm text-gray-600">Hops Credits</Text>
+                </Flex>
+                <Text className="text-xl font-semibold">245</Text>
+                <Text className="text-xs text-gray-500">CPU hours this month</Text>
+              </Card>
+              <Card className="p-4">
+                <Flex align="center" gap={8} className="mb-2">
+                  <HardDrive size={16} className="text-[#1eb182]" />
+                  <Text className="text-sm text-gray-600">Storage Used</Text>
+                </Flex>
+                <Text className="text-xl font-semibold">42.3 GB</Text>
+                <Text className="text-xs text-gray-500">of 250 GB</Text>
+              </Card>
+              <Card className="p-4">
+                <Flex align="center" gap={8} className="mb-2">
+                  <Database size={16} className="text-[#1eb182]" />
+                  <Text className="text-sm text-gray-600">Feature Groups</Text>
+                </Flex>
+                <Text className="text-xl font-semibold">12</Text>
+                <Text className="text-xs text-gray-500">Active feature groups</Text>
+              </Card>
+              <Card className="p-4">
+                <Flex align="center" gap={8} className="mb-2">
+                  <Activity size={16} className="text-[#1eb182]" />
+                  <Text className="text-sm text-gray-600">Model Deployments</Text>
+                </Flex>
+                <Text className="text-xl font-semibold">3</Text>
+                <Text className="text-xs text-gray-500">Live models</Text>
+              </Card>
+            </Flex>
+          </Box>
+
           <Flex direction="column" gap={16}>
             <Card className="p-6">
               <Flex align="center" gap={12} className="mb-4">
                 <Server size={20} className="text-[#1eb182]" />
-                <Title as="h2" className="text-lg">Cluster Access</Title>
+                <Title as="h2" className="text-lg">Your Hopsworks Instance</Title>
+                <Badge variant="success">Active</Badge>
               </Flex>
               <Text className="text-sm text-gray-600 mb-4">
-                Join your Hopsworks managed cluster
+                Access your feature store, model registry, and ML pipelines
               </Text>
               <Button 
                 intent="primary"
                 className="uppercase"
                 onClick={() => router.push('/cluster')}
               >
-                Access Cluster →
+                Access Hopsworks →
               </Button>
             </Card>
 
@@ -62,7 +108,7 @@ export default function Dashboard() {
                 <Title as="h2" className="text-lg">Billing</Title>
               </Flex>
               <Text className="text-sm text-gray-600 mb-4">
-                Manage your subscription and payment methods
+                View usage, manage Hops Credits and payment methods
               </Text>
               <Link href="/billing">
                 <Button 

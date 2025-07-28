@@ -28,7 +28,8 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
   };
   
   const getButtonText = () => {
-    if (deployment.monthlyPrice === 0) return 'Join Free';
+    if (deployment.id === 'serverless') return 'Join Free';
+    if (deployment.id === 'payg') return 'Get Started';
     if (deployment.buttonStyle === 'enterprise') return 'Contact Sales';
     return 'Join Cluster';
   };
@@ -44,7 +45,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
 
   if (deployment.id === 'serverless') {
     return (
-      <Card className="p-6">
+      <Card className="p-6 bg-gray-50 border-gray-200">
         <Flex justify="between" align="center">
           <Box>
             <Title as="h3" className="text-base mb-1">{deployment.name}</Title>
@@ -81,7 +82,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
 
   if (deployment.buttonStyle === 'enterprise') {
     return (
-      <Card variant="readOnly" className="p-8 text-center">
+      <Card className="p-8 text-center bg-gray-50 border-gray-200">
         <Title as="h3" className="text-lg mb-2">{deployment.name}</Title>
         <Text className="text-sm text-gray-600 mb-4">Contact us for bespoke deployment solutions tailored to your needs</Text>
         <Button 
