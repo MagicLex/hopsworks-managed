@@ -1,5 +1,12 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
+import { createHopsworksOAuthUser, createHopsworksProject } from '../../../lib/hopsworks-api';
+
+// Create Stripe client
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-06-30.basil'
+});
 
 // Create Supabase admin client
 const supabaseAdmin = createClient(
@@ -35,7 +42,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (!existingUser) {
-      // Create new user
+      // Create Stripe customer
+      const stripeCustomer = await stripe.customers.create({
+        email,
+        name,
+        metadata: {
+          user_id,
+          auth0_id: user_id
+        }
+      });
+
+      // Create new user with Stripe info
       const { error: userError } = await supabaseAdmin
         .from('users')
         .insert({
@@ -45,7 +62,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           registration_ip: ip,
           created_at: created_at || new Date().toISOString(),
           login_count: logins_count || 0,
-          status: 'active'
+          status: 'active',
+          stripe_customer_id: stripeCustomer.id,
+          billing_mode: 'postpaid' // Default to postpaid
         });
 
       if (userError) throw userError;
@@ -58,6 +77,113 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
 
       if (creditsError) throw creditsError;
+
+      // Create Stripe subscription for postpaid users
+      try {
+        // Get the subscription product price IDs from database
+        const { data: stripeProducts } = await supabaseAdmin
+          .from('stripe_products')
+          .select('*')
+          .eq('active', true);
+
+        if (stripeProducts && stripeProducts.length > 0) {
+          // Create subscription with metered prices
+          const subscription = await stripe.subscriptions.create({
+            customer: stripeCustomer.id,
+            items: stripeProducts.map(product => ({
+              price: product.stripe_price_id
+            })),
+            metadata: {
+              user_id
+            }
+          });
+
+          // Update user with subscription ID
+          await supabaseAdmin
+            .from('users')
+            .update({
+              stripe_subscription_id: subscription.id,
+              stripe_subscription_status: subscription.status
+            })
+            .eq('id', user_id);
+        }
+      } catch (stripeError) {
+        console.error('Failed to create Stripe subscription:', stripeError);
+        // Don't fail user creation if Stripe fails
+      }
+
+      // Assign user to a Hopsworks cluster
+      let availableCluster = null;
+      try {
+        // Find available cluster with capacity
+        const { data: cluster } = await supabaseAdmin
+          .from('hopsworks_clusters')
+          .select('*')
+          .eq('status', 'active')
+          .order('current_users', { ascending: true })
+          .limit(1)
+          .single();
+
+        if (cluster && cluster.current_users < cluster.max_users) {
+          availableCluster = cluster;
+          
+          // Assign user to cluster
+          await supabaseAdmin
+            .from('user_hopsworks_assignments')
+            .insert({
+              user_id,
+              hopsworks_cluster_id: availableCluster.id
+            });
+
+          // Increment cluster user count
+          await supabaseAdmin.rpc('increment_cluster_users', {
+            p_cluster_id: availableCluster.id
+          });
+
+          console.log(`Assigned user ${email} to cluster ${availableCluster.name}`);
+        } else {
+          console.warn(`No available clusters for user ${email}`);
+        }
+      } catch (clusterError) {
+        console.error('Failed to assign cluster:', clusterError);
+        // Don't fail user creation if cluster assignment fails
+      }
+
+      // Create Hopsworks user and project
+      if (availableCluster) {
+        try {
+          const credentials = {
+            apiUrl: availableCluster.api_url,
+            apiKey: availableCluster.api_key
+          };
+
+          // Create OAuth user in Hopsworks
+          const hopsworksUsername = await createHopsworksOAuthUser(
+            credentials,
+            email,
+            name?.split(' ')[0] || 'User',
+            name?.split(' ')[1] || '',
+            user_id
+          );
+
+          // Store Hopsworks username
+          await supabaseAdmin
+            .from('users')
+            .update({ 
+              hopsworks_project_id: hopsworksUsername // Store username for now
+            })
+            .eq('id', user_id);
+
+          // Create default project
+          const projectName = `${email.split('@')[0]}-project`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+          await createHopsworksProject(credentials, hopsworksUsername, projectName);
+
+          console.log(`Created Hopsworks user ${hopsworksUsername} and project ${projectName}`);
+        } catch (hopsworksError) {
+          console.error('Failed to create Hopsworks user/project:', hopsworksError);
+          // Don't fail Auth0 webhook
+        }
+      }
     } else {
       // Update existing user
       const { error: updateError } = await supabaseAdmin

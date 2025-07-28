@@ -25,35 +25,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const userId = session.user.sub;
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
 
-    // Get current month usage for cost calculation
-    const { data: usageData, error: usageError } = await supabaseAdmin
+    // Get user billing info
+    const { data: user } = await supabaseAdmin
+      .from('users')
+      .select('billing_mode, stripe_customer_id, stripe_subscription_status, feature_flags')
+      .eq('id', userId)
+      .single();
+
+    // Get current month usage
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const { data: usageData } = await supabaseAdmin
       .from('usage_daily')
-      .select('cpu_hours, gpu_hours, storage_gb')
+      .select('cpu_hours, gpu_hours, storage_gb, total_cost')
       .eq('user_id', userId)
-      .gte('date', `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`)
-      .lte('date', `${currentYear}-${String(currentMonth).padStart(2, '0')}-31`);
+      .gte('date', startOfMonth.toISOString().split('T')[0]);
 
-    if (usageError) throw usageError;
+    // Calculate totals
+    const totals = usageData?.reduce((acc, day) => ({
+      cpuHours: acc.cpuHours + (day.cpu_hours || 0),
+      gpuHours: acc.gpuHours + (day.gpu_hours || 0),
+      storageGB: Math.max(acc.storageGB, day.storage_gb || 0),
+      totalCost: acc.totalCost + (day.total_cost || 0)
+    }), { cpuHours: 0, gpuHours: 0, storageGB: 0, totalCost: 0 }) || 
+    { cpuHours: 0, gpuHours: 0, storageGB: 0, totalCost: 0 };
 
-    // Calculate costs
-    let totalCpuHours = 0;
-    let totalGpuHours = 0;
-    let avgStorageGb = 0;
-
-    if (usageData && usageData.length > 0) {
-      totalCpuHours = usageData.reduce((sum, day) => sum + (day.cpu_hours || 0), 0);
-      totalGpuHours = usageData.reduce((sum, day) => sum + (day.gpu_hours || 0), 0);
-      avgStorageGb = usageData.reduce((sum, day) => sum + (day.storage_gb || 0), 0) / usageData.length;
+    // For prepaid users, get credit balance
+    let creditBalance = null;
+    if (user?.billing_mode === 'prepaid' && user?.feature_flags?.prepaid_enabled) {
+      const { data: credits } = await supabaseAdmin
+        .from('user_credits')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      
+      if (credits) {
+        creditBalance = {
+          total: (credits.total_purchased - credits.total_used) + 
+                 (credits.free_credits_granted - credits.free_credits_used),
+          purchased: credits.total_purchased - credits.total_used,
+          free: credits.free_credits_granted - credits.free_credits_used
+        };
+      }
     }
-
-    const cpuCost = totalCpuHours * 0.10;
-    const gpuCost = totalGpuHours * 0.50;
-    const storageCost = avgStorageGb * 0.02;
-    const totalCost = cpuCost + gpuCost + storageCost;
 
     // Get billing history
     const { data: billingHistory, error: billingError } = await supabaseAdmin
@@ -66,17 +83,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (billingError) console.error('Billing error:', billingError);
 
     return res.status(200).json({
+      billingMode: user?.billing_mode || 'postpaid',
+      hasPaymentMethod: !!user?.stripe_customer_id,
+      subscriptionStatus: user?.stripe_subscription_status,
+      prepaidEnabled: user?.feature_flags?.prepaid_enabled || false,
       currentUsage: {
-        cpuHours: totalCpuHours,
-        gpuHours: totalGpuHours,
-        storageGB: avgStorageGb,
+        cpuHours: totals.cpuHours.toFixed(2),
+        gpuHours: totals.gpuHours.toFixed(2),
+        storageGB: totals.storageGB.toFixed(2),
         currentMonth: {
-          cpuCost,
-          gpuCost,
-          storageCost,
-          total: totalCost
+          cpuCost: totals.cpuHours * 0.10,
+          gpuCost: totals.gpuHours * 0.50,
+          storageCost: totals.storageGB * 0.10,
+          total: totals.totalCost
         }
       },
+      creditBalance,
       invoices: billingHistory?.map(bill => ({
         id: bill.id,
         invoice_number: bill.invoice_id,

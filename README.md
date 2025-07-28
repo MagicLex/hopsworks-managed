@@ -8,6 +8,8 @@ A managed service platform for Hopsworks clusters with Auth0 authentication and 
 - **Database**: Supabase for user data, cluster memberships, and billing
 - **Frontend**: Next.js 15.4 with TypeScript
 - **UI**: tailwind-quartz component library
+- **Billing**: Stripe with hybrid prepaid/postpaid support
+- **Infrastructure**: Vercel with cron jobs for usage collection
 
 ## Environment Variables
 
@@ -29,6 +31,14 @@ SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-key>
 # Hopsworks Configuration
 HOPSWORKS_API_URL=<your-hopsworks-api-url>
 HOPSWORKS_API_KEY=<your-hopsworks-api-key>
+
+# Stripe Configuration  
+STRIPE_SECRET_KEY=<your-stripe-secret-key>
+STRIPE_PUBLISHABLE_KEY=<your-stripe-publishable-key>
+STRIPE_WEBHOOK_SECRET=<your-webhook-signing-secret>
+
+# Cron Security
+CRON_SECRET=<random-secret-for-cron-jobs>
 ```
 
 ## Development
@@ -69,3 +79,6 @@ Hidden admin interface available at `/admin47392` for managing users and cluster
 ## Documentation
 
 - [Database Patterns](docs/DATABASE_PATTERNS.md) - Schema design, query patterns, and best practices
+- [Billing Architecture](docs/BILLING_ARCHITECTURE.md) - Complete billing system overview
+- [Billing Implementation](docs/BILLING_IMPLEMENTATION.md) - Current status and what's missing
+- [Stripe Setup](docs/STRIPE_SETUP.md) - Step-by-step Stripe configuration

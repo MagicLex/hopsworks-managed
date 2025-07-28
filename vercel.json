@@ -1,0 +1,20 @@
+{
+  "crons": [
+    {
+      "path": "/api/usage/collect",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/billing/sync-stripe", 
+      "schedule": "0 3 * * *"
+    }
+  ],
+  "functions": {
+    "api/usage/collect.ts": {
+      "maxDuration": 60
+    },
+    "api/billing/sync-stripe.ts": {
+      "maxDuration": 60
+    }
+  }
+}
