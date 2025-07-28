@@ -5,12 +5,9 @@ import { Box, Flex, Button } from 'tailwind-quartz';
 import { UserProfile } from './UserProfile';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthModal } from './AuthModal';
-import { useAdmin } from '@/hooks/useAdmin';
-import { ADMIN_ROUTE } from '@/config/admin';
 
 const Navbar: React.FC = () => {
   const { user, signIn } = useAuth();
-  const { isAdmin } = useAdmin();
   const [showAuthModal, setShowAuthModal] = useState(false);
   
   return (
@@ -28,16 +25,7 @@ const Navbar: React.FC = () => {
               />
             </Link>
             {user ? (
-              <Flex align="center" gap={12}>
-                {isAdmin && (
-                  <Link href={ADMIN_ROUTE}>
-                    <Button intent="ghost" size="sm">
-                      Admin
-                    </Button>
-                  </Link>
-                )}
-                <UserProfile />
-              </Flex>
+              <UserProfile />
             ) : (
               <Flex gap={12}>
                 <Button

@@ -1,7 +1,7 @@
 import { useUser } from '@auth0/nextjs-auth0/client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-// Using native HTML elements instead of custom UI components
+import { Box, Flex, Title, Text, Button, Card, Input, Badge } from 'tailwind-quartz';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 
 interface User {
@@ -120,18 +120,22 @@ export default function AdminPage() {
   };
 
   if (isLoading || loadingUsers || loadingClusters) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <Flex align="center" justify="center" className="min-h-screen">
+        <Text>Loading...</Text>
+      </Flex>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+    <Box className="min-h-screen bg-surfaceShade1 p-4">
+      <Box className="max-w-7xl mx-auto">
+        <Title as="h1" className="text-2xl mb-8">Admin Dashboard</Title>
         
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded mb-4">
-            {error}
-          </div>
+          <Card className="mb-4 border-errorDefault bg-errorShade1">
+            <Text className="text-errorDefault">{error}</Text>
+          </Card>
         )}
 
         <Tabs defaultValue="users" className="w-full">
@@ -141,12 +145,12 @@ export default function AdminPage() {
           </TabsList>
 
           <TabsContent value="users">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4">All Users ({users.length})</h2>
-              <div className="overflow-x-auto">
+            <Card withShadow>
+              <Title as="h2" className="text-lg mb-4">All Users ({users.length})</Title>
+              <Box className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b">
+                    <tr className="border-b border-grayShade2">
                       <th className="text-left py-2">Email</th>
                       <th className="text-left py-2">Name</th>
                       <th className="text-left py-2">Status</th>
@@ -159,113 +163,125 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {users.map(user => (
-                      <tr key={user.id} className="border-b">
-                        <td className="py-2">{user.email}</td>
-                        <td className="py-2">{user.name || '-'}</td>
+                      <tr key={user.id} className="border-b border-grayShade2">
                         <td className="py-2">
-                          <span className={`px-2 py-1 text-xs rounded ${
-                            user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
+                          <Text className="font-mono text-sm">{user.email}</Text>
+                        </td>
+                        <td className="py-2">
+                          <Text>{user.name || '-'}</Text>
+                        </td>
+                        <td className="py-2">
+                          <Badge 
+                            variant={user.status === 'active' ? 'success' : 'default'}
+                            size="sm"
+                          >
                             {user.status}
-                          </span>
-                        </td>
-                        <td className="py-2">{user.is_admin ? '✓' : '-'}</td>
-                        <td className="py-2">{user.login_count}</td>
-                        <td className="py-2">
-                          ${user.user_credits?.total_used?.toFixed(2) || '0.00'}
+                          </Badge>
                         </td>
                         <td className="py-2">
-                          {user.instances?.[0]?.status || '-'}
+                          <Text>{user.is_admin ? '✓' : '-'}</Text>
                         </td>
-                        <td className="py-2">{new Date(user.created_at).toLocaleDateString()}</td>
+                        <td className="py-2">
+                          <Text>{user.login_count}</Text>
+                        </td>
+                        <td className="py-2">
+                          <Text className="font-mono">
+                            ${user.user_credits?.total_used?.toFixed(2) || '0.00'}
+                          </Text>
+                        </td>
+                        <td className="py-2">
+                          <Text>{user.instances?.[0]?.status || '-'}</Text>
+                        </td>
+                        <td className="py-2">
+                          <Text className="text-gray">{new Date(user.created_at).toLocaleDateString()}</Text>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
-            </div>
+              </Box>
+            </Card>
           </TabsContent>
 
           <TabsContent value="clusters">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4">Cluster Configuration</h2>
+            <Card withShadow>
+              <Title as="h2" className="text-lg mb-4">Cluster Configuration</Title>
               
               {/* Existing clusters */}
               {clusters.length > 0 && (
-                <div className="mb-8">
-                  <h3 className="text-lg font-medium mb-2">Current Clusters</h3>
-                  <div className="space-y-4">
+                <Box className="mb-8">
+                  <Title as="h3" className="text-base mb-2">Current Clusters</Title>
+                  <Flex direction="column" gap={16}>
                     {clusters.map(cluster => (
-                      <div key={cluster.id} className="border rounded-lg p-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-gray-600">Name</p>
-                            <p className="font-medium">{cluster.name}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-600">Status</p>
-                            <p className={`font-medium ${
-                              cluster.status === 'active' ? 'text-green-600' : 'text-gray-600'
-                            }`}>{cluster.status}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-600">API URL</p>
-                            <p className="text-sm">{cluster.api_url}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-600">Users</p>
-                            <p className="text-sm">{cluster.current_users} / {cluster.max_users}</p>
-                          </div>
-                        </div>
-                      </div>
+                      <Card key={cluster.id} className="border border-grayShade2">
+                        <Box className="grid grid-cols-2 gap-4">
+                          <Box>
+                            <Text className="text-sm text-gray mb-1">Name</Text>
+                            <Text className="font-medium">{cluster.name}</Text>
+                          </Box>
+                          <Box>
+                            <Text className="text-sm text-gray mb-1">Status</Text>
+                            <Badge 
+                              variant={cluster.status === 'active' ? 'success' : 'default'}
+                            >
+                              {cluster.status}
+                            </Badge>
+                          </Box>
+                          <Box>
+                            <Text className="text-sm text-gray mb-1">API URL</Text>
+                            <Text className="text-sm font-mono">{cluster.api_url}</Text>
+                          </Box>
+                          <Box>
+                            <Text className="text-sm text-gray mb-1">Users</Text>
+                            <Text className="text-sm">{cluster.current_users} / {cluster.max_users}</Text>
+                          </Box>
+                        </Box>
+                      </Card>
                     ))}
-                  </div>
-                </div>
+                  </Flex>
+                </Box>
               )}
 
               {/* Add new cluster */}
-              <div>
-                <h3 className="text-lg font-medium mb-2">Add New Cluster</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <input
-                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <Box>
+                <Title as="h3" className="text-base mb-2">Add New Cluster</Title>
+                <Box className="grid grid-cols-2 gap-4">
+                  <Input
                     placeholder="Cluster Name"
                     value={newCluster.name}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCluster({...newCluster, name: e.target.value})}
                   />
-                  <input
-                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  <Input
                     placeholder="API URL"
                     value={newCluster.api_url}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCluster({...newCluster, api_url: e.target.value})}
                   />
-                  <input
-                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  <Input
                     placeholder="API Key"
                     type="password"
                     value={newCluster.api_key}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCluster({...newCluster, api_key: e.target.value})}
                   />
-                  <input
-                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  <Input
                     placeholder="Max Users"
                     type="number"
                     value={newCluster.max_users}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCluster({...newCluster, max_users: parseInt(e.target.value) || 100})}
                   />
-                </div>
-                <button 
+                </Box>
+                <Button 
                   onClick={handleCreateCluster}
-                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  intent="primary"
+                  className="mt-4"
                   disabled={!newCluster.name || !newCluster.api_url}
                 >
                   Create Cluster
-                </button>
-              </div>
-            </div>
+                </Button>
+              </Box>
+            </Card>
           </TabsContent>
         </Tabs>
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
