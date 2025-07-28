@@ -78,6 +78,32 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['instances']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['instances']['Insert']>;
       };
+      clusters: {
+        Row: {
+          id: string;
+          name: string;
+          api_url: string;
+          api_key: string | null;
+          max_users: number;
+          current_users: number;
+          status: 'active' | 'maintenance' | 'full' | 'inactive';
+          created_at: string;
+          updated_at: string;
+          metadata: Record<string, any>;
+        };
+        Insert: Omit<Database['public']['Tables']['clusters']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['clusters']['Insert']>;
+      };
+      user_cluster_assignments: {
+        Row: {
+          id: string;
+          user_id: string;
+          cluster_id: string;
+          assigned_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['user_cluster_assignments']['Row'], 'id' | 'assigned_at'>;
+        Update: Partial<Database['public']['Tables']['user_cluster_assignments']['Insert']>;
+      };
     };
   };
 }

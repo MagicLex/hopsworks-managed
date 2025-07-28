@@ -12,7 +12,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     try {
       const { data: clusters, error } = await supabase
         .from('clusters')
-        .select('*')
+        .select(`
+          *,
+          user_cluster_assignments (count)
+        `)
         .order('created_at', { ascending: false });
 
       if (error) {

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Box, Flex, Title, Text, Button, Card, Input, Badge } from 'tailwind-quartz';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import Navbar from '@/components/Navbar';
 
 interface User {
   id: string;
@@ -24,6 +25,14 @@ interface User {
     instance_name: string;
     status: string;
     hopsworks_url: string;
+  }[];
+  user_cluster_assignments?: {
+    cluster_id: string;
+    clusters: {
+      id: string;
+      name: string;
+      api_url: string;
+    };
   }[];
 }
 
@@ -128,9 +137,11 @@ export default function AdminPage() {
   }
 
   return (
-    <Box className="min-h-screen bg-surfaceShade1 p-4">
-      <Box className="max-w-7xl mx-auto">
-        <Title as="h1" className="text-2xl mb-8">Admin Dashboard</Title>
+    <>
+      <Navbar />
+      <Box className="min-h-screen bg-surfaceShade1 p-4">
+        <Box className="max-w-7xl mx-auto">
+          <Title as="h1" className="text-2xl mb-8">Admin Dashboard</Title>
         
         {error && (
           <Card className="mb-4 border-errorDefault bg-errorShade1">
@@ -155,6 +166,7 @@ export default function AdminPage() {
                       <th className="text-left py-2">Name</th>
                       <th className="text-left py-2">Status</th>
                       <th className="text-left py-2">Admin</th>
+                      <th className="text-left py-2">Cluster</th>
                       <th className="text-left py-2">Logins</th>
                       <th className="text-left py-2">Credits Used</th>
                       <th className="text-left py-2">Instance</th>
@@ -180,6 +192,15 @@ export default function AdminPage() {
                         </td>
                         <td className="py-2">
                           <Text>{user.is_admin ? '✓' : '-'}</Text>
+                        </td>
+                        <td className="py-2">
+                          {user.user_cluster_assignments?.[0] ? (
+                            <Badge size="sm" variant="default">
+                              {user.user_cluster_assignments[0].clusters.name}
+                            </Badge>
+                          ) : (
+                            <Text className="text-gray">-</Text>
+                          )}
                         </td>
                         <td className="py-2">
                           <Text>{user.login_count}</Text>
@@ -283,5 +304,6 @@ export default function AdminPage() {
         </Tabs>
       </Box>
     </Box>
+    </>
   );
 }
