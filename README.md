@@ -65,3 +65,7 @@ Hidden admin interface available at `/admin47392` for managing users and cluster
 - View all users with usage metrics and credits
 - Manage Hopsworks clusters (capacity, API endpoints)
 - Monitor user-cluster assignments
+
+## Documentation
+
+- [Database Patterns](docs/DATABASE_PATTERNS.md) - Schema design, query patterns, and best practices
