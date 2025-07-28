@@ -63,6 +63,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           instance_name: `hopsworks-${userId.slice(-8)}`,
           status: 'provisioning'
         });
+
+      // Auto-assign user to available Hopsworks cluster
+      const { data: clusters } = await supabaseAdmin
+        .from('hopsworks_clusters')
+        .select('id, current_users, max_users')
+        .eq('status', 'active')
+        .order('current_users', { ascending: true });
+      
+      // Find first cluster with available capacity
+      const availableCluster = clusters?.find(c => c.current_users < c.max_users);
+
+      if (availableCluster) {
+        // Assign user to cluster
+        await supabaseAdmin
+          .from('user_hopsworks_assignments')
+          .insert({
+            user_id: userId,
+            hopsworks_cluster_id: availableCluster.id
+          });
+          
+        // Increment cluster user count
+        await supabaseAdmin.rpc('increment_cluster_users', { 
+          cluster_id: availableCluster.id 
+        });
+      }
     } else {
       // Update last login
       // First get current login count

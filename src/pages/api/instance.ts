@@ -49,11 +49,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('user_id', userId)
       .single();
 
-    const hopsworksUrl = clusterAssignment?.hopsworks_clusters?.api_url || '';
+    const hopsworksCluster = clusterAssignment?.hopsworks_clusters?.[0];
+    const hopsworksUrl = hopsworksCluster?.api_url || '';
 
     // Default instance data for users without cluster
     const defaultInstance = {
-      name: clusterAssignment?.hopsworks_clusters?.name || 'Hopsworks Instance',
+      name: hopsworksCluster?.name || 'Hopsworks Instance',
       status: 'Not Started',
       endpoint: hopsworksUrl,
       plan: 'Pay-as-you-go',
@@ -65,7 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     return res.status(200).json({
-      name: instanceData.instance_name || clusterAssignment?.hopsworks_clusters?.name || 'Hopsworks Instance',
+      name: instanceData.instance_name || hopsworksCluster?.name || 'Hopsworks Instance',
       status: instanceData.status === 'active' ? 'Running' : instanceData.status === 'provisioning' ? 'Provisioning' : 'Stopped',
       endpoint: instanceData.hopsworks_url || hopsworksUrl,
       plan: 'Pay-as-you-go',
