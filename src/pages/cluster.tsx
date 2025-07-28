@@ -97,7 +97,8 @@ export default function Cluster() {
               <Button 
                 intent="primary" 
                 className="text-lg px-6 py-3"
-                onClick={() => instanceData.endpoint && window.open(instanceData.endpoint, '_blank')}
+                onClick={() => instanceData.endpoint ? window.open(instanceData.endpoint, '_blank') : alert('No cluster assigned yet. Please contact support.')}
+                disabled={!instanceData.endpoint}
               >
                 Launch Hopsworks →
               </Button>
@@ -111,10 +112,16 @@ export default function Cluster() {
                 <Server size={20} className="text-[#1eb182]" />
                 <Title as="h2" className="text-lg">{instanceData.name}</Title>
               </Flex>
-              <Badge variant="success">
-                <CheckCircle size={14} className="mr-1" />
-                {instanceData.status}
-              </Badge>
+              {instanceData.status === 'Active' ? (
+                <Badge variant="success">
+                  <CheckCircle size={14} className="mr-1" />
+                  {instanceData.status}
+                </Badge>
+              ) : (
+                <Badge variant="warning">
+                  {instanceData.status}
+                </Badge>
+              )}
             </Flex>
 
             <Box className="mb-4">
@@ -173,6 +180,7 @@ export default function Cluster() {
                         intent="ghost" 
                         className="text-sm"
                         onClick={() => instanceData.endpoint && window.open(instanceData.endpoint, '_blank')}
+                        disabled={!instanceData.endpoint}
                       >
                         <ExternalLink size={16} />
                       </Button>
@@ -276,7 +284,8 @@ fg = fs.create_feature_group(
               </Button>
               <Button 
                 intent="secondary" 
-                onClick={() => instanceData.endpoint && window.open(instanceData.endpoint, '_blank')}
+                onClick={() => instanceData.endpoint ? window.open(instanceData.endpoint, '_blank') : alert('No cluster assigned yet. Please contact support.')}
+                disabled={!instanceData.endpoint}
               >
                 Launch Instance →
               </Button>

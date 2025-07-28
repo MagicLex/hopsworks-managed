@@ -21,11 +21,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             gpu_hours_used,
             storage_gb_months
           ),
-          instances (
-            instance_name,
-            status,
-            hopsworks_url
-          ),
           user_hopsworks_assignments (
             hopsworks_cluster_id,
             hopsworks_clusters (

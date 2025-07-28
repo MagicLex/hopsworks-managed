@@ -64,9 +64,11 @@ CREATE POLICY IF NOT EXISTS "policy_name" ON table_name ...;
 
 ## Cluster Management
 
-### Two Types of Clusters
-1. **`clusters`** - Individual user deployments/instances
-2. **`hopsworks_clusters`** - Hopsworks cluster endpoints (e.g., demo.hops.works)
+### Cluster Architecture
+**`hopsworks_clusters`** - Shared Hopsworks cluster endpoints (e.g., demo.hops.works)
+- Multiple users share each cluster endpoint
+- Users are assigned to clusters on signup
+- Each cluster has a max_users capacity limit
 
 ### Auto-assignment Pattern
 When users sign up:
@@ -129,19 +131,6 @@ user_credits
 └── updated_at (TIMESTAMPTZ)
 ```
 
-#### clusters (User Deployments)
-```sql
-clusters
-├── id (UUID, PK)
-├── user_id (UUID, FK → users.id)
-├── deployment_type (TEXT)
-├── zone (TEXT)
-├── status (TEXT)
-├── hopsworks_project_id (TEXT)
-├── hopsworks_api_key (TEXT)
-├── created_at (TIMESTAMPTZ)
-└── updated_at (TIMESTAMPTZ)
-```
 
 #### hopsworks_clusters (Cluster Endpoints)
 ```sql
@@ -167,18 +156,6 @@ user_hopsworks_assignments
 └── UNIQUE(user_id, hopsworks_cluster_id)
 ```
 
-#### instances
-```sql
-instances
-├── id (UUID, PK)
-├── user_id (TEXT, FK → users.id, UNIQUE)
-├── instance_name (TEXT)
-├── hopsworks_url (TEXT)
-├── status (TEXT)           -- provisioning/active/stopped/deleted
-├── created_at (TIMESTAMPTZ)
-├── activated_at (TIMESTAMPTZ)
-└── deleted_at (TIMESTAMPTZ)
-```
 
 ### Query Patterns
 
@@ -194,10 +171,11 @@ const { data: userData } = await supabase
       cpu_hours_used,
       gpu_hours_used
     ),
-    instances (
-      instance_name,
-      status,
-      hopsworks_url
+    user_hopsworks_assignments (
+      hopsworks_clusters (
+        name,
+        api_url
+      )
     )
   `)
   .eq('id', userId)

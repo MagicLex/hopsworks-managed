@@ -26,21 +26,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userId = session.user.sub;
 
-    // Get user's instance info
-    const { data: instanceData, error: instanceError } = await supabaseAdmin
-      .from('instances')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (instanceError && instanceError.code !== 'PGRST116') {
-      console.error('Instance error:', instanceError);
-    }
-
-    // Get user's assigned Hopsworks cluster URL
+    // Get user's assigned Hopsworks cluster
     const { data: clusterAssignment } = await supabaseAdmin
       .from('user_hopsworks_assignments')
       .select(`
+        assigned_at,
         hopsworks_clusters (
           name,
           api_url
@@ -50,27 +40,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     const hopsworksCluster = clusterAssignment?.hopsworks_clusters?.[0];
-    const hopsworksUrl = hopsworksCluster?.api_url || '';
-
-    // Default instance data for users without cluster
-    const defaultInstance = {
-      name: hopsworksCluster?.name || 'Hopsworks Instance',
-      status: 'Not Started',
-      endpoint: hopsworksUrl,
-      plan: 'Pay-as-you-go',
-      created: null
-    };
-
-    if (!instanceData) {
-      return res.status(200).json(defaultInstance);
+    
+    // If user has no cluster assignment yet
+    if (!hopsworksCluster) {
+      return res.status(200).json({
+        name: 'Hopsworks Instance',
+        status: 'Not Assigned',
+        endpoint: '',
+        plan: 'Pay-as-you-go',
+        created: null
+      });
     }
 
+    // Return the shared cluster information
     return res.status(200).json({
-      name: instanceData.instance_name || hopsworksCluster?.name || 'Hopsworks Instance',
-      status: instanceData.status === 'active' ? 'Running' : instanceData.status === 'provisioning' ? 'Provisioning' : 'Stopped',
-      endpoint: instanceData.hopsworks_url || hopsworksUrl,
+      name: hopsworksCluster.name || 'Hopsworks Instance',
+      status: 'Active', // Shared clusters are always active
+      endpoint: hopsworksCluster.api_url || '',
       plan: 'Pay-as-you-go',
-      created: instanceData.created_at
+      created: clusterAssignment.assigned_at || new Date().toISOString()
     });
   } catch (error) {
     console.error('Error fetching instance:', error);

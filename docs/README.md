@@ -17,7 +17,7 @@ A SaaS frontend for Hopsworks ML platform. Users sign up, add payment method, an
 - Usage tracking and billing dashboard
 - Auth0 integration for authentication
 - Python code preview with syntax highlighting
-- Direct launch to Hopsworks instances
+- Direct launch to shared Hopsworks clusters
 
 ## Quick Links
 - Admin Panel: `/admin47392` (requires admin access)
@@ -44,7 +44,7 @@ sql/              # Database schema
 
 ## API Endpoints
 - `/api/usage` - Get user's current usage metrics
-- `/api/instance` - Get Hopsworks instance details (includes cluster URL)
+- `/api/instance` - Get assigned Hopsworks cluster details and URL
 - `/api/billing` - Get billing history and current costs
 - `/api/auth/sync-user` - Sync Auth0 user to Supabase
 - `/api/admin/users` - Admin: manage users and cluster assignments
@@ -69,7 +69,7 @@ AUTH0_WEBHOOK_SECRET         # For user registration webhook
 - No hardcoded values - everything comes from database
 - Users without data see zeros/empty states
 - All monetary values in USD
-- One Hopsworks instance per user (MVP limitation)
+- Users share Hopsworks clusters (multiple users per cluster)
 
 ## Useful Commands
 ```bash

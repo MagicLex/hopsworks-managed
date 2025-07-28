@@ -58,17 +58,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
 
       if (creditsError) throw creditsError;
-
-      // Create initial instance record (not provisioned yet)
-      const { error: instanceError } = await supabaseAdmin
-        .from('instances')
-        .insert({
-          user_id,
-          instance_name: `hopsworks-${user_id.slice(-8)}`,
-          status: 'provisioning'
-        });
-
-      if (instanceError) throw instanceError;
     } else {
       // Update existing user
       const { error: updateError } = await supabaseAdmin

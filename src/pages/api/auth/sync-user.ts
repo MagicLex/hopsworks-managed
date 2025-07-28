@@ -55,15 +55,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .from('user_credits')
         .insert({ user_id: userId });
 
-      // Create initial instance record
-      await supabaseAdmin
-        .from('instances')
-        .insert({
-          user_id: userId,
-          instance_name: `hopsworks-${userId.slice(-8)}`,
-          status: 'provisioning'
-        });
-
       // Auto-assign user to available Hopsworks cluster
       const { data: clusters } = await supabaseAdmin
         .from('hopsworks_clusters')

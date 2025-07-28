@@ -21,11 +21,6 @@ interface User {
     gpu_hours_used: number;
     storage_gb_months: number;
   };
-  instances?: {
-    instance_name: string;
-    status: string;
-    hopsworks_url: string;
-  }[];
   user_hopsworks_assignments?: {
     hopsworks_cluster_id: string;
     hopsworks_clusters: {
@@ -211,7 +206,7 @@ export default function AdminPage() {
                           </Text>
                         </td>
                         <td className="py-2">
-                          <Text>{user.instances?.[0]?.status || '-'}</Text>
+                          <Text>{user.user_hopsworks_assignments?.[0] ? 'Active' : 'Not Assigned'}</Text>
                         </td>
                         <td className="py-2">
                           <Text className="text-gray">{new Date(user.created_at).toLocaleDateString()}</Text>
