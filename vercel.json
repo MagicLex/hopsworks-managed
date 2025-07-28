@@ -10,10 +10,10 @@
     }
   ],
   "functions": {
-    "api/usage/collect.ts": {
+    "src/pages/api/usage/collect.ts": {
       "maxDuration": 60
     },
-    "api/billing/sync-stripe.ts": {
+    "src/pages/api/billing/sync-stripe.ts": {
       "maxDuration": 60
     }
   }
