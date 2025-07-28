@@ -25,13 +25,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const userId = session.user.sub;
+    console.log('Instance API - User ID:', userId);
 
     // Get user's assigned Hopsworks cluster
-    const { data: clusterAssignment } = await supabaseAdmin
+    const { data: clusterAssignment, error: assignmentError } = await supabaseAdmin
       .from('user_hopsworks_assignments')
       .select(`
         assigned_at,
-        hopsworks_clusters (
+        hopsworks_clusters!inner (
           name,
           api_url
         )
@@ -39,10 +40,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('user_id', userId)
       .single();
 
-    const hopsworksCluster = clusterAssignment?.hopsworks_clusters?.[0];
+    console.log('Assignment error:', assignmentError);
+    console.log('Cluster assignment:', clusterAssignment);
     
     // If user has no cluster assignment yet
-    if (!hopsworksCluster) {
+    if (!clusterAssignment || assignmentError) {
+      console.log('No cluster assignment found for user:', userId);
       return res.status(200).json({
         name: 'Hopsworks Instance',
         status: 'Not Assigned',
@@ -52,11 +55,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    // Access the cluster data - Supabase returns it as an array even for single joins
+    const hopsworksCluster = Array.isArray(clusterAssignment.hopsworks_clusters) 
+      ? clusterAssignment.hopsworks_clusters[0] 
+      : clusterAssignment.hopsworks_clusters;
+
     // Return the shared cluster information
     return res.status(200).json({
-      name: hopsworksCluster.name || 'Hopsworks Instance',
+      name: hopsworksCluster?.name || 'Hopsworks Instance',
       status: 'Active', // Shared clusters are always active
-      endpoint: hopsworksCluster.api_url || '',
+      endpoint: hopsworksCluster?.api_url || '',
       plan: 'Pay-as-you-go',
       created: clusterAssignment.assigned_at || new Date().toISOString()
     });
