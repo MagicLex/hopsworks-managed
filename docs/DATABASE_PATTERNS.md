@@ -64,14 +64,18 @@ CREATE POLICY IF NOT EXISTS "policy_name" ON table_name ...;
 
 ## Cluster Management
 
+### Two Types of Clusters
+1. **`clusters`** - Individual user deployments/instances
+2. **`hopsworks_clusters`** - Hopsworks cluster endpoints (e.g., demo.hops.works)
+
 ### Auto-assignment Pattern
 When users sign up:
-1. Find cluster with available capacity
-2. Assign user to cluster
+1. Find hopsworks_cluster with available capacity
+2. Assign user to hopsworks_cluster
 3. Increment cluster's `current_users`
-4. Store assignment in `user_cluster_assignments`
+4. Store assignment in `user_hopsworks_assignments`
 
-### Cluster States
+### Hopsworks Cluster States
 - `active`: Accepting new users
 - `full`: At capacity (current_users >= max_users)
 - `maintenance`: Temporarily unavailable
@@ -123,11 +127,25 @@ user_credits
 └── updated_at (TIMESTAMPTZ)
 ```
 
-#### clusters
+#### clusters (User Deployments)
 ```sql
 clusters
 ├── id (UUID, PK)
-├── name (TEXT, UNIQUE)
+├── user_id (UUID, FK → users.id)
+├── deployment_type (TEXT)
+├── zone (TEXT)
+├── status (TEXT)
+├── hopsworks_project_id (TEXT)
+├── hopsworks_api_key (TEXT)
+├── created_at (TIMESTAMPTZ)
+└── updated_at (TIMESTAMPTZ)
+```
+
+#### hopsworks_clusters (Cluster Endpoints)
+```sql
+hopsworks_clusters
+├── id (UUID, PK)
+├── name (TEXT, UNIQUE)     -- e.g., 'demo.hops.works'
 ├── api_url (TEXT)
 ├── api_key (TEXT)          -- Encrypted
 ├── max_users (INTEGER)
@@ -135,6 +153,16 @@ clusters
 ├── status (TEXT)           -- active/maintenance/full/inactive
 ├── metadata (JSONB)
 └── created_at/updated_at (TIMESTAMPTZ)
+```
+
+#### user_hopsworks_assignments
+```sql
+user_hopsworks_assignments
+├── id (UUID, PK)
+├── user_id (TEXT, FK → users.id)
+├── hopsworks_cluster_id (UUID, FK → hopsworks_clusters.id)
+├── assigned_at (TIMESTAMPTZ)
+└── UNIQUE(user_id, hopsworks_cluster_id)
 ```
 
 #### instances
@@ -174,10 +202,10 @@ const { data: userData } = await supabase
   .single();
 ```
 
-#### Find Available Cluster for New User
+#### Find Available Hopsworks Cluster for New User
 ```typescript
 const { data: availableCluster } = await supabase
-  .from('clusters')
+  .from('hopsworks_clusters')
   .select('*')
   .eq('status', 'active')
   .lt('current_users', supabase.raw('max_users'))

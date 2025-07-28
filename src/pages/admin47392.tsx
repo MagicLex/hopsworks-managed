@@ -26,9 +26,9 @@ interface User {
     status: string;
     hopsworks_url: string;
   }[];
-  user_cluster_assignments?: {
-    cluster_id: string;
-    clusters: {
+  user_hopsworks_assignments?: {
+    hopsworks_cluster_id: string;
+    hopsworks_clusters: {
       id: string;
       name: string;
       api_url: string;
@@ -194,9 +194,9 @@ export default function AdminPage() {
                           <Text>{user.is_admin ? '✓' : '-'}</Text>
                         </td>
                         <td className="py-2">
-                          {user.user_cluster_assignments?.[0] ? (
+                          {user.user_hopsworks_assignments?.[0] ? (
                             <Badge size="sm" variant="default">
-                              {user.user_cluster_assignments[0].clusters.name}
+                              {user.user_hopsworks_assignments[0].hopsworks_clusters.name}
                             </Badge>
                           ) : (
                             <Text className="text-gray">-</Text>

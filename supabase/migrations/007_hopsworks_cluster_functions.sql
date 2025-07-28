@@ -2,7 +2,7 @@
 CREATE OR REPLACE FUNCTION increment_cluster_users(cluster_id UUID)
 RETURNS void AS $$
 BEGIN
-  UPDATE clusters 
+  UPDATE hopsworks_clusters 
   SET current_users = current_users + 1,
       updated_at = NOW()
   WHERE id = cluster_id;
@@ -13,7 +13,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION decrement_cluster_users(cluster_id UUID)
 RETURNS void AS $$
 BEGIN
-  UPDATE clusters 
+  UPDATE hopsworks_clusters 
   SET current_users = GREATEST(current_users - 1, 0),
       updated_at = NOW()
   WHERE id = cluster_id;
@@ -24,11 +24,11 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION recalculate_cluster_users()
 RETURNS void AS $$
 BEGIN
-  UPDATE clusters c
+  UPDATE hopsworks_clusters c
   SET current_users = (
     SELECT COUNT(DISTINCT user_id) 
-    FROM user_cluster_assignments 
-    WHERE cluster_id = c.id
+    FROM user_hopsworks_assignments 
+    WHERE hopsworks_cluster_id = c.id
   ),
   updated_at = NOW();
 END;

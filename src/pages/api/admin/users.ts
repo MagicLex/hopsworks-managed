@@ -26,9 +26,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             status,
             hopsworks_url
           ),
-          user_cluster_assignments (
-            cluster_id,
-            clusters (
+          user_hopsworks_assignments (
+            hopsworks_cluster_id,
+            hopsworks_clusters (
               id,
               name,
               api_url
@@ -53,8 +53,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     
     try {
       const { error } = await supabase
-        .from('user_cluster_assignments')
-        .upsert({ user_id: userId, cluster_id: clusterId });
+        .from('user_hopsworks_assignments')
+        .upsert({ user_id: userId, hopsworks_cluster_id: clusterId });
         
       if (error) {
         console.error('Error assigning user to cluster:', error);
@@ -75,9 +75,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     
     try {
       const { error } = await supabase
-        .from('user_cluster_assignments')
+        .from('user_hopsworks_assignments')
         .delete()
-        .match({ user_id: userId, cluster_id: clusterId });
+        .match({ user_id: userId, hopsworks_cluster_id: clusterId });
         
       if (error) {
         console.error('Error removing user from cluster:', error);

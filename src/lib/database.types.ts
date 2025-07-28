@@ -81,6 +81,21 @@ export interface Database {
       clusters: {
         Row: {
           id: string;
+          user_id: string;
+          deployment_type: string;
+          zone: string;
+          status: string;
+          hopsworks_project_id: string | null;
+          hopsworks_api_key: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['clusters']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['clusters']['Insert']>;
+      };
+      hopsworks_clusters: {
+        Row: {
+          id: string;
           name: string;
           api_url: string;
           api_key: string | null;
@@ -91,18 +106,18 @@ export interface Database {
           updated_at: string;
           metadata: Record<string, any>;
         };
-        Insert: Omit<Database['public']['Tables']['clusters']['Row'], 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Database['public']['Tables']['clusters']['Insert']>;
+        Insert: Omit<Database['public']['Tables']['hopsworks_clusters']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['hopsworks_clusters']['Insert']>;
       };
-      user_cluster_assignments: {
+      user_hopsworks_assignments: {
         Row: {
           id: string;
           user_id: string;
-          cluster_id: string;
+          hopsworks_cluster_id: string;
           assigned_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['user_cluster_assignments']['Row'], 'id' | 'assigned_at'>;
-        Update: Partial<Database['public']['Tables']['user_cluster_assignments']['Insert']>;
+        Insert: Omit<Database['public']['Tables']['user_hopsworks_assignments']['Row'], 'id' | 'assigned_at'>;
+        Update: Partial<Database['public']['Tables']['user_hopsworks_assignments']['Insert']>;
       };
     };
   };

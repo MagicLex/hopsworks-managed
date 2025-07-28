@@ -28,10 +28,13 @@
 - Future: Stripe integration
 
 ### Multi-Cluster Architecture
-- Multiple Hopsworks clusters supported
+- Two distinct cluster concepts:
+  - **`clusters`** table: Individual user deployments/projects
+  - **`hopsworks_clusters`** table: Hopsworks endpoints (e.g., demo.hops.works)
+- Users are assigned to a hopsworks_cluster endpoint
 - Auto-assignment based on capacity
 - Clusters have max_users limit
-- Load balancing across clusters
+- Load balancing across endpoints
 
 ## Security
 - All API routes protected by Auth0

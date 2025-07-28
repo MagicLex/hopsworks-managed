@@ -17,9 +17,9 @@ npm install
 Create `.env.local` with all required variables (see `.env.example`)
 
 ### 3. Database Setup
-Run migrations in [Supabase SQL editor](https://supabase.com/dashboard/project/pahfsiosiuxdkiebepav/sql/new):
-1. Copy SQL from `supabase/migrations/` files
-2. Execute in order: 001, 002, 003
+Database should already be configured. If setting up fresh:
+- Run migrations from `supabase/migrations/` in order
+- Set up admin user: `UPDATE users SET is_admin = true WHERE email = 'your-email';`
 
 ### 4. Run Development Server
 ```bash

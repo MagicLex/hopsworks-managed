@@ -11,10 +11,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
       const { data: clusters, error } = await supabase
-        .from('clusters')
+        .from('hopsworks_clusters')
         .select(`
           *,
-          user_cluster_assignments (count)
+          user_hopsworks_assignments (count)
         `)
         .order('created_at', { ascending: false });
 
@@ -33,7 +33,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       const { name, api_url, api_key, max_users } = req.body;
 
       const { data: cluster, error } = await supabase
-        .from('clusters')
+        .from('hopsworks_clusters')
         .insert({
           name,
           api_url,
@@ -60,7 +60,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       const { id, ...updates } = req.body;
 
       const { data: cluster, error } = await supabase
-        .from('clusters')
+        .from('hopsworks_clusters')
         .update(updates)
         .eq('id', id)
         .select()
