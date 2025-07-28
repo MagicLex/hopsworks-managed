@@ -51,3 +51,17 @@ The Supabase database stores:
 - Billing and subscription status
 - Cluster configurations and endpoints
 - Usage tracking for billing
+
+## Admin Interface
+
+Hidden admin interface available at `/admin47392` for managing users and clusters.
+
+### Setup Admin Access:
+1. Run database migrations in Supabase SQL editor
+2. Grant admin access: `UPDATE users SET is_admin = true WHERE email = 'your-email@example.com';`
+3. Access admin panel when logged in as admin user
+
+### Admin Features:
+- View all users with usage metrics and credits
+- Manage Hopsworks clusters (capacity, API endpoints)
+- Monitor user-cluster assignments
