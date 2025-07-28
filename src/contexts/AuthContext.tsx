@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { useUser } from '@auth0/nextjs-auth0/client';
 import { useRouter } from 'next/router';
 
@@ -14,6 +14,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, error, isLoading } = useUser();
   const router = useRouter();
+
+  useEffect(() => {
+    if (user && !isLoading) {
+      // Sync user to Supabase when they log in
+      fetch('/api/auth/sync-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).catch(err => console.error('Failed to sync user:', err));
+    }
+  }, [user, isLoading]);
 
   const signIn = () => {
     router.push('/api/auth/login');

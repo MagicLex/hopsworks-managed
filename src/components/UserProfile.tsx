@@ -31,9 +31,6 @@ export const UserProfile: React.FC = () => {
             <Box className="p-4 border-b border-grayShade2">
               <Labeling gray className="text-xs uppercase mb-1">Account</Labeling>
               <Text className="font-mono text-sm">{user.email}</Text>
-              <Badge variant="primary" size="sm" className="mt-2">
-                Active Cluster: Small
-              </Badge>
             </Box>
 
             <Box className="p-2">

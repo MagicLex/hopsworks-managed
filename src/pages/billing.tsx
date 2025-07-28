@@ -2,24 +2,47 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApiData } from '@/hooks/useApiData';
 import { Box, Flex, Title, Text, Button, Card, Badge, Input } from 'tailwind-quartz';
 import { CreditCard, Download, Calendar, ArrowLeft, Activity, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 
+interface BillingData {
+  currentUsage: {
+    cpuHours: number;
+    gpuHours: number;
+    storageGB: number;
+    currentMonth: {
+      cpuCost: number;
+      gpuCost: number;
+      storageCost: number;
+      total: number;
+    };
+  };
+  invoices: Array<{
+    id: string;
+    invoice_number: string;
+    amount: number;
+    status: string;
+    created_at: string;
+  }>;
+}
+
 export default function Billing() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
   const [addingCard, setAddingCard] = useState(false);
+  const { data: billing, loading: billingLoading } = useApiData<BillingData>('/api/billing');
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push('/');
     }
-  }, [user, loading, router]);
+  }, [user, authLoading, router]);
 
-  if (loading) {
+  if (authLoading || billingLoading) {
     return (
       <Box className="min-h-screen flex items-center justify-center">
         <Text>Loading...</Text>
@@ -29,24 +52,19 @@ export default function Billing() {
 
   if (!user) return null;
 
-  // Mock usage data
-  const currentUsage = {
-    cpuHours: 245,
-    gpuHours: 12,
-    storageGB: 42.3,
+  const currentUsage = billing?.currentUsage || {
+    cpuHours: 0,
+    gpuHours: 0,
+    storageGB: 0,
     currentMonth: {
-      cpuCost: 24.50,
-      gpuCost: 6.00,
-      storageCost: 0.85,
-      total: 31.35
+      cpuCost: 0,
+      gpuCost: 0,
+      storageCost: 0,
+      total: 0
     }
   };
 
-  const invoices = [
-    { id: 'INV-2025-07', date: '2025-07-01', amount: 28.42, status: 'Paid' },
-    { id: 'INV-2025-06', date: '2025-06-01', amount: 35.67, status: 'Paid' },
-    { id: 'INV-2025-05', date: '2025-05-01', amount: 22.31, status: 'Paid' },
-  ];
+  const invoices = billing?.invoices || [];
 
   return (
     <>
@@ -190,15 +208,15 @@ export default function Billing() {
               </Flex>
               
               <Flex direction="column" gap={8}>
-                {hasPaymentMethod ? invoices.map((invoice) => (
+                {hasPaymentMethod && invoices.length > 0 ? invoices.map((invoice) => (
                   <Card key={invoice.id} variant="readOnly" className="p-4">
                     <Flex justify="between" align="center">
                       <Flex direction="column">
-                        <Text>{invoice.id}</Text>
-                        <Text className="text-sm text-gray-600">{invoice.date}</Text>
+                        <Text>{invoice.invoice_number}</Text>
+                        <Text className="text-sm text-gray-600">{new Date(invoice.created_at).toLocaleDateString()}</Text>
                       </Flex>
                       <Flex align="center" gap={16}>
-                        <Text>${invoice.amount}</Text>
+                        <Text>${invoice.amount.toFixed(2)}</Text>
                         <Badge variant="success" className="text-xs">{invoice.status}</Badge>
                         <Button intent="ghost" className="text-sm">
                           <Download size={16} />

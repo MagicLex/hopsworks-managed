@@ -2,23 +2,40 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApiData } from '@/hooks/useApiData';
 import { Box, Flex, Title, Text, Button, Card, Badge } from 'tailwind-quartz';
 import { Server, Copy, ExternalLink, ArrowLeft, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 
+interface InstanceData {
+  name: string;
+  status: string;
+  endpoint: string;
+  plan: string;
+  created: string | null;
+}
+
+interface UsageData {
+  cpuHours: number;
+  gpuHours: number;
+  storageGB: number;
+}
+
 export default function Cluster() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [copied, setCopied] = useState('');
+  const { data: instance, loading: instanceLoading } = useApiData<InstanceData>('/api/instance');
+  const { data: usage, loading: usageLoading } = useApiData<UsageData>('/api/usage');
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push('/');
     }
-  }, [user, loading, router]);
+  }, [user, authLoading, router]);
 
-  if (loading) {
+  if (authLoading || instanceLoading || usageLoading) {
     return (
       <Box className="min-h-screen flex items-center justify-center">
         <Text>Loading...</Text>
@@ -28,20 +45,19 @@ export default function Cluster() {
 
   if (!user) return null;
 
-  // Instance data
-  const instance = {
-    name: 'My Hopsworks Instance',
-    status: 'Running',
-    endpoint: 'https://demo.hops.works',
+  // Default values if data is not available
+  const instanceData = instance || {
+    name: 'Hopsworks Instance',
+    status: 'Not Started',
+    endpoint: '',
     plan: 'Pay-as-you-go',
-    created: '2025-07-15',
-    usage: {
-      cpuCredits: 245,
-      gpuCredits: 12,
-      storageCredits: 85,
-      storageUsed: '42.3 GB',
-      storageTotal: '250 GB'
-    }
+    created: null
+  };
+
+  const usageData = usage || {
+    cpuHours: 0,
+    gpuHours: 0,
+    storageGB: 0
   };
 
   const copyToClipboard = (text: string, type: string) => {
@@ -81,7 +97,7 @@ export default function Cluster() {
               <Button 
                 intent="primary" 
                 className="text-lg px-6 py-3"
-                onClick={() => window.open(instance.endpoint, '_blank')}
+                onClick={() => instanceData.endpoint && window.open(instanceData.endpoint, '_blank')}
               >
                 Launch Hopsworks →
               </Button>
@@ -93,11 +109,11 @@ export default function Cluster() {
             <Flex justify="between" align="start" className="mb-4">
               <Flex align="center" gap={12}>
                 <Server size={20} className="text-[#1eb182]" />
-                <Title as="h2" className="text-lg">{instance.name}</Title>
+                <Title as="h2" className="text-lg">{instanceData.name}</Title>
               </Flex>
               <Badge variant="success">
                 <CheckCircle size={14} className="mr-1" />
-                {instance.status}
+                {instanceData.status}
               </Badge>
             </Flex>
 
@@ -106,15 +122,15 @@ export default function Cluster() {
               <Flex gap={16} className="text-sm">
                 <Box>
                   <Text className="text-gray-600">CPU Credits</Text>
-                  <Text className="font-semibold">{instance.usage.cpuCredits} hours</Text>
+                  <Text className="font-semibold">{usageData.cpuHours.toFixed(0)} hours</Text>
                 </Box>
                 <Box>
                   <Text className="text-gray-600">GPU Credits</Text>
-                  <Text className="font-semibold">{instance.usage.gpuCredits} hours</Text>
+                  <Text className="font-semibold">{usageData.gpuHours.toFixed(0)} hours</Text>
                 </Box>
                 <Box>
-                  <Text className="text-gray-600">Storage Credits</Text>
-                  <Text className="font-semibold">{instance.usage.storageCredits} GB-hours</Text>
+                  <Text className="text-gray-600">Storage Used</Text>
+                  <Text className="font-semibold">{usageData.storageGB.toFixed(1)} GB</Text>
                 </Box>
               </Flex>
             </Box>
@@ -122,15 +138,15 @@ export default function Cluster() {
             <Flex gap={24} className="text-sm">
               <Box>
                 <Text className="text-gray-600">Plan</Text>
-                <Text>{instance.plan}</Text>
+                <Text>{instanceData.plan}</Text>
               </Box>
               <Box>
                 <Text className="text-gray-600">Created</Text>
-                <Text>{instance.created}</Text>
+                <Text>{instanceData.created ? new Date(instanceData.created).toLocaleDateString() : 'Not started'}</Text>
               </Box>
               <Box>
                 <Text className="text-gray-600">Storage</Text>
-                <Text>{instance.usage.storageUsed} / {instance.usage.storageTotal}</Text>
+                <Text>{usageData.storageGB.toFixed(1)} GB</Text>
               </Box>
             </Flex>
           </Card>
@@ -144,7 +160,7 @@ export default function Cluster() {
                 <Text className="text-sm text-gray-600 mb-2">Instance URL</Text>
                 <Card variant="readOnly" className="p-3">
                   <Flex justify="between" align="center">
-                    <Text className="text-sm">{instance.endpoint}</Text>
+                    <Text className="text-sm">{instanceData.endpoint || 'Not available'}</Text>
                     <Flex gap={8}>
                       <Button 
                         intent="ghost" 
@@ -156,7 +172,7 @@ export default function Cluster() {
                       <Button 
                         intent="ghost" 
                         className="text-sm"
-                        onClick={() => window.open(instance.endpoint, '_blank')}
+                        onClick={() => instanceData.endpoint && window.open(instanceData.endpoint, '_blank')}
                       >
                         <ExternalLink size={16} />
                       </Button>
@@ -214,7 +230,7 @@ fg = fs.create_feature_group(
               </Button>
               <Button 
                 intent="secondary" 
-                onClick={() => window.open(instance.endpoint, '_blank')}
+                onClick={() => instanceData.endpoint && window.open(instanceData.endpoint, '_blank')}
               >
                 Launch Instance →
               </Button>

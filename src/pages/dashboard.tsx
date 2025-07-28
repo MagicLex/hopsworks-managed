@@ -2,22 +2,32 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApiData } from '@/hooks/useApiData';
 import { Box, Flex, Title, Text, Button, Card, Badge } from 'tailwind-quartz';
 import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, HardDrive } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 
+interface UsageData {
+  cpuHours: number;
+  gpuHours: number;
+  storageGB: number;
+  featureGroups: number;
+  modelDeployments: number;
+}
+
 export default function Dashboard() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
+  const { data: usage, loading: usageLoading } = useApiData<UsageData>('/api/usage');
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push('/');
     }
-  }, [user, loading, router]);
+  }, [user, authLoading, router]);
 
-  if (loading) {
+  if (authLoading) {
     return (
       <Box className="min-h-screen flex items-center justify-center">
         <Text>Loading...</Text>
@@ -53,7 +63,9 @@ export default function Dashboard() {
                   <Cpu size={16} className="text-[#1eb182]" />
                   <Text className="text-sm text-gray-600">Hops Credits</Text>
                 </Flex>
-                <Text className="text-xl font-semibold">245</Text>
+                <Text className="text-xl font-semibold">
+                  {usageLoading ? '...' : (usage?.cpuHours?.toFixed(0) || '0')}
+                </Text>
                 <Text className="text-xs text-gray-500">CPU hours this month</Text>
               </Card>
               <Card className="p-4">
@@ -61,15 +73,19 @@ export default function Dashboard() {
                   <HardDrive size={16} className="text-[#1eb182]" />
                   <Text className="text-sm text-gray-600">Storage Used</Text>
                 </Flex>
-                <Text className="text-xl font-semibold">42.3 GB</Text>
-                <Text className="text-xs text-gray-500">of 250 GB</Text>
+                <Text className="text-xl font-semibold">
+                  {usageLoading ? '...' : `${usage?.storageGB?.toFixed(1) || '0'} GB`}
+                </Text>
+                <Text className="text-xs text-gray-500">current usage</Text>
               </Card>
               <Card className="p-4">
                 <Flex align="center" gap={8} className="mb-2">
                   <Database size={16} className="text-[#1eb182]" />
                   <Text className="text-sm text-gray-600">Feature Groups</Text>
                 </Flex>
-                <Text className="text-xl font-semibold">12</Text>
+                <Text className="text-xl font-semibold">
+                  {usageLoading ? '...' : (usage?.featureGroups || '0')}
+                </Text>
                 <Text className="text-xs text-gray-500">Active feature groups</Text>
               </Card>
               <Card className="p-4">
@@ -77,7 +93,9 @@ export default function Dashboard() {
                   <Activity size={16} className="text-[#1eb182]" />
                   <Text className="text-sm text-gray-600">Model Deployments</Text>
                 </Flex>
-                <Text className="text-xl font-semibold">3</Text>
+                <Text className="text-xl font-semibold">
+                  {usageLoading ? '...' : (usage?.modelDeployments || '0')}
+                </Text>
                 <Text className="text-xs text-gray-500">Live models</Text>
               </Card>
             </Flex>
