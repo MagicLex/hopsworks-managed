@@ -201,9 +201,12 @@ export default function Cluster() {
               Connect to your instance using the Hopsworks Python client:
             </Text>
 
-            <Card variant="readOnly" className="p-4 text-sm">
-              <pre className="overflow-x-auto">
-{`import hopsworks
+            <Card variant="readOnly" className="relative">
+              <Button
+                intent="ghost"
+                className="absolute top-2 right-2 text-xs"
+                onClick={() => {
+                  const code = `import hopsworks
 
 # Login via browser (SSO)
 connection = hopsworks.login(
@@ -217,7 +220,50 @@ fs = connection.get_feature_store()
 fg = fs.create_feature_group(
     name="sales_features",
     version=1
-)`}
+)`;
+                  navigator.clipboard.writeText(code);
+                  setCopied('quickstart');
+                  setTimeout(() => setCopied(''), 2000);
+                }}
+              >
+                {copied === 'quickstart' ? (
+                  <Flex align="center" gap={4}>
+                    <CheckCircle size={12} />
+                    Copied!
+                  </Flex>
+                ) : (
+                  <Flex align="center" gap={4}>
+                    <Copy size={12} />
+                    Copy
+                  </Flex>
+                )}
+              </Button>
+              <pre className="overflow-x-auto p-4 text-sm bg-gray-900 text-gray-300 rounded">
+                <code>
+                  <span className="text-purple-400">import</span> <span className="text-green-400">hopsworks</span>
+                  {'\n\n'}
+                  <span className="text-gray-500"># Login via browser (SSO)</span>
+                  {'\n'}
+                  <span className="text-blue-300">connection</span> = <span className="text-green-400">hopsworks</span>.<span className="text-yellow-300">login</span>(
+                  {'\n    '}
+                  <span className="text-orange-300">host</span>=<span className="text-green-300">&quot;{instanceData?.endpoint || 'your-hopsworks-instance.com'}&quot;</span>
+                  {'\n'}
+                  )
+                  {'\n\n'}
+                  <span className="text-gray-500"># Get the feature store</span>
+                  {'\n'}
+                  <span className="text-blue-300">fs</span> = <span className="text-blue-300">connection</span>.<span className="text-yellow-300">get_feature_store</span>()
+                  {'\n\n'}
+                  <span className="text-gray-500"># Create a new feature group</span>
+                  {'\n'}
+                  <span className="text-blue-300">fg</span> = <span className="text-blue-300">fs</span>.<span className="text-yellow-300">create_feature_group</span>(
+                  {'\n    '}
+                  <span className="text-orange-300">name</span>=<span className="text-green-300">&quot;sales_features&quot;</span>,
+                  {'\n    '}
+                  <span className="text-orange-300">version</span>=<span className="text-purple-300">1</span>
+                  {'\n'}
+                  )
+                </code>
               </pre>
             </Card>
 

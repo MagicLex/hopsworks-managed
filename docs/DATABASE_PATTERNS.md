@@ -69,11 +69,15 @@ CREATE POLICY IF NOT EXISTS "policy_name" ON table_name ...;
 2. **`hopsworks_clusters`** - Hopsworks cluster endpoints (e.g., demo.hops.works)
 
 ### Auto-assignment Pattern
-When users sign up:
+When users sign up (TODO - not implemented yet):
 1. Find hopsworks_cluster with available capacity
 2. Assign user to hopsworks_cluster
 3. Increment cluster's `current_users`
 4. Store assignment in `user_hopsworks_assignments`
+
+Currently users must be manually assigned to clusters via:
+- Admin UI (coming soon)
+- Direct SQL in Supabase
 
 ### Hopsworks Cluster States
 - `active`: Accepting new users

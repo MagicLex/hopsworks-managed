@@ -23,7 +23,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         return res.status(500).json({ error: 'Failed to fetch clusters' });
       }
 
-      return res.status(200).json({ clusters: clusters || [] });
+      // Map the count from user_hopsworks_assignments to current_users for display
+      const clustersWithCounts = clusters?.map(cluster => ({
+        ...cluster,
+        current_users: cluster.user_hopsworks_assignments?.[0]?.count || 0
+      })) || [];
+
+      return res.status(200).json({ clusters: clustersWithCounts });
     } catch (error) {
       console.error('Server error:', error);
       return res.status(500).json({ error: 'Internal server error' });

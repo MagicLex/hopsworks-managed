@@ -37,11 +37,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('Instance error:', instanceError);
     }
 
+    // Get user's assigned Hopsworks cluster URL
+    const { data: clusterAssignment } = await supabaseAdmin
+      .from('user_hopsworks_assignments')
+      .select(`
+        hopsworks_clusters!inner (
+          name,
+          api_url
+        )
+      `)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    // Handle the nested relationship - Supabase returns it as an array
+    const clusterData = clusterAssignment?.hopsworks_clusters?.[0] as { name: string; api_url: string } | undefined;
+    const hopsworksUrl = clusterData?.api_url || '';
+
     // Default instance data for users without cluster
     const defaultInstance = {
-      name: 'Hopsworks Instance',
+      name: clusterData?.name || 'Hopsworks Instance',
       status: 'Not Started',
-      endpoint: '',
+      endpoint: hopsworksUrl,
       plan: 'Pay-as-you-go',
       created: null
     };
@@ -51,9 +67,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     return res.status(200).json({
-      name: instanceData.instance_name || 'Hopsworks Instance',
+      name: instanceData.instance_name || clusterData?.name || 'Hopsworks Instance',
       status: instanceData.status === 'active' ? 'Running' : instanceData.status === 'provisioning' ? 'Provisioning' : 'Stopped',
-      endpoint: instanceData.hopsworks_url || '',
+      endpoint: instanceData.hopsworks_url || hopsworksUrl,
       plan: 'Pay-as-you-go',
       created: instanceData.created_at
     });
