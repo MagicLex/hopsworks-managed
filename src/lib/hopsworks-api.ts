@@ -311,7 +311,7 @@ export async function testHopsworksConnection(
   try {
     // For now, return a test response structure
     // In production, you would use admin credentials to login first
-    const testData = {
+    const testData: any = {
       connectionTest: {
         apiUrl: credentials.apiUrl,
         timestamp: new Date().toISOString(),
@@ -338,13 +338,13 @@ export async function testHopsworksConnection(
       testData.connectionTest.status = 'reachable';
     } catch (error) {
       testData.connectionTest.status = 'unreachable';
-      testData.connectionTest.error = error.message;
+      testData.connectionTest.error = error instanceof Error ? error.message : 'Unknown error';
     }
 
     return testData;
   } catch (error) {
     return {
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
     };
   }

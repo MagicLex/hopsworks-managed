@@ -260,9 +260,9 @@ export default function AdminPage() {
                         <td className="py-2">
                           {user.user_hopsworks_assignments?.[0] ? (
                             <Button
-                              size="sm"
                               onClick={() => testHopsworksConnection(user.id)}
                               disabled={testingHopsworks[`hopsworks-${user.id}`]}
+                              className="text-sm px-3 py-1"
                             >
                               {testingHopsworks[`hopsworks-${user.id}`] ? 'Testing...' : 'Test API'}
                             </Button>
