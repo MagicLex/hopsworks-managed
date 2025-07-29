@@ -5,6 +5,10 @@
       "schedule": "0 2 * * *"
     },
     {
+      "path": "/api/usage/collect-k8s",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/billing/sync-stripe", 
       "schedule": "0 3 * * *"
     }
@@ -12,6 +16,9 @@
   "functions": {
     "src/pages/api/usage/collect.ts": {
       "maxDuration": 60
+    },
+    "src/pages/api/usage/collect-k8s.ts": {
+      "maxDuration": 300
     },
     "src/pages/api/billing/sync-stripe.ts": {
       "maxDuration": 60

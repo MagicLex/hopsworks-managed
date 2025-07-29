@@ -238,6 +238,8 @@ const userProjects = projects.filter(p =>
 - No direct user consumption API - must aggregate from projects
 - Admin API key required for cluster-wide visibility
 - Current implementation only finds projects where user is creator (not member)
+- **Critical limitation**: Admin API keys cannot access user project resources (feature stores, datasets, jobs)
+- Admin cannot create API keys on behalf of users
 
 ## Testing
 

@@ -58,10 +58,14 @@ FULLY IMPLEMENTED - Collects real usage data:
 ### 3. Hopsworks API Integration (`/lib/hopsworks-api.ts`)
 Implemented these functions:
 - `createHopsworksOAuthUser` - Creates OAuth user in Hopsworks
-- `createHopsworksProject` - Creates project with standard services
+- `createHopsworksProject` - Creates project with standard services  
 - `getUserProjects` - Gets all projects for a user
-- `getProjectUsage` - Gets daily usage for a project
+- `getProjectUsage` - Gets daily usage for a project (NOT WORKING - see limitations)
 - `getHopsworksUserByAuth0Id` - Maps Auth0 ID to Hopsworks user
+
+### 4. Current API Limitations
+- No usage metrics exposed via the Hopsworks API
+- Will require direct Kubernetes cluster access for metrics
 
 ## ❌ Still Needed from Hopsworks
 
@@ -70,8 +74,8 @@ Hopsworks needs to accept OAuth users with:
 - Client ID from Auth0
 - Subject (user ID) as identifier
 
-### 2. Usage API Endpoint
-The endpoint `/hopsworks-api/api/admin/projects/{projectId}/usage` needs to return:
+### 2. Usage Tracking via Kubernetes
+Need direct access to Kubernetes cluster to query:
 ```json
 {
   "date": "2024-01-15",
@@ -126,13 +130,13 @@ GET /hopsworks-api/api/admin/users?filter=subject:{auth0_id}
 ## What's Actually Working
 
 1. **User signup** → Creates Stripe subscription + assigns to cluster
-2. **Daily usage collection** → Pulls from Hopsworks API (if credentials configured)
-3. **Billing page** → Shows real usage and costs
+2. **Daily usage collection** → Framework in place but no real data from Hopsworks
+3. **Billing page** → Shows UI but usage always 0
 4. **Credit system** → Prepaid users can buy/use credits
-5. **Stripe sync** → Reports postpaid usage for invoicing
+5. **Stripe sync** → Reports postpaid usage (but always 0)
 
 ## What Needs Configuration
 
-1. **Cluster API credentials** - Set `api_key` in each cluster record
+1. **Cluster API credentials** - Set `api_key` in each cluster record (✅ Done)
 2. **Hopsworks OAuth** - Enable OAuth users with Auth0 client ID
-3. **Usage endpoint** - Hopsworks needs to expose project usage data
+3. **Usage tracking** - Direct Kubernetes cluster access for metrics

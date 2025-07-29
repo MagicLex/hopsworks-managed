@@ -39,6 +39,7 @@ interface Cluster {
   current_users: number;
   status: string;
   created_at: string;
+  kubeconfig?: string;
 }
 
 export default function AdminPage() {
@@ -54,6 +55,8 @@ export default function AdminPage() {
   const [userMetrics, setUserMetrics] = useState<Record<string, any>>({});
   const [fetchingMetrics, setFetchingMetrics] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState('users');
+  const [editingCluster, setEditingCluster] = useState<string | null>(null);
+  const [kubeconfigModal, setKubeconfigModal] = useState<string | null>(null);
 
   // New cluster form
   const [newCluster, setNewCluster] = useState({
@@ -124,6 +127,44 @@ export default function AdminPage() {
       setNewCluster({ name: '', api_url: '', api_key: '', max_users: 100 });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create cluster');
+    }
+  };
+
+  const handleUpdateCluster = async (clusterId: string, updates: Partial<Cluster>) => {
+    try {
+      const response = await fetch('/api/admin/clusters', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: clusterId, ...updates })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update cluster');
+      }
+
+      setEditingCluster(null);
+      await fetchClusters();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update cluster');
+    }
+  };
+
+  const handleUploadKubeconfig = async (clusterId: string, kubeconfig: string) => {
+    try {
+      const response = await fetch('/api/admin/clusters/update-kubeconfig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clusterId, kubeconfig })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload kubeconfig');
+      }
+
+      setKubeconfigModal(null);
+      await fetchClusters();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload kubeconfig');
     }
   };
 
@@ -332,10 +373,47 @@ export default function AdminPage() {
                       {result.error ? (
                         <Text className="text-errorDefault">Error: {result.error}</Text>
                       ) : (
-                        <Box className="bg-grayShade1 p-2 rounded overflow-x-auto">
-                          <pre className="text-xs">
-                            {JSON.stringify(result.data, null, 2)}
-                          </pre>
+                        <Box>
+                          {/* Show Kubernetes metrics in a better format */}
+                          {result.data?.kubernetesMetrics?.available && result.data?.kubernetesMetrics?.userMetrics && (
+                            <Box className="mb-4">
+                              <Text className="font-semibold mb-2">Kubernetes Metrics</Text>
+                              <Box className="bg-successShade1 p-3 rounded mb-2">
+                                <Flex justify="between" className="mb-2">
+                                  <Text className="text-sm">Total CPU Usage:</Text>
+                                  <Text className="text-sm font-mono">{result.data.kubernetesMetrics.userMetrics.totals.cpuCores.toFixed(3)} cores</Text>
+                                </Flex>
+                                <Flex justify="between" className="mb-2">
+                                  <Text className="text-sm">Total Memory:</Text>
+                                  <Text className="text-sm font-mono">{result.data.kubernetesMetrics.userMetrics.totals.memoryGB.toFixed(2)} GB</Text>
+                                </Flex>
+                                <Flex justify="between">
+                                  <Text className="text-sm">Projects:</Text>
+                                  <Text className="text-sm font-mono">{result.data.kubernetesMetrics.userMetrics.projects.length}</Text>
+                                </Flex>
+                              </Box>
+                              {result.data.kubernetesMetrics.userMetrics.projects.map((project: any) => (
+                                <Card key={project.namespace} className="border border-grayShade2 p-2 mb-2">
+                                  <Text className="font-semibold text-sm mb-1">{project.projectName} (ID: {project.projectId})</Text>
+                                  <Flex gap={16} className="text-xs">
+                                    <Text>CPU: {project.resources.cpuCores.toFixed(3)} cores</Text>
+                                    <Text>Memory: {project.resources.memoryGB.toFixed(2)} GB</Text>
+                                    <Text>Pods: {project.pods.length}</Text>
+                                  </Flex>
+                                </Card>
+                              ))}
+                            </Box>
+                          )}
+                          
+                          {/* Show raw data in collapsible */}
+                          <details className="mt-2">
+                            <summary className="cursor-pointer text-sm text-gray hover:text-primaryDefault">View Raw Data</summary>
+                            <Box className="bg-grayShade1 p-2 rounded overflow-x-auto mt-2">
+                              <pre className="text-xs">
+                                {JSON.stringify(result.data, null, 2)}
+                              </pre>
+                            </Box>
+                          </details>
                         </Box>
                       )}
                     </Card>
@@ -469,28 +547,116 @@ export default function AdminPage() {
                   <Flex direction="column" gap={16}>
                     {clusters.map(cluster => (
                       <Card key={cluster.id} className="border border-grayShade2">
-                        <Box className="grid grid-cols-2 gap-4">
+                        {editingCluster === cluster.id ? (
                           <Box>
-                            <Text className="text-sm text-gray mb-1">Name</Text>
-                            <Text className="font-medium">{cluster.name}</Text>
+                            <Box className="grid grid-cols-2 gap-4 mb-4">
+                              <Input
+                                value={cluster.name}
+                                onChange={(e) => {
+                                  const updated = clusters.map(c => 
+                                    c.id === cluster.id ? {...c, name: e.target.value} : c
+                                  );
+                                  setClusters(updated);
+                                }}
+                                placeholder="Cluster Name"
+                              />
+                              <Input
+                                value={cluster.api_url}
+                                onChange={(e) => {
+                                  const updated = clusters.map(c => 
+                                    c.id === cluster.id ? {...c, api_url: e.target.value} : c
+                                  );
+                                  setClusters(updated);
+                                }}
+                                placeholder="API URL"
+                              />
+                              <Input
+                                value={cluster.max_users}
+                                type="number"
+                                onChange={(e) => {
+                                  const updated = clusters.map(c => 
+                                    c.id === cluster.id ? {...c, max_users: parseInt(e.target.value) || 0} : c
+                                  );
+                                  setClusters(updated);
+                                }}
+                                placeholder="Max Users"
+                              />
+                              <Input
+                                value={cluster.api_key}
+                                type="password"
+                                onChange={(e) => {
+                                  const updated = clusters.map(c => 
+                                    c.id === cluster.id ? {...c, api_key: e.target.value} : c
+                                  );
+                                  setClusters(updated);
+                                }}
+                                placeholder="API Key (leave blank to keep current)"
+                              />
+                            </Box>
+                            <Flex gap={8}>
+                              <Button
+                                intent="primary"
+                                onClick={() => {
+                                  const editedCluster = clusters.find(c => c.id === cluster.id)!;
+                                  handleUpdateCluster(cluster.id, editedCluster);
+                                }}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  setEditingCluster(null);
+                                  fetchClusters();
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </Flex>
                           </Box>
+                        ) : (
                           <Box>
-                            <Text className="text-sm text-gray mb-1">Status</Text>
-                            <Badge 
-                              variant={cluster.status === 'active' ? 'success' : 'default'}
-                            >
-                              {cluster.status}
-                            </Badge>
+                            <Box className="grid grid-cols-2 gap-4 mb-4">
+                              <Box>
+                                <Text className="text-sm text-gray mb-1">Name</Text>
+                                <Text className="font-medium">{cluster.name}</Text>
+                              </Box>
+                              <Box>
+                                <Text className="text-sm text-gray mb-1">Status</Text>
+                                <Badge 
+                                  variant={cluster.status === 'active' ? 'success' : 'default'}
+                                >
+                                  {cluster.status}
+                                </Badge>
+                              </Box>
+                              <Box>
+                                <Text className="text-sm text-gray mb-1">API URL</Text>
+                                <Text className="text-sm font-mono">{cluster.api_url}</Text>
+                              </Box>
+                              <Box>
+                                <Text className="text-sm text-gray mb-1">Users</Text>
+                                <Text className="text-sm">{cluster.current_users} / {cluster.max_users}</Text>
+                              </Box>
+                              <Box className="col-span-2">
+                                <Text className="text-sm text-gray mb-1">Kubeconfig</Text>
+                                <Badge variant={cluster.kubeconfig ? 'success' : 'warning'}>
+                                  {cluster.kubeconfig ? 'Configured' : 'Not Configured'}
+                                </Badge>
+                              </Box>
+                            </Box>
+                            <Flex gap={8}>
+                              <Button
+                                onClick={() => setEditingCluster(cluster.id)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                onClick={() => setKubeconfigModal(cluster.id)}
+                              >
+                                {cluster.kubeconfig ? 'Update' : 'Upload'} Kubeconfig
+                              </Button>
+                            </Flex>
                           </Box>
-                          <Box>
-                            <Text className="text-sm text-gray mb-1">API URL</Text>
-                            <Text className="text-sm font-mono">{cluster.api_url}</Text>
-                          </Box>
-                          <Box>
-                            <Text className="text-sm text-gray mb-1">Users</Text>
-                            <Text className="text-sm">{cluster.current_users} / {cluster.max_users}</Text>
-                          </Box>
-                        </Box>
+                        )}
                       </Card>
                     ))}
                   </Flex>
@@ -538,6 +704,46 @@ export default function AdminPage() {
         </Tabs>
       </Box>
     </Box>
+
+    {/* Kubeconfig Upload Modal */}
+    {kubeconfigModal && (
+      <Box className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <Card className="max-w-2xl w-full mx-4 p-6">
+          <Title as="h3" className="text-lg mb-4">Upload Kubeconfig</Title>
+          <Text className="text-sm text-gray mb-4">
+            Paste the contents of your kubeconfig.yml file to enable Kubernetes metrics collection
+          </Text>
+          <textarea
+            className="w-full h-64 p-2 border border-grayShade2 rounded font-mono text-sm"
+            placeholder="apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: ...
+    server: https://..."
+            onChange={(e) => {
+              const elem = e.target as HTMLTextAreaElement;
+              elem.dataset.kubeconfig = elem.value;
+            }}
+          />
+          <Flex gap={8} className="mt-4">
+            <Button
+              intent="primary"
+              onClick={() => {
+                const textarea = document.querySelector('textarea[placeholder*="apiVersion"]') as HTMLTextAreaElement;
+                if (textarea?.dataset.kubeconfig) {
+                  handleUploadKubeconfig(kubeconfigModal, textarea.dataset.kubeconfig);
+                }
+              }}
+            >
+              Upload
+            </Button>
+            <Button onClick={() => setKubeconfigModal(null)}>
+              Cancel
+            </Button>
+          </Flex>
+        </Card>
+      </Box>
+    )}
     </>
   );
 }

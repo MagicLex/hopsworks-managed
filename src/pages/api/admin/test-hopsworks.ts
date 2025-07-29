@@ -72,9 +72,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       hopsworksData: {}
     };
 
+    let hopsworksUser: any = null;
     try {
       // Get Hopsworks user by email (since Auth0 IDs aren't stored in Hopsworks)
-      const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, user.email);
+      hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, user.email);
       results.hopsworksData.user = hopsworksUser;
 
       if (hopsworksUser) {
@@ -168,70 +169,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       results.hopsworksData.userLookupError = apiError instanceof Error ? apiError.message : 'Failed to fetch user';
     }
 
-    // Get cluster statistics
-    try {
-      const allUsers = await getAllUsers(credentials, `ApiKey ${credentials.apiKey}`);
-      results.hopsworksData.totalUsers = allUsers.length;
-      results.hopsworksData.activeUsers = allUsers.filter((u: any) => u.status === 2).length;
-    } catch (statsError) {
-      results.hopsworksData.statsError = statsError instanceof Error ? statsError.message : 'Failed to fetch stats';
-    }
-
-    // Test monitoring endpoints for metrics
-    try {
-      // Try admin monitoring metrics endpoint
-      const monitoringResponse = await fetch(`${credentials.apiUrl}${HOPSWORKS_API_BASE}/admin/monitoring/metrics`, {
-        headers: {
-          'Authorization': `ApiKey ${credentials.apiKey}`
-        }
-      });
-      results.hopsworksData.monitoring = {
-        status: monitoringResponse.status,
-        statusText: monitoringResponse.statusText
-      };
-      if (monitoringResponse.ok) {
-        const contentType = monitoringResponse.headers.get('content-type');
-        if (contentType?.includes('application/json')) {
-          results.hopsworksData.monitoring.data = await monitoringResponse.json();
-        } else {
-          results.hopsworksData.monitoring.data = 'Non-JSON response';
-        }
-      }
-    } catch (monitoringError) {
-      results.hopsworksData.monitoringError = monitoringError instanceof Error ? monitoringError.message : 'Failed to test monitoring';
-    }
-
-    // Try Prometheus federation endpoint
-    try {
-      const prometheusResponse = await fetch(`${credentials.apiUrl}:9089/api/prometheus/federate`, {
-        headers: {
-          'Authorization': `ApiKey ${credentials.apiKey}`
-        }
-      });
-      results.hopsworksData.prometheus = {
-        status: prometheusResponse.status,
-        statusText: prometheusResponse.statusText,
-        note: 'Prometheus typically runs on port 9089'
-      };
-    } catch (prometheusError) {
-      results.hopsworksData.prometheusError = prometheusError instanceof Error ? prometheusError.message : 'Failed to test Prometheus';
-    }
-
-    // Test audit log endpoint (for user activity metrics)
-    try {
-      const auditResponse = await fetch(`${credentials.apiUrl}${ADMIN_API_BASE}/audit`, {
-        headers: {
-          'Authorization': `ApiKey ${credentials.apiKey}`
-        }
-      });
-      results.hopsworksData.audit = {
-        status: auditResponse.status,
-        statusText: auditResponse.statusText,
-        note: 'Audit logs can be used to track user activity'
-      };
-    } catch (auditError) {
-      results.hopsworksData.auditError = auditError instanceof Error ? auditError.message : 'Failed to test audit endpoint';
-    }
+    // Skip Hopsworks API metrics endpoints since they're not working
+    results.hopsworksData.metricsNote = 'Hopsworks API metrics endpoints not available - using Kubernetes metrics instead';
 
     // Try to get project quota/usage information
     if (results.hopsworksData.projects && results.hopsworksData.projects.length > 0) {
@@ -249,6 +188,44 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       } catch (quotaError) {
         console.error('Quota endpoint error:', quotaError);
       }
+    }
+
+    // Test Kubernetes metrics collection
+    try {
+      if (!cluster.kubeconfig) {
+        results.kubernetesMetrics = {
+          available: false,
+          error: 'No kubeconfig found for this cluster',
+          note: 'Upload kubeconfig using the /api/admin/clusters/update-kubeconfig endpoint'
+        };
+      } else {
+        const { KubernetesMetricsClient } = await import('../../../lib/kubernetes-metrics');
+        
+        // Use kubeconfig string directly
+        const k8sClient = new KubernetesMetricsClient(cluster.kubeconfig, false);
+        
+        // Try to get metrics for the user
+        if (hopsworksUser && hopsworksUser.username) {
+          const userMetrics = await k8sClient.getUserMetrics(hopsworksUser.username);
+          results.kubernetesMetrics = {
+            available: true,
+            userMetrics: userMetrics,
+            note: 'Metrics collected directly from Kubernetes cluster'
+          };
+        } else {
+          results.kubernetesMetrics = {
+            available: false,
+            error: 'Hopsworks username not found',
+            note: 'Need Hopsworks username to query Kubernetes metrics'
+          };
+        }
+      }
+    } catch (k8sError) {
+      results.kubernetesMetrics = {
+        available: false,
+        error: k8sError instanceof Error ? k8sError.message : 'Failed to connect to Kubernetes',
+        note: 'Check kubeconfig validity and cluster connectivity'
+      };
     }
 
     return res.status(200).json(results);
