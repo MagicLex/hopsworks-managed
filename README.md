@@ -29,8 +29,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-supabase-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-key>
 
 # Hopsworks Configuration
-HOPSWORKS_API_URL=<your-hopsworks-api-url>
-HOPSWORKS_API_KEY=<your-hopsworks-api-key>
+# Note: Each cluster has its own API credentials stored in DB
 
 # Stripe Configuration  
 STRIPE_SECRET_KEY=<your-stripe-secret-key>
@@ -74,11 +73,13 @@ Hidden admin interface available at `/admin47392` for managing users and cluster
 ### Admin Features:
 - View all users with usage metrics and credits
 - Manage Hopsworks clusters (capacity, API endpoints)
+- Test Hopsworks API connection per user
 - Monitor user-cluster assignments
 
 ## Documentation
 
-- [Database Patterns](docs/DATABASE_PATTERNS.md) - Schema design, query patterns, and best practices
-- [Billing Architecture](docs/BILLING_ARCHITECTURE.md) - Complete billing system overview
-- [Billing Implementation](docs/BILLING_IMPLEMENTATION.md) - Current status and what's missing
-- [Stripe Setup](docs/STRIPE_SETUP.md) - Step-by-step Stripe configuration
+- [Quick Start](docs/QUICK_START.md) - Get running fast
+- [Architecture](docs/ARCHITECTURE.md) - System overview
+- [Database Patterns](docs/DATABASE_PATTERNS.md) - Schema and queries
+- [Billing Implementation](docs/BILLING_IMPLEMENTATION.md) - What's working
+- [Stripe Setup](docs/STRIPE_SETUP.md) - Payment setup

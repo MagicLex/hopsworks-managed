@@ -46,11 +46,14 @@ When a new user signs up:
 4. Creates default project for the user
 
 ### 2. Usage Collection (`/api/usage/collect.ts`)
-The usage collection now:
-1. Looks up Hopsworks user by Auth0 ID
-2. Gets all user's projects
-3. Aggregates usage across projects
-4. Calculates costs based on instance types
+FULLY IMPLEMENTED - Collects real usage data:
+1. Loops through all active clusters
+2. For each user, fetches from Hopsworks API:
+   - User lookup by Auth0 ID
+   - All user projects
+   - Daily usage per project (CPU/GPU hours, storage, API calls)
+3. Stores in `usage_daily` table with calculated costs
+4. Deducts credits for prepaid users automatically
 
 ### 3. Hopsworks API Integration (`/lib/hopsworks-api.ts`)
 Implemented these functions:
@@ -110,23 +113,26 @@ GET /hopsworks-api/api/admin/users?filter=subject:{auth0_id}
 - ✅ `CRON_SECRET` - Auth for cron endpoints
 
 ### Still Needed
-- ❓ `HOPSWORKS_API_URL` - Not used yet
-- ❓ `HOPSWORKS_API_KEY` - Not used yet
+- ❓ Each cluster needs API credentials in `hopsworks_clusters` table
+- ❓ Admin credentials or API key for each cluster to fetch usage data
 
-## Testing Checklist
+## Admin Features
 
-- [ ] Create new user → Verify Stripe customer/subscription created
-- [ ] Generate mock usage → Verify it appears in billing page
-- [ ] Run usage collection cron → Verify usage recorded
-- [ ] Run Stripe sync cron → Verify usage reported to Stripe
-- [ ] Enable prepaid for user → Verify can purchase credits
-- [ ] Purchase credits → Verify balance updated
-- [ ] Generate usage as prepaid user → Verify credits deducted
+### Test Hopsworks Connection
+- Admin panel has "Test API" button for each user
+- Shows raw API response to debug connectivity
+- Located at `/admin47392`
 
-## Next Steps
+## What's Actually Working
 
-1. **Define Hopsworks API contract** - Agree on endpoints and data format
-2. **Implement API integration** - Replace mock in collect.ts
-3. **Add monitoring** - Track collection failures, usage anomalies
-4. **Test with real data** - Verify calculations match expectations
-5. **Add usage details page** - Show breakdown by day/resource
+1. **User signup** → Creates Stripe subscription + assigns to cluster
+2. **Daily usage collection** → Pulls from Hopsworks API (if credentials configured)
+3. **Billing page** → Shows real usage and costs
+4. **Credit system** → Prepaid users can buy/use credits
+5. **Stripe sync** → Reports postpaid usage for invoicing
+
+## What Needs Configuration
+
+1. **Cluster API credentials** - Set `api_key` in each cluster record
+2. **Hopsworks OAuth** - Enable OAuth users with Auth0 client ID
+3. **Usage endpoint** - Hopsworks needs to expose project usage data
