@@ -142,6 +142,23 @@ export async function createHopsworksOAuthUser(
 - Fall back to cached/database values when appropriate
 - Log errors for debugging but don't expose internal details to users
 
+## Recent Updates
+
+### Dashboard Integration (July 2024)
+- Removed all placeholder/mock data from dashboard
+- Added `/api/user/hopsworks-info` endpoint for real-time Hopsworks data
+- Updated `/api/usage` to fetch actual projects count from Hopsworks
+- Dashboard now shows:
+  - Real projects count and list
+  - Hopsworks username
+  - Cluster assignment status
+  - Only displays data that actually exists
+
+### Admin Test Button
+- Fixed to show real Hopsworks data
+- Matches users by email (not Auth0 ID)
+- Shows user's actual projects and status
+
 ## Best Practices
 
 1. **No Mock Data**: Never return mock or simulated data in production

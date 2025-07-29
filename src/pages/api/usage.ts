@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: monthlyUsage, error: usageError } = await supabaseAdmin
       .from('usage_daily')
-      .select('cpu_hours, gpu_hours, storage_gb, instance_type, instance_hours, api_calls, feature_store_api_calls, model_inference_calls')
+      .select('cpu_hours, gpu_hours, storage_gb, api_calls, feature_store_api_calls, model_inference_calls')
       .eq('user_id', userId)
       .gte('date', startOfMonth.toISOString().split('T')[0])
       .lte('date', currentDate);
@@ -67,16 +67,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       modelInferenceCalls: 0
     };
 
-    // Get instance type breakdown
-    const instanceBreakdown: Record<string, number> = {};
-    monthlyUsage?.forEach(day => {
-      if (day.instance_type && day.instance_hours) {
-        if (!instanceBreakdown[day.instance_type]) {
-          instanceBreakdown[day.instance_type] = 0;
-        }
-        instanceBreakdown[day.instance_type] += day.instance_hours;
-      }
-    });
 
     // Get user with their cluster assignment
     const { data: userData } = await supabaseAdmin
@@ -146,7 +136,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       apiCalls: totalUsage.apiCalls,
       featureStoreApiCalls: totalUsage.featureStoreApiCalls,
       modelInferenceCalls: totalUsage.modelInferenceCalls,
-      instanceBreakdown,
       currentMonth: startOfMonth.toISOString().substring(0, 7) // YYYY-MM format
     });
   } catch (error) {
