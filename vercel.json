@@ -1,12 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/usage/collect",
-      "schedule": "0 2 * * *"
-    },
-    {
       "path": "/api/usage/collect-k8s",
-      "schedule": "0 1 * * *"
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/billing/sync-stripe", 
