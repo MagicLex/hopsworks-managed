@@ -73,39 +73,29 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     };
 
     try {
-      // Try to find user by Auth0 ID
-      const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId);
+      // Get Hopsworks user by email (since Auth0 IDs aren't stored in Hopsworks)
+      const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, user.email);
       results.hopsworksData.user = hopsworksUser;
 
       if (hopsworksUser) {
         // Get user's projects
-        const projects = await getUserProjects(credentials, hopsworksUser.username);
-        results.hopsworksData.projects = projects;
-        results.hopsworksData.projectCount = projects.length;
+        try {
+          const projects = await getUserProjects(credentials, hopsworksUser.username);
+          results.hopsworksData.projects = projects;
+          results.hopsworksData.projectCount = projects.length;
+        } catch (projectError) {
+          results.hopsworksData.projectsError = projectError instanceof Error ? projectError.message : 'Failed to fetch projects';
+        }
       }
     } catch (apiError) {
       results.hopsworksData.userLookupError = apiError instanceof Error ? apiError.message : 'Failed to fetch user';
     }
 
-    // Try to get general stats using admin endpoints
+    // Get cluster statistics
     try {
-      // Get all users count
       const allUsers = await getAllUsers(credentials, `ApiKey ${credentials.apiKey}`);
       results.hopsworksData.totalUsers = allUsers.length;
-      
-      // Log the response to debug the filter issue
-      console.log('getAllUsers response sample:', allUsers.slice(0, 3));
-      
-      // Try to find the actual user in the list
-      const actualUser = allUsers.find(u => 
-        u.email === user.email || 
-        (u as any).subject === userId || 
-        (u as any).oauth2Subject === userId
-      );
-      
-      if (actualUser) {
-        results.hopsworksData.actualUserFromList = actualUser;
-      }
+      results.hopsworksData.activeUsers = allUsers.filter((u: any) => u.status === 2).length;
     } catch (statsError) {
       results.hopsworksData.statsError = statsError instanceof Error ? statsError.message : 'Failed to fetch stats';
     }
