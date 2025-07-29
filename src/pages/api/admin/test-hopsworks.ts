@@ -148,6 +148,55 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       results.hopsworksData.kibanaError = kibanaError instanceof Error ? kibanaError.message : 'Failed to test Kibana';
     }
 
+    // Try to find Kubernetes/cluster info
+    try {
+      // Test if there's a cluster info endpoint
+      const clusterInfoResponse = await fetch(`${credentials.apiUrl}${ADMIN_API_BASE}/cluster`, {
+        headers: {
+          'Authorization': `ApiKey ${credentials.apiKey}`
+        }
+      });
+      results.hopsworksData.clusterInfo = {
+        status: clusterInfoResponse.status,
+        statusText: clusterInfoResponse.statusText
+      };
+      if (clusterInfoResponse.ok) {
+        results.hopsworksData.clusterInfo.data = await clusterInfoResponse.json();
+      }
+    } catch (clusterError) {
+      results.hopsworksData.clusterInfoError = clusterError instanceof Error ? clusterError.message : 'Failed to get cluster info';
+    }
+
+    // Try to get project details to see namespace info
+    if (hopsworksUser && hopsworksUser.numActiveProjects > 0) {
+      try {
+        // Try different project endpoints
+        const projectEndpoints = [
+          `${ADMIN_API_BASE}/projects`,
+          `${apiBasePath}/project`
+        ];
+        
+        for (const endpoint of projectEndpoints) {
+          const projectResponse = await fetch(`${credentials.apiUrl}${endpoint}`, {
+            headers: {
+              'Authorization': `ApiKey ${credentials.apiKey}`
+            }
+          });
+          
+          if (projectResponse.ok) {
+            const projects = await projectResponse.json();
+            results.hopsworksData.projectsViaEndpoint = {
+              endpoint,
+              data: projects
+            };
+            break;
+          }
+        }
+      } catch (projectError) {
+        results.hopsworksData.projectEndpointError = projectError instanceof Error ? projectError.message : 'Failed to get projects';
+      }
+    }
+
     return res.status(200).json(results);
   } catch (error) {
     console.error('Error testing Hopsworks connection:', error);
