@@ -129,7 +129,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               });
               
               // If no projects found as creator, try to get project members
-              if (userProjects.length === 0 && hopsworksUser.numActiveProjects > 0) {
+              if (userProjects.length === 0 && hopsworksUser.numActiveProjects && hopsworksUser.numActiveProjects > 0) {
                 // User has projects but is not the creator, they must be a member
                 // We'll need to check each project's members
                 console.log(`User ${hopsworksUser.username} has ${hopsworksUser.numActiveProjects} projects but is not creator of any`);
@@ -144,6 +144,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               }));
               
               console.log(`Found ${projects.length} projects where user ${hopsworksUser.username} is creator`);
+            }
           } catch (altError) {
             console.error('Alternative project fetch failed:', altError);
             projects = [];
