@@ -80,6 +80,7 @@ Hidden admin interface available at `/admin47392` for managing users and cluster
 
 - [Quick Start](docs/QUICK_START.md) - Get running fast
 - [Architecture](docs/ARCHITECTURE.md) - System overview
+- [API Patterns](docs/API_PATTERNS.md) - Hopsworks integration patterns
 - [Database Patterns](docs/DATABASE_PATTERNS.md) - Schema and queries
 - [Billing Implementation](docs/BILLING_IMPLEMENTATION.md) - What's working
 - [Stripe Setup](docs/STRIPE_SETUP.md) - Payment setup

@@ -100,31 +100,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // If user has a cluster assignment, fetch real data from Hopsworks
     if (userData?.user_hopsworks_assignments?.[0]?.hopsworks_clusters) {
-      const cluster = userData.user_hopsworks_assignments[0].hopsworks_clusters;
+      const clusterData = userData.user_hopsworks_assignments[0].hopsworks_clusters;
+      // Handle both array and single object response from Supabase
+      const cluster = Array.isArray(clusterData) ? clusterData[0] : clusterData;
       
-      try {
-        const { getHopsworksUserByAuth0Id, getUserProjects } = await import('../../lib/hopsworks-api');
-        
-        const credentials = {
-          apiUrl: cluster.api_url,
-          apiKey: cluster.api_key
-        };
-
-        // Get Hopsworks user
-        const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, userData.email);
-        
-        if (hopsworksUser) {
-          // Get actual projects count
-          projectsCount = hopsworksUser.numActiveProjects || 0;
-          
-          // TODO: Get actual model deployments count from Hopsworks
-          // For now, we'll use the projects count as a placeholder
-          modelsCount = 0;
-        }
-      } catch (error) {
-        console.error('Error fetching Hopsworks data:', error);
-        // Fall back to database values
+      if (!cluster) {
         projectsCount = userData?.hopsworks_project_id ? 1 : 0;
+      } else {
+        try {
+          const { getHopsworksUserByAuth0Id, getUserProjects } = await import('../../lib/hopsworks-api');
+          
+          const credentials = {
+            apiUrl: cluster.api_url,
+            apiKey: cluster.api_key
+          };
+
+          // Get Hopsworks user
+          const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, userData.email);
+          
+          if (hopsworksUser) {
+            // Get actual projects count
+            projectsCount = hopsworksUser.numActiveProjects || 0;
+            
+            // TODO: Get actual model deployments count from Hopsworks
+            // For now, we'll use the projects count as a placeholder
+            modelsCount = 0;
+          }
+        } catch (error) {
+          console.error('Error fetching Hopsworks data:', error);
+          // Fall back to database values
+          projectsCount = userData?.hopsworks_project_id ? 1 : 0;
+        }
       }
     } else {
       // No cluster assigned, use database values
