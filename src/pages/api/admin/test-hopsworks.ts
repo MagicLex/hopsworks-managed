@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { requireAdmin } from '../../../middleware/adminAuth';
 import { createClient } from '@supabase/supabase-js';
-import { testHopsworksConnection } from '../../../lib/hopsworks-api';
+import { testHopsworksConnection, ADMIN_API_BASE, HOPSWORKS_API_BASE } from '../../../lib/hopsworks-api';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -83,6 +83,83 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           const projects = await getUserProjects(credentials, hopsworksUser.username);
           results.hopsworksData.projects = projects;
           results.hopsworksData.projectCount = projects.length;
+          
+          // Get detailed project information with metrics
+          if (projects.length > 0) {
+            results.hopsworksData.projectDetails = [];
+            
+            for (const project of projects) {
+              try {
+                // Get project details
+                const projectDetailResponse = await fetch(
+                  `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${project.id}`,
+                  {
+                    headers: {
+                      'Authorization': `ApiKey ${credentials.apiKey}`
+                    }
+                  }
+                );
+                
+                if (projectDetailResponse.ok) {
+                  const projectDetail = await projectDetailResponse.json();
+                  
+                  // Try to get feature stores for the project
+                  const featureStoreResponse = await fetch(
+                    `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${project.id}/featurestores`,
+                    {
+                      headers: {
+                        'Authorization': `ApiKey ${credentials.apiKey}`
+                      }
+                    }
+                  );
+                  
+                  let featureStoreData = null;
+                  if (featureStoreResponse.ok) {
+                    featureStoreData = await featureStoreResponse.json();
+                  }
+                  
+                  // Try to get datasets for the project
+                  const datasetResponse = await fetch(
+                    `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${project.id}/dataset`,
+                    {
+                      headers: {
+                        'Authorization': `ApiKey ${credentials.apiKey}`
+                      }
+                    }
+                  );
+                  
+                  let datasetData = null;
+                  if (datasetResponse.ok) {
+                    datasetData = await datasetResponse.json();
+                  }
+                  
+                  // Try to get jobs for the project
+                  const jobsResponse = await fetch(
+                    `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${project.id}/jobs`,
+                    {
+                      headers: {
+                        'Authorization': `ApiKey ${credentials.apiKey}`
+                      }
+                    }
+                  );
+                  
+                  let jobsData = null;
+                  if (jobsResponse.ok) {
+                    jobsData = await jobsResponse.json();
+                  }
+                  
+                  results.hopsworksData.projectDetails.push({
+                    ...projectDetail,
+                    featureStores: featureStoreData,
+                    datasets: datasetData,
+                    jobs: jobsData
+                  });
+                }
+              } catch (detailError) {
+                console.error(`Error fetching details for project ${project.id}:`, detailError);
+              }
+            }
+          }
         } catch (projectError) {
           results.hopsworksData.projectsError = projectError instanceof Error ? projectError.message : 'Failed to fetch projects';
         }
@@ -100,100 +177,77 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       results.hopsworksData.statsError = statsError instanceof Error ? statsError.message : 'Failed to fetch stats';
     }
 
-    // Test Grafana endpoint
+    // Test monitoring endpoints for metrics
     try {
-      const grafanaResponse = await fetch(`${credentials.apiUrl}/hopsworks-api/grafana`, {
+      // Try admin monitoring metrics endpoint
+      const monitoringResponse = await fetch(`${credentials.apiUrl}${HOPSWORKS_API_BASE}/admin/monitoring/metrics`, {
         headers: {
           'Authorization': `ApiKey ${credentials.apiKey}`
         }
       });
-      results.hopsworksData.grafana = {
-        status: grafanaResponse.status,
-        statusText: grafanaResponse.statusText,
-        headers: Object.fromEntries(grafanaResponse.headers.entries())
+      results.hopsworksData.monitoring = {
+        status: monitoringResponse.status,
+        statusText: monitoringResponse.statusText
       };
-      if (grafanaResponse.ok) {
-        const contentType = grafanaResponse.headers.get('content-type');
+      if (monitoringResponse.ok) {
+        const contentType = monitoringResponse.headers.get('content-type');
         if (contentType?.includes('application/json')) {
-          results.hopsworksData.grafana.data = await grafanaResponse.json();
+          results.hopsworksData.monitoring.data = await monitoringResponse.json();
         } else {
-          results.hopsworksData.grafana.data = 'Non-JSON response';
+          results.hopsworksData.monitoring.data = 'Non-JSON response';
         }
       }
-    } catch (grafanaError) {
-      results.hopsworksData.grafanaError = grafanaError instanceof Error ? grafanaError.message : 'Failed to test Grafana';
+    } catch (monitoringError) {
+      results.hopsworksData.monitoringError = monitoringError instanceof Error ? monitoringError.message : 'Failed to test monitoring';
     }
 
-    // Test Kibana endpoint
+    // Try Prometheus federation endpoint
     try {
-      const kibanaResponse = await fetch(`${credentials.apiUrl}/hopsworks-api/kibana`, {
+      const prometheusResponse = await fetch(`${credentials.apiUrl}:9089/api/prometheus/federate`, {
         headers: {
           'Authorization': `ApiKey ${credentials.apiKey}`
         }
       });
-      results.hopsworksData.kibana = {
-        status: kibanaResponse.status,
-        statusText: kibanaResponse.statusText,
-        headers: Object.fromEntries(kibanaResponse.headers.entries())
+      results.hopsworksData.prometheus = {
+        status: prometheusResponse.status,
+        statusText: prometheusResponse.statusText,
+        note: 'Prometheus typically runs on port 9089'
       };
-      if (kibanaResponse.ok) {
-        const contentType = kibanaResponse.headers.get('content-type');
-        if (contentType?.includes('application/json')) {
-          results.hopsworksData.kibana.data = await kibanaResponse.json();
-        } else {
-          results.hopsworksData.kibana.data = 'Non-JSON response';
-        }
-      }
-    } catch (kibanaError) {
-      results.hopsworksData.kibanaError = kibanaError instanceof Error ? kibanaError.message : 'Failed to test Kibana';
+    } catch (prometheusError) {
+      results.hopsworksData.prometheusError = prometheusError instanceof Error ? prometheusError.message : 'Failed to test Prometheus';
     }
 
-    // Try to find Kubernetes/cluster info
+    // Test audit log endpoint (for user activity metrics)
     try {
-      // Test if there's a cluster info endpoint
-      const clusterInfoResponse = await fetch(`${credentials.apiUrl}${ADMIN_API_BASE}/cluster`, {
+      const auditResponse = await fetch(`${credentials.apiUrl}${ADMIN_API_BASE}/audit`, {
         headers: {
           'Authorization': `ApiKey ${credentials.apiKey}`
         }
       });
-      results.hopsworksData.clusterInfo = {
-        status: clusterInfoResponse.status,
-        statusText: clusterInfoResponse.statusText
+      results.hopsworksData.audit = {
+        status: auditResponse.status,
+        statusText: auditResponse.statusText,
+        note: 'Audit logs can be used to track user activity'
       };
-      if (clusterInfoResponse.ok) {
-        results.hopsworksData.clusterInfo.data = await clusterInfoResponse.json();
-      }
-    } catch (clusterError) {
-      results.hopsworksData.clusterInfoError = clusterError instanceof Error ? clusterError.message : 'Failed to get cluster info';
+    } catch (auditError) {
+      results.hopsworksData.auditError = auditError instanceof Error ? auditError.message : 'Failed to test audit endpoint';
     }
 
-    // Try to get project details to see namespace info
-    if (hopsworksUser && hopsworksUser.numActiveProjects > 0) {
+    // Try to get project quota/usage information
+    if (results.hopsworksData.projects && results.hopsworksData.projects.length > 0) {
+      const firstProject = results.hopsworksData.projects[0];
       try {
-        // Try different project endpoints
-        const projectEndpoints = [
-          `${ADMIN_API_BASE}/projects`,
-          `${apiBasePath}/project`
-        ];
-        
-        for (const endpoint of projectEndpoints) {
-          const projectResponse = await fetch(`${credentials.apiUrl}${endpoint}`, {
-            headers: {
-              'Authorization': `ApiKey ${credentials.apiKey}`
-            }
-          });
-          
-          if (projectResponse.ok) {
-            const projects = await projectResponse.json();
-            results.hopsworksData.projectsViaEndpoint = {
-              endpoint,
-              data: projects
-            };
-            break;
+        // Check if there's a quota endpoint
+        const quotaResponse = await fetch(`${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${firstProject.id}/quotas`, {
+          headers: {
+            'Authorization': `ApiKey ${credentials.apiKey}`
           }
+        });
+        if (quotaResponse.ok) {
+          results.hopsworksData.sampleProjectQuota = await quotaResponse.json();
         }
-      } catch (projectError) {
-        results.hopsworksData.projectEndpointError = projectError instanceof Error ? projectError.message : 'Failed to get projects';
+      } catch (quotaError) {
+        console.error('Quota endpoint error:', quotaError);
       }
     }
 

@@ -51,6 +51,8 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [hopsworksTestResults, setHopsworksTestResults] = useState<Record<string, any>>({});
   const [testingHopsworks, setTestingHopsworks] = useState<Record<string, boolean>>({});
+  const [userMetrics, setUserMetrics] = useState<Record<string, any>>({});
+  const [fetchingMetrics, setFetchingMetrics] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState('users');
 
   // New cluster form
@@ -168,6 +170,35 @@ export default function AdminPage() {
     }
   };
 
+  const fetchUserMetrics = async (userId: string) => {
+    const metricsKey = `metrics-${userId}`;
+    setFetchingMetrics({ ...fetchingMetrics, [metricsKey]: true });
+
+    try {
+      const response = await fetch(`/api/admin/usage/${userId}`);
+      const data = await response.json();
+      
+      setUserMetrics({
+        ...userMetrics,
+        [metricsKey]: {
+          status: response.status,
+          data: data,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (err) {
+      setUserMetrics({
+        ...userMetrics,
+        [metricsKey]: {
+          error: err instanceof Error ? err.message : 'Failed to fetch metrics',
+          timestamp: new Date().toISOString()
+        }
+      });
+    } finally {
+      setFetchingMetrics({ ...fetchingMetrics, [metricsKey]: false });
+    }
+  };
+
   if (isLoading || loadingUsers || loadingClusters) {
     return (
       <Flex align="center" justify="center" className="min-h-screen">
@@ -211,7 +242,7 @@ export default function AdminPage() {
                       <th className="text-left py-2">Credits Used</th>
                       <th className="text-left py-2">Instance</th>
                       <th className="text-left py-2">Created</th>
-                      <th className="text-left py-2">Hopsworks Test</th>
+                      <th className="text-left py-2">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -259,13 +290,23 @@ export default function AdminPage() {
                         </td>
                         <td className="py-2">
                           {user.user_hopsworks_assignments?.[0] ? (
-                            <Button
-                              onClick={() => testHopsworksConnection(user.id)}
-                              disabled={testingHopsworks[`hopsworks-${user.id}`]}
-                              className="text-sm px-3 py-1"
-                            >
-                              {testingHopsworks[`hopsworks-${user.id}`] ? 'Testing...' : 'Test API'}
-                            </Button>
+                            <Flex gap={8}>
+                              <Button
+                                onClick={() => testHopsworksConnection(user.id)}
+                                disabled={testingHopsworks[`hopsworks-${user.id}`]}
+                                className="text-sm px-3 py-1"
+                              >
+                                {testingHopsworks[`hopsworks-${user.id}`] ? 'Testing...' : 'Test API'}
+                              </Button>
+                              <Button
+                                onClick={() => fetchUserMetrics(user.id)}
+                                disabled={fetchingMetrics[`metrics-${user.id}`]}
+                                className="text-sm px-3 py-1"
+                                intent="secondary"
+                              >
+                                {fetchingMetrics[`metrics-${user.id}`] ? 'Loading...' : 'Get Metrics'}
+                              </Button>
+                            </Flex>
                           ) : (
                             <Text className="text-gray text-sm">No cluster</Text>
                           )}
@@ -299,6 +340,119 @@ export default function AdminPage() {
                       )}
                     </Card>
                   ))}
+                </Box>
+              </Card>
+            )}
+
+            {/* User Metrics Results */}
+            {Object.keys(userMetrics).length > 0 && (
+              <Card withShadow className="mt-4">
+                <Title as="h3" className="text-lg mb-4">User Consumption Metrics</Title>
+                <Box className="space-y-4">
+                  {Object.entries(userMetrics).map(([key, result]) => {
+                    const userId = key.replace('metrics-', '');
+                    const user = users.find(u => u.id === userId);
+                    
+                    return (
+                      <Card key={key} className="border border-grayShade2 p-4">
+                        <Flex justify="between" align="center" className="mb-4">
+                          <Box>
+                            <Text className="font-semibold">{user?.email || key}</Text>
+                            <Text className="text-xs text-gray">{result.timestamp}</Text>
+                          </Box>
+                        </Flex>
+                        
+                        {result.error ? (
+                          <Text className="text-errorDefault">Error: {result.error}</Text>
+                        ) : result.data ? (
+                          <Box className="space-y-4">
+                            {/* Consumption Summary */}
+                            {result.data.consumption && (
+                              <Box>
+                                <Text className="font-semibold mb-2">Current Consumption</Text>
+                                <Box className="grid grid-cols-3 gap-4">
+                                  <Box className="bg-grayShade1 p-3 rounded">
+                                    <Text className="text-sm text-gray">Compute</Text>
+                                    <Text className="font-mono">
+                                      CPU: {result.data.consumption.compute.cpuHours.toFixed(2)}h
+                                    </Text>
+                                    <Text className="font-mono">
+                                      GPU: {result.data.consumption.compute.gpuHours.toFixed(2)}h
+                                    </Text>
+                                  </Box>
+                                  <Box className="bg-grayShade1 p-3 rounded">
+                                    <Text className="text-sm text-gray">Storage</Text>
+                                    <Text className="font-mono">
+                                      Total: {(result.data.consumption.storage.total / 1024 / 1024 / 1024).toFixed(2)} GB
+                                    </Text>
+                                  </Box>
+                                  <Box className="bg-grayShade1 p-3 rounded">
+                                    <Text className="text-sm text-gray">API Calls</Text>
+                                    <Text className="font-mono">
+                                      Total: {result.data.consumption.apiCalls.total}
+                                    </Text>
+                                  </Box>
+                                </Box>
+                              </Box>
+                            )}
+                            
+                            {/* Historical Totals */}
+                            {result.data.historicalTotals && (
+                              <Box>
+                                <Text className="font-semibold mb-2">Historical Usage (30 days)</Text>
+                                <Box className="bg-grayShade1 p-3 rounded">
+                                  <Text className="font-mono text-sm">
+                                    CPU Hours: {result.data.historicalTotals.cpu_hours.toFixed(2)}
+                                  </Text>
+                                  <Text className="font-mono text-sm">
+                                    GPU Hours: {result.data.historicalTotals.gpu_hours.toFixed(2)}
+                                  </Text>
+                                  <Text className="font-mono text-sm">
+                                    Storage GB-Months: {result.data.historicalTotals.storage_gb_months.toFixed(2)}
+                                  </Text>
+                                  <Text className="font-mono text-sm">
+                                    API Calls: {result.data.historicalTotals.api_calls}
+                                  </Text>
+                                  <Text className="font-mono text-sm font-semibold">
+                                    Total Cost: ${result.data.historicalTotals.total_cost.toFixed(2)}
+                                  </Text>
+                                </Box>
+                              </Box>
+                            )}
+                            
+                            {/* Projects Summary */}
+                            {result.data.projects && result.data.projects.length > 0 && (
+                              <Box>
+                                <Text className="font-semibold mb-2">Projects ({result.data.projects.length})</Text>
+                                {result.data.projects.map((project: any) => (
+                                  <Box key={project.id} className="bg-grayShade1 p-3 rounded mb-2">
+                                    <Text className="font-medium">{project.name}</Text>
+                                    <Text className="text-sm text-gray">
+                                      Datasets: {project.datasets?.length || 0} | 
+                                      Feature Stores: {project.featureStores?.length || 0} | 
+                                      Jobs: {project.jobs?.length || 0}
+                                    </Text>
+                                  </Box>
+                                ))}
+                              </Box>
+                            )}
+                            
+                            {/* Full Data Toggle */}
+                            <details>
+                              <summary className="cursor-pointer text-sm text-gray">View Full Response</summary>
+                              <Box className="bg-grayShade1 p-2 rounded overflow-x-auto mt-2">
+                                <pre className="text-xs">
+                                  {JSON.stringify(result.data, null, 2)}
+                                </pre>
+                              </Box>
+                            </details>
+                          </Box>
+                        ) : (
+                          <Text className="text-gray">No data</Text>
+                        )}
+                      </Card>
+                    );
+                  })}
                 </Box>
               </Card>
             )}
