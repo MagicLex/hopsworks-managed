@@ -78,22 +78,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     });
 
-    // Get projects count (from user's hopsworks_project_id)
-    // For now, return 1 if user has a project assigned, 0 otherwise
+    // Get user with their cluster assignment
     const { data: userData } = await supabaseAdmin
       .from('users')
-      .select('hopsworks_project_id')
+      .select(`
+        email,
+        hopsworks_project_id,
+        user_hopsworks_assignments (
+          hopsworks_clusters (
+            id,
+            api_url,
+            api_key
+          )
+        )
+      `)
       .eq('id', userId)
       .single();
     
-    const projectsCount = userData?.hopsworks_project_id ? 1 : 0;
+    let projectsCount = 0;
+    let modelsCount = 0;
 
-    // Get model deployments count
-    const { count: modelsCount } = await supabaseAdmin
-      .from('model_deployments')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .is('deleted_at', null);
+    // If user has a cluster assignment, fetch real data from Hopsworks
+    if (userData?.user_hopsworks_assignments?.[0]?.hopsworks_clusters) {
+      const cluster = userData.user_hopsworks_assignments[0].hopsworks_clusters;
+      
+      try {
+        const { getHopsworksUserByAuth0Id, getUserProjects } = await import('../../lib/hopsworks-api');
+        
+        const credentials = {
+          apiUrl: cluster.api_url,
+          apiKey: cluster.api_key
+        };
+
+        // Get Hopsworks user
+        const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, userData.email);
+        
+        if (hopsworksUser) {
+          // Get actual projects count
+          projectsCount = hopsworksUser.numActiveProjects || 0;
+          
+          // TODO: Get actual model deployments count from Hopsworks
+          // For now, we'll use the projects count as a placeholder
+          modelsCount = 0;
+        }
+      } catch (error) {
+        console.error('Error fetching Hopsworks data:', error);
+        // Fall back to database values
+        projectsCount = userData?.hopsworks_project_id ? 1 : 0;
+      }
+    } else {
+      // No cluster assigned, use database values
+      projectsCount = userData?.hopsworks_project_id ? 1 : 0;
+    }
 
     return res.status(200).json({
       cpuHours: totalUsage.cpuHours,

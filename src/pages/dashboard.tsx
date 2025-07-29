@@ -16,10 +16,32 @@ interface UsageData {
   modelDeployments: number;
 }
 
+interface HopsworksInfo {
+  hasCluster: boolean;
+  clusterName?: string;
+  hasHopsworksUser?: boolean;
+  hopsworksUser?: {
+    username: string;
+    email: string;
+    accountType: string;
+    status: number;
+    maxNumProjects: number;
+    numActiveProjects: number;
+    activated: string;
+  };
+  projects?: Array<{
+    id: number;
+    name: string;
+    owner: string;
+    created: string;
+  }>;
+}
+
 export default function Dashboard() {
   const { user, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
   const { data: usage, loading: usageLoading } = useApiData<UsageData>('/api/usage');
+  const { data: hopsworksInfo, loading: hopsworksLoading } = useApiData<HopsworksInfo>('/api/user/hopsworks-info');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -78,47 +100,71 @@ export default function Dashboard() {
                 </Text>
                 <Text className="text-xs text-gray-500">current usage</Text>
               </Card>
-              <Card className="p-4">
-                <Flex align="center" gap={8} className="mb-2">
-                  <Database size={16} className="text-[#1eb182]" />
-                  <Text className="text-sm text-gray-600">Projects</Text>
-                </Flex>
-                <Text className="text-xl font-semibold">
-                  {usageLoading ? '...' : (usage?.featureGroups || '0')}
-                </Text>
-                <Text className="text-xs text-gray-500">Active projects</Text>
-              </Card>
-              <Card className="p-4">
-                <Flex align="center" gap={8} className="mb-2">
-                  <Activity size={16} className="text-[#1eb182]" />
-                  <Text className="text-sm text-gray-600">Model Deployments</Text>
-                </Flex>
-                <Text className="text-xl font-semibold">
-                  {usageLoading ? '...' : (usage?.modelDeployments || '0')}
-                </Text>
-                <Text className="text-xs text-gray-500">Live models</Text>
-              </Card>
+              {hopsworksInfo?.hasHopsworksUser && (
+                <Card className="p-4">
+                  <Flex align="center" gap={8} className="mb-2">
+                    <Database size={16} className="text-[#1eb182]" />
+                    <Text className="text-sm text-gray-600">Projects</Text>
+                  </Flex>
+                  <Text className="text-xl font-semibold">
+                    {hopsworksLoading ? '...' : (hopsworksInfo?.hopsworksUser?.numActiveProjects || '0')}
+                  </Text>
+                  <Text className="text-xs text-gray-500">Active projects</Text>
+                </Card>
+              )}
             </Flex>
           </Box>
 
           <Flex direction="column" gap={16}>
-            <Card className="p-6">
-              <Flex align="center" gap={12} className="mb-4">
-                <Server size={20} className="text-[#1eb182]" />
-                <Title as="h2" className="text-lg">Your Hopsworks Instance</Title>
-                <Badge variant="success">Active</Badge>
-              </Flex>
-              <Text className="text-sm text-gray-600 mb-4">
-                Access your feature store, model registry, and ML pipelines
-              </Text>
-              <Button 
-                intent="primary"
-                className="uppercase"
-                onClick={() => router.push('/cluster')}
-              >
-                Access Hopsworks →
-              </Button>
-            </Card>
+            {hopsworksInfo?.hasCluster && (
+              <Card className="p-6">
+                <Flex align="center" gap={12} className="mb-4">
+                  <Server size={20} className="text-[#1eb182]" />
+                  <Title as="h2" className="text-lg">Your Hopsworks Cluster</Title>
+                  {hopsworksInfo?.hasHopsworksUser && (
+                    <Badge variant="success">Active</Badge>
+                  )}
+                </Flex>
+                {hopsworksInfo?.clusterName && (
+                  <Text className="text-sm font-medium mb-2">{hopsworksInfo.clusterName}</Text>
+                )}
+                {hopsworksInfo?.hasHopsworksUser && hopsworksInfo?.hopsworksUser && (
+                  <Text className="text-sm text-gray-600 mb-2">
+                    Username: {hopsworksInfo.hopsworksUser.username}
+                  </Text>
+                )}
+                <Text className="text-sm text-gray-600 mb-4">
+                  Access your feature store, model registry, and ML pipelines
+                </Text>
+                <Button 
+                  intent="primary"
+                  className="uppercase"
+                  onClick={() => router.push('/cluster')}
+                >
+                  Access Hopsworks →
+                </Button>
+              </Card>
+            )}
+
+            {hopsworksInfo?.projects && hopsworksInfo.projects.length > 0 && (
+              <Card className="p-6">
+                <Flex align="center" gap={12} className="mb-4">
+                  <Database size={20} className="text-[#1eb182]" />
+                  <Title as="h2" className="text-lg">Your Projects</Title>
+                </Flex>
+                <Box className="space-y-2">
+                  {hopsworksInfo.projects.map(project => (
+                    <Flex key={project.id} justify="between" align="center" className="py-2 border-b border-gray-100 last:border-0">
+                      <Box>
+                        <Text className="font-medium">{project.name}</Text>
+                        <Text className="text-xs text-gray-500">Created {new Date(project.created).toLocaleDateString()}</Text>
+                      </Box>
+                      <Badge variant="default" size="sm">ID: {project.id}</Badge>
+                    </Flex>
+                  ))}
+                </Box>
+              </Card>
+            )}
 
             <Card className="p-6">
               <Flex align="center" gap={12} className="mb-4">
