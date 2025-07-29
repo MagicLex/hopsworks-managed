@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: monthlyUsage, error: usageError } = await supabaseAdmin
       .from('usage_daily')
-      .select('cpu_hours, gpu_hours, storage_gb, api_calls, feature_store_api_calls, model_inference_calls')
+      .select('cpu_hours, gpu_hours, storage_gb, feature_store_api_calls, model_inference_calls')
       .eq('user_id', userId)
       .gte('date', startOfMonth.toISOString().split('T')[0])
       .lte('date', currentDate);
@@ -48,7 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       cpuHours: acc.cpuHours + (day.cpu_hours || 0),
       gpuHours: acc.gpuHours + (day.gpu_hours || 0),
       storageGB: Math.max(acc.storageGB, day.storage_gb || 0), // Use max for storage
-      apiCalls: acc.apiCalls + (day.api_calls || 0),
+      apiCalls: acc.apiCalls + (day.feature_store_api_calls || 0) + (day.model_inference_calls || 0), // Sum of both API types
       featureStoreApiCalls: acc.featureStoreApiCalls + (day.feature_store_api_calls || 0),
       modelInferenceCalls: acc.modelInferenceCalls + (day.model_inference_calls || 0)
     }), { 
