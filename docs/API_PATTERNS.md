@@ -202,10 +202,47 @@ interface HopsworksInfo {
 )}
 ```
 
+## User Consumption Metrics
+
+### Key Findings
+
+1. **Project Visibility**: `/project` endpoint only shows projects where API key owner is member. Use `/admin/projects` for ALL projects.
+
+2. **Finding User Projects**:
+```javascript
+// Get user ID first
+const user = users.find(u => u.email === "user@example.com");
+
+// Filter projects by creator ID (from admin endpoint)
+const userProjects = projects.filter(p => 
+  p.creator.href.endsWith(`/${user.id}`)
+);
+```
+
+3. **Fetching Consumption Data**:
+```bash
+/api/project/{projectId}/dataset          # Datasets (check .size)
+/api/project/{projectId}/jobs             # Jobs  
+/api/project/{projectId}/jobs/{id}/executions  # Compute hours (duration/3600000)
+/api/project/{projectId}/featurestores    # Feature stores
+```
+
+4. **Missing Endpoints** (return 404):
+- `/admin/users/{username}/projects`
+- `/admin/monitoring/metrics`
+- `/admin/audit`
+
+5. **Implementation**: See `/api/admin/usage/[userId]` for complete flow
+
+### Notes
+- No direct user consumption API - must aggregate from projects
+- Admin API key required for cluster-wide visibility
+- Current implementation only finds projects where user is creator (not member)
+
 ## Testing
 
-Use the admin panel's "Test API" button to verify:
-- Connectivity to Hopsworks cluster
-- User data retrieval
+Use the admin panel buttons to verify:
+- **"Test API"**: Basic connectivity and user lookup
+- **"Get Metrics"**: Full consumption metrics aggregation
 - Email-based matching
 - API key authentication
