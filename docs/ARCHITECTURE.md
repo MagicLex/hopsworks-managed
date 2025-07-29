@@ -19,7 +19,7 @@
 ### Daily Usage Collection (2 AM UTC)
 1. Loops through all active clusters
 2. For each user:
-   - Fetches Hopsworks user by Auth0 ID
+   - Fetches Hopsworks user by email (Hopsworks doesn't store Auth0 IDs)
    - Gets all user projects
    - Aggregates CPU/GPU hours, storage, API calls
 3. Stores in `usage_daily` with calculated costs
