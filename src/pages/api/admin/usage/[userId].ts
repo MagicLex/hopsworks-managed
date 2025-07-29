@@ -119,13 +119,27 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             
             if (allProjectsResponse.ok) {
               const allProjects = await allProjectsResponse.json();
-              const projectList = allProjects.items || allProjects || [];
+              const projectList = Array.isArray(allProjects) ? allProjects : (allProjects.items || []);
               
-              // Filter projects where the user is a member
-              projects = projectList.filter((p: any) => 
-                p.owner === hopsworksUser.username || 
-                p.members?.some((m: any) => m.username === hopsworksUser.username)
-              );
+              // Filter projects where the user is a member or owner
+              // The response format has project.user for the current member and project.project.owner for the owner
+              const userProjects = projectList.filter((item: any) => {
+                const isCurrentUser = item.user?.username === hopsworksUser.username || 
+                                     item.user?.email === user.email;
+                const isOwner = item.project?.owner?.username === hopsworksUser.username ||
+                               item.project?.owner?.email === user.email;
+                return isCurrentUser || isOwner;
+              });
+              
+              // Extract just the project data
+              projects = userProjects.map((item: any) => ({
+                id: item.project.id,
+                name: item.project.name,
+                owner: item.project.owner?.username || item.project.owner,
+                created: item.project.created,
+                namespace: item.project.namespace,
+                description: item.project.description
+              }));
               
               console.log(`Found ${projects.length} projects for user ${hopsworksUser.username}`);
             }
