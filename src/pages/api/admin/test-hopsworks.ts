@@ -42,17 +42,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Test connection to Hopsworks
-    const testResult = await testHopsworksConnection(
-      {
-        apiUrl: cluster.api_url,
-        apiKey: cluster.api_key
-      },
-      userId
-    );
+    // Import the Hopsworks API functions
+    const { 
+      getHopsworksUserByAuth0Id, 
+      getUserProjects,
+      getAllUsers,
+      getAllProjects
+    } = await import('../../../lib/hopsworks-api');
 
-    // Return comprehensive test results
-    return res.status(200).json({
+    const credentials = {
+      apiUrl: cluster.api_url,
+      apiKey: cluster.api_key
+    };
+
+    const results: any = {
       test: 'hopsworks-connection',
       timestamp: new Date().toISOString(),
       cluster: {
@@ -66,13 +69,34 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         email: user.email,
         hopsworks_project_id: user.hopsworks_project_id || 'not_set'
       },
-      connectionResult: testResult,
-      notes: [
-        'This is a test endpoint to verify Hopsworks API connectivity',
-        'Actual usage data collection requires proper authentication',
-        'Consider using ApiKey authentication or admin credentials'
-      ]
-    });
+      hopsworksData: {}
+    };
+
+    try {
+      // Try to find user by Auth0 ID
+      const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId);
+      results.hopsworksData.user = hopsworksUser;
+
+      if (hopsworksUser) {
+        // Get user's projects
+        const projects = await getUserProjects(credentials, hopsworksUser.username);
+        results.hopsworksData.projects = projects;
+        results.hopsworksData.projectCount = projects.length;
+      }
+    } catch (apiError) {
+      results.hopsworksData.userLookupError = apiError instanceof Error ? apiError.message : 'Failed to fetch user';
+    }
+
+    // Try to get general stats using admin endpoints
+    try {
+      // Get all users count
+      const allUsers = await getAllUsers(credentials, `ApiKey ${cluster.api_key}`);
+      results.hopsworksData.totalUsers = allUsers.length;
+    } catch (statsError) {
+      results.hopsworksData.statsError = statsError instanceof Error ? statsError.message : 'Failed to fetch stats';
+    }
+
+    return res.status(200).json(results);
   } catch (error) {
     console.error('Error testing Hopsworks connection:', error);
     return res.status(500).json({ 
