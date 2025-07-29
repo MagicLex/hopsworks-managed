@@ -1,8 +1,7 @@
 import { useUser } from '@auth0/nextjs-auth0/client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { Box, Flex, Title, Text, Button, Card, Input, Badge } from 'tailwind-quartz';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { Box, Flex, Title, Text, Button, Card, Input, Badge, Tabs, TabsContent, TabsList, TabsTrigger } from 'tailwind-quartz';
 import Navbar from '@/components/Navbar';
 
 interface User {
@@ -52,6 +51,7 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [hopsworksTestResults, setHopsworksTestResults] = useState<Record<string, any>>({});
   const [testingHopsworks, setTestingHopsworks] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState('users');
 
   // New cluster form
   const [newCluster, setNewCluster] = useState({
@@ -189,7 +189,7 @@ export default function AdminPage() {
           </Card>
         )}
 
-        <Tabs defaultValue="users" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="clusters">Clusters</TabsTrigger>
