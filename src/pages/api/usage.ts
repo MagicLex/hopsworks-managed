@@ -78,12 +78,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     });
 
-    // Get feature groups count
-    const { count: featureGroupsCount } = await supabaseAdmin
-      .from('feature_groups')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .is('deleted_at', null);
+    // Get projects count (from user's hopsworks_project_id)
+    // For now, return 1 if user has a project assigned, 0 otherwise
+    const { data: userData } = await supabaseAdmin
+      .from('users')
+      .select('hopsworks_project_id')
+      .eq('id', userId)
+      .single();
+    
+    const projectsCount = userData?.hopsworks_project_id ? 1 : 0;
 
     // Get model deployments count
     const { count: modelsCount } = await supabaseAdmin
@@ -96,7 +99,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       cpuHours: totalUsage.cpuHours,
       gpuHours: totalUsage.gpuHours,
       storageGB: totalUsage.storageGB,
-      featureGroups: featureGroupsCount || 0,
+      featureGroups: projectsCount || 0,
       modelDeployments: modelsCount || 0,
       apiCalls: totalUsage.apiCalls,
       featureStoreApiCalls: totalUsage.featureStoreApiCalls,

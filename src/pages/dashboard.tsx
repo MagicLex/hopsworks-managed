@@ -81,12 +81,12 @@ export default function Dashboard() {
               <Card className="p-4">
                 <Flex align="center" gap={8} className="mb-2">
                   <Database size={16} className="text-[#1eb182]" />
-                  <Text className="text-sm text-gray-600">Feature Groups</Text>
+                  <Text className="text-sm text-gray-600">Projects</Text>
                 </Flex>
                 <Text className="text-xl font-semibold">
                   {usageLoading ? '...' : (usage?.featureGroups || '0')}
                 </Text>
-                <Text className="text-xs text-gray-500">Active feature groups</Text>
+                <Text className="text-xs text-gray-500">Active projects</Text>
               </Card>
               <Card className="p-4">
                 <Flex align="center" gap={8} className="mb-2">

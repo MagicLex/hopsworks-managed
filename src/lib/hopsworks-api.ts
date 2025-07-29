@@ -2,6 +2,7 @@
 // Based on patterns from hopsworks-cloud
 
 export const HOPSWORKS_API_BASE = '/hopsworks-api/api';
+export const ADMIN_API_BASE = '/hopsworks-api/api/admin';
 
 interface HopsworksCredentials {
   apiUrl: string;
@@ -179,7 +180,7 @@ export async function getHopsworksUserByAuth0Id(
 ): Promise<HopsworksUser | null> {
   // Search for user by OAuth subject
   const response = await fetch(
-    `${credentials.apiUrl}${HOPSWORKS_API_BASE}/admin/users?filter=subject:${auth0Id}`,
+    `${credentials.apiUrl}${ADMIN_API_BASE}/users?filter=subject:${auth0Id}`,
     {
       headers: {
         'Authorization': `ApiKey ${credentials.apiKey}`
@@ -193,4 +194,158 @@ export async function getHopsworksUserByAuth0Id(
 
   const data = await response.json();
   return data.items?.[0] || null;
+}
+
+/**
+ * Admin login to get auth token
+ */
+export async function adminLogin(
+  credentials: HopsworksCredentials,
+  adminEmail: string,
+  adminPassword: string
+): Promise<string> {
+  const response = await fetch(
+    `${credentials.apiUrl}${HOPSWORKS_API_BASE}/auth/login`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: `email=${encodeURIComponent(adminEmail)}&password=${encodeURIComponent(adminPassword)}`
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Admin login failed: ${response.statusText}`);
+  }
+
+  // Extract auth token from response
+  const authHeader = response.headers.get('authorization');
+  if (!authHeader) {
+    throw new Error('No authorization header in login response');
+  }
+
+  return authHeader;
+}
+
+/**
+ * Get all users (admin endpoint)
+ */
+export async function getAllUsers(
+  credentials: HopsworksCredentials,
+  authToken: string
+): Promise<HopsworksUser[]> {
+  const response = await fetch(
+    `${credentials.apiUrl}${ADMIN_API_BASE}/users`,
+    {
+      headers: {
+        'Authorization': authToken
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch users: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.items || [];
+}
+
+/**
+ * Get all projects (admin endpoint)
+ */
+export async function getAllProjects(
+  credentials: HopsworksCredentials,
+  authToken: string
+): Promise<HopsworksProject[]> {
+  const response = await fetch(
+    `${credentials.apiUrl}${ADMIN_API_BASE}/projects`,
+    {
+      headers: {
+        'Authorization': authToken
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch projects: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.items || [];
+}
+
+/**
+ * Get user's projects by username
+ */
+export async function getUserProjectsByUsername(
+  credentials: HopsworksCredentials,
+  authToken: string,
+  username: string
+): Promise<HopsworksProject[]> {
+  const response = await fetch(
+    `${credentials.apiUrl}${ADMIN_API_BASE}/users/${username}/projects`,
+    {
+      headers: {
+        'Authorization': authToken
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch user projects: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.items || [];
+}
+
+/**
+ * Test API connection and fetch user data
+ */
+export async function testHopsworksConnection(
+  credentials: HopsworksCredentials,
+  userId: string
+): Promise<any> {
+  try {
+    // For now, return a test response structure
+    // In production, you would use admin credentials to login first
+    const testData = {
+      connectionTest: {
+        apiUrl: credentials.apiUrl,
+        timestamp: new Date().toISOString(),
+        status: 'pending'
+      },
+      userLookup: {
+        userId,
+        message: 'API key authentication required for actual data'
+      },
+      availableEndpoints: [
+        `${ADMIN_API_BASE}/users`,
+        `${ADMIN_API_BASE}/projects`,
+        `${ADMIN_API_BASE}/users/{username}/projects`,
+        `${HOPSWORKS_API_BASE}/auth/login`
+      ]
+    };
+
+    // Try a simple ping to test connectivity
+    try {
+      const pingResponse = await fetch(credentials.apiUrl, {
+        method: 'HEAD',
+        mode: 'no-cors' // Avoid CORS issues for testing
+      });
+      testData.connectionTest.status = 'reachable';
+    } catch (error) {
+      testData.connectionTest.status = 'unreachable';
+      testData.connectionTest.error = error.message;
+    }
+
+    return testData;
+  } catch (error) {
+    return {
+      error: error.message,
+      timestamp: new Date().toISOString()
+    };
+  }
 }

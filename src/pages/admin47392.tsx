@@ -50,6 +50,8 @@ export default function AdminPage() {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingClusters, setLoadingClusters] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hopsworksTestResults, setHopsworksTestResults] = useState<Record<string, any>>({});
+  const [testingHopsworks, setTestingHopsworks] = useState<Record<string, boolean>>({});
 
   // New cluster form
   const [newCluster, setNewCluster] = useState({
@@ -123,6 +125,49 @@ export default function AdminPage() {
     }
   };
 
+  const testHopsworksConnection = async (userId: string) => {
+    const userCluster = users.find(u => u.id === userId)?.user_hopsworks_assignments?.[0];
+    if (!userCluster) {
+      setError('User has no cluster assignment');
+      return;
+    }
+
+    const testKey = `hopsworks-${userId}`;
+    setTestingHopsworks({ ...testingHopsworks, [testKey]: true });
+
+    try {
+      const response = await fetch('/api/admin/test-hopsworks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          clusterId: userCluster.hopsworks_cluster_id
+        })
+      });
+
+      const data = await response.json();
+      
+      setHopsworksTestResults({
+        ...hopsworksTestResults,
+        [testKey]: {
+          status: response.status,
+          data: data,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (err) {
+      setHopsworksTestResults({
+        ...hopsworksTestResults,
+        [testKey]: {
+          error: err instanceof Error ? err.message : 'Failed to test',
+          timestamp: new Date().toISOString()
+        }
+      });
+    } finally {
+      setTestingHopsworks({ ...testingHopsworks, [testKey]: false });
+    }
+  };
+
   if (isLoading || loadingUsers || loadingClusters) {
     return (
       <Flex align="center" justify="center" className="min-h-screen">
@@ -166,6 +211,7 @@ export default function AdminPage() {
                       <th className="text-left py-2">Credits Used</th>
                       <th className="text-left py-2">Instance</th>
                       <th className="text-left py-2">Created</th>
+                      <th className="text-left py-2">Hopsworks Test</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -211,12 +257,51 @@ export default function AdminPage() {
                         <td className="py-2">
                           <Text className="text-gray">{new Date(user.created_at).toLocaleDateString()}</Text>
                         </td>
+                        <td className="py-2">
+                          {user.user_hopsworks_assignments?.[0] ? (
+                            <Button
+                              size="sm"
+                              onClick={() => testHopsworksConnection(user.id)}
+                              disabled={testingHopsworks[`hopsworks-${user.id}`]}
+                            >
+                              {testingHopsworks[`hopsworks-${user.id}`] ? 'Testing...' : 'Test API'}
+                            </Button>
+                          ) : (
+                            <Text className="text-gray text-sm">No cluster</Text>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </Box>
             </Card>
+
+            {/* Hopsworks Test Results */}
+            {Object.keys(hopsworksTestResults).length > 0 && (
+              <Card withShadow className="mt-4">
+                <Title as="h3" className="text-lg mb-4">Hopsworks API Test Results</Title>
+                <Box className="space-y-4">
+                  {Object.entries(hopsworksTestResults).map(([key, result]) => (
+                    <Card key={key} className="border border-grayShade2 p-4">
+                      <Flex justify="between" align="center" className="mb-2">
+                        <Text className="font-mono text-sm font-semibold">{key}</Text>
+                        <Text className="text-xs text-gray">{result.timestamp}</Text>
+                      </Flex>
+                      {result.error ? (
+                        <Text className="text-errorDefault">Error: {result.error}</Text>
+                      ) : (
+                        <Box className="bg-grayShade1 p-2 rounded overflow-x-auto">
+                          <pre className="text-xs">
+                            {JSON.stringify(result.data, null, 2)}
+                          </pre>
+                        </Box>
+                      )}
+                    </Card>
+                  ))}
+                </Box>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="clusters">

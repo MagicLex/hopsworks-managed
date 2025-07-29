@@ -30,10 +30,28 @@ export default function Account() {
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmation === 'DELETE') {
-      // TODO: Call API to delete user data from Supabase
-      // TODO: Delete user from Auth0
-      await signOut();
-      router.push('/');
+      try {
+        // Call API to delete user data
+        const response = await fetch('/api/account/delete', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete account');
+        }
+
+        // Sign out and redirect
+        await signOut();
+        router.push('/');
+      } catch (error) {
+        console.error('Error deleting account:', error);
+        // Still sign out even if deletion fails
+        await signOut();
+        router.push('/');
+      }
     }
   };
 
