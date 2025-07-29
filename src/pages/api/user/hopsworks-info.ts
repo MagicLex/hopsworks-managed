@@ -50,7 +50,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const cluster = userData.user_hopsworks_assignments[0].hopsworks_clusters;
+    const clusterData = userData.user_hopsworks_assignments[0].hopsworks_clusters;
+    // Handle both array and single object response from Supabase
+    const cluster = Array.isArray(clusterData) ? clusterData[0] : clusterData;
+    
+    if (!cluster) {
+      return res.status(200).json({
+        hasCluster: true,
+        clusterName: 'Unknown',
+        error: 'Cluster data not found'
+      });
+    }
     
     try {
       const { getHopsworksUserByAuth0Id, getUserProjects } = await import('../../../lib/hopsworks-api');
@@ -73,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Get user's projects
-      let projects = [];
+      let projects: any[] = [];
       try {
         projects = await getUserProjects(credentials, hopsworksUser.username);
       } catch (error) {

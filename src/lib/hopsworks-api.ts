@@ -13,6 +13,16 @@ interface HopsworksUser {
   username: string;
   email: string;
   id: number;
+  firstname?: string;
+  lastname?: string;
+  accountType?: string;
+  status?: number;
+  maxNumProjects?: number;
+  numActiveProjects?: number;
+  activated?: string;
+  twoFactor?: boolean;
+  toursState?: number;
+  href?: string;
 }
 
 interface HopsworksProject {
