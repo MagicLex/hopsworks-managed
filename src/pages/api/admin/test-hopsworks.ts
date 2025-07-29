@@ -100,6 +100,54 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       results.hopsworksData.statsError = statsError instanceof Error ? statsError.message : 'Failed to fetch stats';
     }
 
+    // Test Grafana endpoint
+    try {
+      const grafanaResponse = await fetch(`${credentials.apiUrl}/hopsworks-api/grafana`, {
+        headers: {
+          'Authorization': `ApiKey ${credentials.apiKey}`
+        }
+      });
+      results.hopsworksData.grafana = {
+        status: grafanaResponse.status,
+        statusText: grafanaResponse.statusText,
+        headers: Object.fromEntries(grafanaResponse.headers.entries())
+      };
+      if (grafanaResponse.ok) {
+        const contentType = grafanaResponse.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          results.hopsworksData.grafana.data = await grafanaResponse.json();
+        } else {
+          results.hopsworksData.grafana.data = 'Non-JSON response';
+        }
+      }
+    } catch (grafanaError) {
+      results.hopsworksData.grafanaError = grafanaError instanceof Error ? grafanaError.message : 'Failed to test Grafana';
+    }
+
+    // Test Kibana endpoint
+    try {
+      const kibanaResponse = await fetch(`${credentials.apiUrl}/hopsworks-api/kibana`, {
+        headers: {
+          'Authorization': `ApiKey ${credentials.apiKey}`
+        }
+      });
+      results.hopsworksData.kibana = {
+        status: kibanaResponse.status,
+        statusText: kibanaResponse.statusText,
+        headers: Object.fromEntries(kibanaResponse.headers.entries())
+      };
+      if (kibanaResponse.ok) {
+        const contentType = kibanaResponse.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          results.hopsworksData.kibana.data = await kibanaResponse.json();
+        } else {
+          results.hopsworksData.kibana.data = 'Non-JSON response';
+        }
+      }
+    } catch (kibanaError) {
+      results.hopsworksData.kibanaError = kibanaError instanceof Error ? kibanaError.message : 'Failed to test Kibana';
+    }
+
     return res.status(200).json(results);
   } catch (error) {
     console.error('Error testing Hopsworks connection:', error);
