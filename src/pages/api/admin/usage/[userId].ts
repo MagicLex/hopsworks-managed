@@ -106,10 +106,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         } catch (e) {
           console.log('Admin endpoint failed, trying alternative approach');
           
-          // Try getting all projects and filtering
+          // Try getting all projects from admin endpoint
           try {
             const allProjectsResponse = await fetch(
-              `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project`,
+              `${credentials.apiUrl}${ADMIN_API_BASE}/projects`,
               {
                 headers: {
                   'Authorization': `ApiKey ${credentials.apiKey}`
@@ -119,30 +119,31 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             
             if (allProjectsResponse.ok) {
               const allProjects = await allProjectsResponse.json();
-              const projectList = Array.isArray(allProjects) ? allProjects : (allProjects.items || []);
+              const projectList = allProjects.items || [];
               
-              // Filter projects where the user is a member or owner
-              // The response format has project.user for the current member and project.project.owner for the owner
-              const userProjects = projectList.filter((item: any) => {
-                const isCurrentUser = item.user?.username === hopsworksUser.username || 
-                                     item.user?.email === user.email;
-                const isOwner = item.project?.owner?.username === hopsworksUser.username ||
-                               item.project?.owner?.email === user.email;
-                return isCurrentUser || isOwner;
+              // Filter projects where the user is the creator
+              const userProjects = projectList.filter((project: any) => {
+                // The creator href ends with the user ID
+                const creatorId = project.creator?.href?.split('/').pop();
+                return creatorId === String(hopsworksUser.id);
               });
               
-              // Extract just the project data
-              projects = userProjects.map((item: any) => ({
-                id: item.project.id,
-                name: item.project.name,
-                owner: item.project.owner?.username || item.project.owner,
-                created: item.project.created,
-                namespace: item.project.namespace,
-                description: item.project.description
+              // If no projects found as creator, try to get project members
+              if (userProjects.length === 0 && hopsworksUser.numActiveProjects > 0) {
+                // User has projects but is not the creator, they must be a member
+                // We'll need to check each project's members
+                console.log(`User ${hopsworksUser.username} has ${hopsworksUser.numActiveProjects} projects but is not creator of any`);
+              }
+              
+              projects = userProjects.map((project: any) => ({
+                id: project.id,
+                name: project.name,
+                created: project.created,
+                paymentType: project.paymentType,
+                lastQuotaUpdate: project.lastQuotaUpdate
               }));
               
-              console.log(`Found ${projects.length} projects for user ${hopsworksUser.username}`);
-            }
+              console.log(`Found ${projects.length} projects where user ${hopsworksUser.username} is creator`);
           } catch (altError) {
             console.error('Alternative project fetch failed:', altError);
             projects = [];
