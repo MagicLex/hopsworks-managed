@@ -97,8 +97,43 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           numActiveProjects: hopsworksUser.numActiveProjects
         };
 
-        // Get user's projects
-        const projects = await getUserProjects(credentials, hopsworksUser.username);
+        // Get user's projects - try different approaches
+        let projects: any[] = [];
+        
+        // First try the admin endpoint
+        try {
+          projects = await getUserProjects(credentials, hopsworksUser.username);
+        } catch (e) {
+          console.log('Admin endpoint failed, trying alternative approach');
+          
+          // Try getting all projects and filtering
+          try {
+            const allProjectsResponse = await fetch(
+              `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project`,
+              {
+                headers: {
+                  'Authorization': `ApiKey ${credentials.apiKey}`
+                }
+              }
+            );
+            
+            if (allProjectsResponse.ok) {
+              const allProjects = await allProjectsResponse.json();
+              const projectList = allProjects.items || allProjects || [];
+              
+              // Filter projects where the user is a member
+              projects = projectList.filter((p: any) => 
+                p.owner === hopsworksUser.username || 
+                p.members?.some((m: any) => m.username === hopsworksUser.username)
+              );
+              
+              console.log(`Found ${projects.length} projects for user ${hopsworksUser.username}`);
+            }
+          } catch (altError) {
+            console.error('Alternative project fetch failed:', altError);
+            projects = [];
+          }
+        }
         
         for (const project of projects) {
           const projectMetrics: any = {
@@ -282,6 +317,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           metrics.consumption.apiCalls.featureStore + 
           metrics.consumption.apiCalls.modelServing + 
           metrics.consumption.apiCalls.jobs;
+          
+        // Add debug info
+        metrics.debug = {
+          projectsFound: projects.length,
+          projectsFetched: metrics.projects.length,
+          hopsworksUsername: hopsworksUser.username
+        };
       }
 
       // Get historical usage from our database
