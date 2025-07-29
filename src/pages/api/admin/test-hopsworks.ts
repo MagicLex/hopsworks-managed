@@ -90,8 +90,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Try to get general stats using admin endpoints
     try {
       // Get all users count
-      const allUsers = await getAllUsers(credentials, `ApiKey ${cluster.api_key}`);
+      const allUsers = await getAllUsers(credentials, `ApiKey ${credentials.apiKey}`);
       results.hopsworksData.totalUsers = allUsers.length;
+      
+      // Log the response to debug the filter issue
+      console.log('getAllUsers response sample:', allUsers.slice(0, 3));
+      
+      // Try to find the actual user in the list
+      const actualUser = allUsers.find(u => 
+        u.email === user.email || 
+        (u as any).subject === userId || 
+        (u as any).oauth2Subject === userId
+      );
+      
+      if (actualUser) {
+        results.hopsworksData.actualUserFromList = actualUser;
+      }
     } catch (statsError) {
       results.hopsworksData.statsError = statsError instanceof Error ? statsError.message : 'Failed to fetch stats';
     }

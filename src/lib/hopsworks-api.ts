@@ -178,9 +178,10 @@ export async function getHopsworksUserByAuth0Id(
   credentials: HopsworksCredentials,
   auth0Id: string
 ): Promise<HopsworksUser | null> {
-  // Search for user by OAuth subject
+  // First try to get all users and find by Auth0 ID
+  // The filter syntax might not work as expected
   const response = await fetch(
-    `${credentials.apiUrl}${ADMIN_API_BASE}/users?filter=subject:${auth0Id}`,
+    `${credentials.apiUrl}${ADMIN_API_BASE}/users`,
     {
       headers: {
         'Authorization': `ApiKey ${credentials.apiKey}`
@@ -193,7 +194,20 @@ export async function getHopsworksUserByAuth0Id(
   }
 
   const data = await response.json();
-  return data.items?.[0] || null;
+  const users = data.items || [];
+  
+  // Log first few users to see the structure
+  console.log('Sample user structure:', users[0]);
+  
+  // Try to find user by Auth0 ID in various possible fields
+  const user = users.find((u: any) => 
+    u.subject === auth0Id || 
+    u.oauth2Subject === auth0Id ||
+    u.remoteUser === auth0Id ||
+    (u.accountType === 'REMOTE_ACCOUNT_TYPE' && u.email === auth0Id) // Sometimes auth0Id might be stored differently
+  );
+  
+  return user || null;
 }
 
 /**
