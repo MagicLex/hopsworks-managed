@@ -123,7 +123,7 @@ Set up these cron jobs (using Vercel Cron, GitHub Actions, or external service):
 
 1. **Usage Collection** (Daily at 2 AM)
    ```bash
-   curl -X POST https://your-domain.com/api/usage/collect \
+   curl -X POST https://your-domain.com/api/usage/collect-k8s \
      -H "Authorization: Bearer YOUR_CRON_SECRET"
    ```
 

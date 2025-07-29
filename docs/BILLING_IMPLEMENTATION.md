@@ -45,27 +45,29 @@ When a new user signs up:
 3. Creates OAuth user in Hopsworks
 4. Creates default project for the user
 
-### 2. Usage Collection (`/api/usage/collect.ts`)
-FULLY IMPLEMENTED - Collects real usage data:
-1. Loops through all active clusters
-2. For each user, fetches from Hopsworks API:
-   - User lookup by Auth0 ID
-   - All user projects
-   - Daily usage per project (CPU/GPU hours, storage, API calls)
-3. Stores in `usage_daily` table with calculated costs
+### 2. Usage Collection (`/api/usage/collect-k8s.ts`)
+FULLY IMPLEMENTED - Collects real usage data from Kubernetes:
+1. Loops through all active clusters with kubeconfig
+2. For each user, fetches from Kubernetes:
+   - All pods labeled with owner/user = hopsworks_username
+   - CPU and memory usage from metrics-server
+   - Groups by project namespace
+3. Stores in `usage_hourly` and `usage_daily` tables with calculated costs
 4. Deducts credits for prepaid users automatically
 
-### 3. Hopsworks API Integration (`/lib/hopsworks-api.ts`)
-Implemented these functions:
+### 3. Kubernetes Metrics Integration (`/lib/kubernetes-metrics.ts`)
+Implemented to replace broken Hopsworks API:
+- `getUserMetrics` - Gets all metrics for a user across projects
+- `getProjectMetrics` - Gets metrics for a specific namespace
+- Maps pods to users via labels (owner, user, project-id)
+- Aggregates CPU cores, memory GB, and pod counts
+
+### 4. Hopsworks API Integration (`/lib/hopsworks-api.ts`)
+Still used for user/project management:
 - `createHopsworksOAuthUser` - Creates OAuth user in Hopsworks
 - `createHopsworksProject` - Creates project with standard services  
 - `getUserProjects` - Gets all projects for a user
-- `getProjectUsage` - Gets daily usage for a project (NOT WORKING - see limitations)
 - `getHopsworksUserByAuth0Id` - Maps Auth0 ID to Hopsworks user
-
-### 4. Current API Limitations
-- No usage metrics exposed via the Hopsworks API
-- Will require direct Kubernetes cluster access for metrics
 
 ## ❌ Still Needed from Hopsworks
 

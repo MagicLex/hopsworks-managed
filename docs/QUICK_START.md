@@ -47,11 +47,13 @@ In admin panel (`/admin47392`):
 1. Sign up as new user
 2. Check Stripe customer created
 3. Check user assigned to cluster
-4. Click "Test API" in admin panel
-5. Run usage collection: `POST /api/usage/collect`
+4. Upload kubeconfig in admin panel → Clusters tab
+5. Click "Test API" in admin panel to see Kubernetes metrics
+6. Run usage collection: `POST /api/usage/collect-k8s`
 
 ## Common Issues
 
 - **No cluster assignment**: Check cluster has capacity
-- **Usage not collected**: Check cluster API credentials
+- **No Kubernetes metrics**: Upload kubeconfig for the cluster
+- **User not found in K8s**: Set hopsworks_username in users table
 - **Credits not deducted**: Enable prepaid in user's feature_flags

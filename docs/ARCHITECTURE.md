@@ -17,12 +17,12 @@
 4. Creates OAuth user in Hopsworks (if configured)
 
 ### Daily Usage Collection (2 AM UTC)
-1. Loops through all active clusters
+1. Loops through all active clusters with kubeconfig
 2. For each user:
-   - Fetches Hopsworks user by email (Hopsworks doesn't store Auth0 IDs)
-   - Gets all user projects
-   - Aggregates CPU/GPU hours, storage, API calls
-3. Stores in `usage_daily` with calculated costs
+   - Queries Kubernetes for pods labeled with user's hopsworks_username
+   - Gets CPU/memory metrics from metrics-server
+   - Aggregates usage by project namespace
+3. Stores in `usage_hourly` and `usage_daily` with calculated costs
 4. Deducts credits for prepaid users
 
 ### Billing
@@ -31,9 +31,11 @@
 - Hybrid model supports both simultaneously
 
 ## Database Schema
-- **`users`** - Auth0 ID as primary key
-- **`hopsworks_clusters`** - Shared cluster endpoints (NOT individual deployments)
+- **`users`** - Auth0 ID as primary key, includes hopsworks_username for K8s mapping
+- **`hopsworks_clusters`** - Shared cluster endpoints with kubeconfig for metrics
 - **`user_hopsworks_assignments`** - Maps users to clusters
+- **`usage_hourly`** - Granular usage tracking from Kubernetes
+- **`usage_daily`** - Aggregated daily usage for billing
 - **`usage_daily`** - Daily usage records with costs
 - **`user_credits`** - Prepaid credit tracking
 - **`user_billing_subscriptions`** - Stripe subscription info

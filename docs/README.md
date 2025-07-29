@@ -14,23 +14,24 @@
 - Database: Supabase with service role key
 - Auth: Auth0 SDK v3 (NOT v4)
 - Billing: Stripe with hybrid prepaid/postpaid
-- Usage: Collected daily from Hopsworks API
+- Usage: Collected daily from Kubernetes cluster metrics
 
 ## How It Works
 1. User signs up → Auth0 → Webhook creates Stripe subscription
 2. User assigned to Hopsworks cluster automatically
-3. Daily cron pulls usage from Hopsworks API
+3. Daily cron pulls usage from Kubernetes metrics (CPU, memory, storage)
 4. Usage billed via Stripe (postpaid) or credits (prepaid)
 
 ## API Endpoints That Matter
 - `/api/usage` - User's usage data
 - `/api/billing` - Billing info and credit balance
 - `/api/instance` - Get Hopsworks cluster URL
-- `/api/usage/collect` - Cron job to collect usage
+- `/api/usage/collect-k8s` - Cron job to collect usage from Kubernetes
 - `/api/admin/*` - Admin management
 
 ## Common Tasks
 - Make user admin: `UPDATE users SET is_admin = true WHERE email = 'x@y.com'`
-- Test Hopsworks API: Click "Test API" button in admin panel
+- Test K8s metrics: Click "Test API" button in admin panel (see Kubernetes Metrics section)
+- Upload kubeconfig: Admin panel → Clusters tab → Upload Kubeconfig
 - Enable prepaid: Use admin panel billing controls
 - Add cluster: Use admin panel cluster management
