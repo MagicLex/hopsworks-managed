@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { requireAdmin } from '../../../middleware/adminAuth';
 import { createClient } from '@supabase/supabase-js';
 import { getHopsworksUserByAuth0Id } from '../../../lib/hopsworks-api';
+import https from 'https';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

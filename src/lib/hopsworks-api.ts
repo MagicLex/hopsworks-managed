@@ -4,6 +4,12 @@
 export const HOPSWORKS_API_BASE = '/hopsworks-api/api';
 export const ADMIN_API_BASE = '/hopsworks-api/api/admin';
 
+// For Node.js 18+ with self-signed certificates
+// WARNING: Only use this if your Hopsworks cluster uses self-signed certificates
+if (typeof process !== 'undefined') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
 interface HopsworksCredentials {
   apiUrl: string;
   apiKey: string;
