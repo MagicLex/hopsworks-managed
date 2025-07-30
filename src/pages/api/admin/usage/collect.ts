@@ -8,8 +8,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    // Call the collection function directly
-    const result = await collectK8sMetrics();
+    // Call the collection function directly with force aggregation
+    const result = await collectK8sMetrics(true);
 
     return res.status(200).json({
       message: 'Usage collection triggered successfully',

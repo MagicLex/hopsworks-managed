@@ -13,7 +13,7 @@ const supabaseAdmin = createClient(
   }
 );
 
-export async function collectK8sMetrics() {
+export async function collectK8sMetrics(forceAggregation = false) {
   const now = new Date();
   const currentHour = now.toISOString().slice(0, 13); // YYYY-MM-DDTHH
   const currentDate = now.toISOString().split('T')[0];
@@ -170,9 +170,10 @@ export async function collectK8sMetrics() {
     }
   }
 
-  // Aggregate hourly data to daily if it's midnight
-  if (now.getHours() === 0) {
-    await aggregateHourlyToDaily(currentDate);
+  // Aggregate hourly data to daily if it's midnight OR if forced
+  if (now.getHours() === 0 || forceAggregation) {
+    // Aggregate today's data so far
+    await aggregateHourlyToDaily(new Date(currentDate).toISOString().split('T')[0], true);
   }
 
   console.log(`K8s metrics collection completed: ${results.successful} successful, ${results.failed} failed`);
@@ -185,17 +186,19 @@ export async function collectK8sMetrics() {
 }
 
 // Aggregate hourly metrics to daily
-async function aggregateHourlyToDaily(date: string) {
+async function aggregateHourlyToDaily(date: string, aggregateToday = false) {
   try {
-    // Get all hourly records for the previous day
-    const yesterday = new Date(date);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    // Get all hourly records for the target day
+    const targetDate = aggregateToday ? date : (() => {
+      const yesterday = new Date(date);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return yesterday.toISOString().split('T')[0];
+    })();
 
     const { data: hourlyRecords } = await supabaseAdmin
       .from('usage_hourly')
       .select('*')
-      .eq('date', yesterdayStr);
+      .eq('date', targetDate);
 
     if (!hourlyRecords || hourlyRecords.length === 0) {
       return;
@@ -244,7 +247,7 @@ async function aggregateHourlyToDaily(date: string) {
         .from('usage_daily')
         .upsert({
           user_id: userId,
-          date: yesterdayStr,
+          date: targetDate,
           hopsworks_cluster_id: totals.cluster_id,
           cpu_hours: totals.cpu_hours,
           gpu_hours: totals.gpu_hours,
@@ -269,7 +272,7 @@ async function aggregateHourlyToDaily(date: string) {
         await supabaseAdmin.rpc('deduct_user_credits', {
           p_user_id: userId,
           p_amount: totals.total_cost,
-          p_description: `Daily usage for ${yesterdayStr}`,
+          p_description: `Daily usage for ${targetDate}`,
           p_usage_daily_id: usageRecord.id
         });
 
