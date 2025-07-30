@@ -108,14 +108,11 @@ export async function collectK8sMetrics() {
               .from('usage_daily')
               .update({
                 cpu_hours: cpuHours,
-                memory_gb_hours: memoryGB,
+                gpu_hours: 0,
                 storage_gb: storageGB,
-                instance_type: instanceType,
-                instance_hours: cpuHours, // Approximate
-                total_cost: totalCost,
-                project_count: userMetrics.projects.length,
-                hopsworks_cluster_id: cluster.id,
-                updated_at: now
+                feature_store_api_calls: 0,
+                model_inference_calls: 0,
+                created_at: now
               })
               .eq('id', existingRecord.id);
               
@@ -124,20 +121,15 @@ export async function collectK8sMetrics() {
               throw new Error(`Failed to update usage record: ${updateError.message}`);
             }
           } else {
-            // Create new record
+            // Create new record - only use columns from original schema
             const insertData = {
               user_id: assignment.user_id,
               date: currentDate,
-              hopsworks_cluster_id: cluster.id,
               cpu_hours: cpuHours,
               gpu_hours: 0,
               storage_gb: storageGB,
-              memory_gb_hours: memoryGB,
-              instance_type: instanceType,
-              instance_hours: cpuHours, // Approximate
-              total_cost: totalCost,
-              project_count: userMetrics.projects.length,
-              reported_to_stripe: false
+              feature_store_api_calls: 0,
+              model_inference_calls: 0
             };
             
             console.log(`Inserting daily usage for ${username}:`, JSON.stringify(insertData, null, 2));
@@ -152,20 +144,7 @@ export async function collectK8sMetrics() {
             }
           }
 
-          // Handle prepaid users
-          const { data: user } = await supabaseAdmin
-            .from('users')
-            .select('billing_mode, feature_flags')
-            .eq('id', assignment.user_id)
-            .single();
-
-          if (user?.billing_mode === 'prepaid' && user?.feature_flags?.prepaid_enabled) {
-            await supabaseAdmin.rpc('deduct_user_credits', {
-              p_user_id: assignment.user_id,
-              p_amount: totalCost,
-              p_description: `Daily usage for ${currentDate}`
-            });
-          }
+          // Skip prepaid handling for now - focus on getting basic collection working
 
           results.successful++;
           results.metrics.push({
