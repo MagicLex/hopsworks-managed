@@ -99,8 +99,9 @@ export default function Cluster() {
                 className="text-lg px-6 py-3"
                 onClick={() => {
                   if (instanceData.endpoint) {
-                    // Go to Hopsworks - it will show login page if not authenticated
-                    window.open(instanceData.endpoint, '_blank');
+                    // Redirect to auto-OAuth URL for automatic login with Auth0
+                    const autoOAuthUrl = `${instanceData.endpoint}/autoOAuth?providerName=Auth0`;
+                    window.open(autoOAuthUrl, '_blank');
                   } else {
                     alert('No cluster assigned yet. Please contact support.');
                   }
@@ -247,8 +248,9 @@ fg = fs.create_feature_group(
                 intent="secondary" 
                 onClick={() => {
                   if (instanceData.endpoint) {
-                    // Go to Hopsworks - it will show login page if not authenticated
-                    window.open(instanceData.endpoint, '_blank');
+                    // Redirect to auto-OAuth URL for automatic login with Auth0
+                    const autoOAuthUrl = `${instanceData.endpoint}/autoOAuth?providerName=Auth0`;
+                    window.open(autoOAuthUrl, '_blank');
                   } else {
                     alert('No cluster assigned yet. Please contact support.');
                   }
