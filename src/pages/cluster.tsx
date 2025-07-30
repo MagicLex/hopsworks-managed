@@ -99,24 +99,8 @@ export default function Cluster() {
                 className="text-lg px-6 py-3"
                 onClick={() => {
                   if (instanceData.endpoint) {
-                    // Generate random state and nonce for security
-                    const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                    const nonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                    
-                    // Build Auth0 authorize URL to bypass Hopsworks login page
-                    const auth0Domain = 'dev-fur3a3gej0xmnk7f.eu.auth0.com';
-                    const clientId = 'fKsp6ZBzMPuxk79fP1C1TJ4F2TBOfRvZ';
-                    const redirectUri = encodeURIComponent(`${instanceData.endpoint}/callback`);
-                    
-                    const authorizeUrl = `https://${auth0Domain}/authorize?` +
-                      `scope=openid+email+profile&` +
-                      `response_type=code&` +
-                      `redirect_uri=${redirectUri}&` +
-                      `state=${state}&` +
-                      `nonce=${nonce}&` +
-                      `client_id=${clientId}`;
-                    
-                    window.open(authorizeUrl, '_blank');
+                    // Go to Hopsworks - it will show login page if not authenticated
+                    window.open(instanceData.endpoint, '_blank');
                   } else {
                     alert('No cluster assigned yet. Please contact support.');
                   }
@@ -263,24 +247,8 @@ fg = fs.create_feature_group(
                 intent="secondary" 
                 onClick={() => {
                   if (instanceData.endpoint) {
-                    // Generate random state and nonce for security
-                    const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                    const nonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                    
-                    // Build Auth0 authorize URL to bypass Hopsworks login page
-                    const auth0Domain = 'dev-fur3a3gej0xmnk7f.eu.auth0.com';
-                    const clientId = 'fKsp6ZBzMPuxk79fP1C1TJ4F2TBOfRvZ';
-                    const redirectUri = encodeURIComponent(`${instanceData.endpoint}/callback`);
-                    
-                    const authorizeUrl = `https://${auth0Domain}/authorize?` +
-                      `scope=openid+email+profile&` +
-                      `response_type=code&` +
-                      `redirect_uri=${redirectUri}&` +
-                      `state=${state}&` +
-                      `nonce=${nonce}&` +
-                      `client_id=${clientId}`;
-                    
-                    window.open(authorizeUrl, '_blank');
+                    // Go to Hopsworks - it will show login page if not authenticated
+                    window.open(instanceData.endpoint, '_blank');
                   } else {
                     alert('No cluster assigned yet. Please contact support.');
                   }
