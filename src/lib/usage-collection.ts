@@ -15,7 +15,10 @@ const supabaseAdmin = createClient(
 
 export async function collectK8sMetrics(forceAggregation = false) {
   const now = new Date();
-  const currentHour = now.toISOString().slice(0, 13); // YYYY-MM-DDTHH
+  // Round down to current hour
+  const currentHourDate = new Date(now);
+  currentHourDate.setMinutes(0, 0, 0);
+  const currentHour = currentHourDate.toISOString();
   const currentDate = now.toISOString().split('T')[0];
 
   console.log(`Starting K8s metrics collection for: ${currentHour}`);
@@ -122,30 +125,35 @@ export async function collectK8sMetrics(forceAggregation = false) {
             }
           } else {
             // Create new record
+            const insertData = {
+              user_id: assignment.user_id,
+              hour: currentHour,
+              date: currentDate,
+              hopsworks_cluster_id: cluster.id,
+              cpu_hours: cpuHours,
+              memory_gb_hours: memoryGB,
+              storage_gb: storageGB,
+              instance_type: instanceType,
+              instance_count: instanceCount,
+              total_cost: totalCost,
+              projects: userMetrics.projects.map(p => ({
+                id: p.projectId,
+                name: p.projectName,
+                cpu: p.resources.cpuCores,
+                memory: p.resources.memoryGB,
+                pods: p.pods.length
+              }))
+            };
+            
+            console.log(`Inserting usage record for ${username}:`, JSON.stringify(insertData, null, 2));
+            
             const { error: insertError } = await supabaseAdmin
               .from('usage_hourly')
-              .insert({
-                user_id: assignment.user_id,
-                hour: currentHour,
-                date: currentDate,
-                hopsworks_cluster_id: cluster.id,
-                cpu_hours: cpuHours,
-                memory_gb_hours: memoryGB,
-                storage_gb: storageGB,
-                instance_type: instanceType,
-                instance_count: instanceCount,
-                total_cost: totalCost,
-                projects: userMetrics.projects.map(p => ({
-                  id: p.projectId,
-                  name: p.projectName,
-                  cpu: p.resources.cpuCores,
-                  memory: p.resources.memoryGB,
-                  pods: p.pods.length
-                }))
-              });
+              .insert(insertData);
               
             if (insertError) {
-              throw new Error(`Failed to insert usage record: ${insertError.message}`);
+              console.error('Insert error details:', insertError);
+              throw new Error(`Failed to insert usage record: ${insertError.message || insertError.code || JSON.stringify(insertError)}`);
             }
           }
 
