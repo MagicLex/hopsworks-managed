@@ -13,15 +13,11 @@ const supabaseAdmin = createClient(
   }
 );
 
-export async function collectK8sMetrics(forceAggregation = false) {
+export async function collectK8sMetrics() {
   const now = new Date();
-  // Round down to current hour
-  const currentHourDate = new Date(now);
-  currentHourDate.setMinutes(0, 0, 0);
-  const currentHour = currentHourDate.toISOString();
   const currentDate = now.toISOString().split('T')[0];
 
-  console.log(`Starting K8s metrics collection for: ${currentHour}`);
+  console.log(`Starting K8s metrics collection for: ${currentDate}`);
 
   // Get all active clusters with kubeconfig
   const { data: clusters, error: clusterError } = await supabaseAdmin
@@ -98,63 +94,77 @@ export async function collectK8sMetrics(forceAggregation = false) {
 
           console.log(`User ${username}: CPU=${cpuHours} cores, Memory=${memoryGB}GB, Storage=${storageGB}GB, Cost=$${totalCost}`);
 
-          // Check if we already have a record for this hour
+          // Check if we already have a record for today
           const { data: existingRecord } = await supabaseAdmin
-            .from('usage_hourly')
+            .from('usage_daily')
             .select('*')
             .eq('user_id', assignment.user_id)
-            .eq('hour', currentHour)
+            .eq('date', currentDate)
             .single();
 
           if (existingRecord) {
-            // Update existing record (accumulate)
+            // Update existing record (use current snapshot values)
             const { error: updateError } = await supabaseAdmin
-              .from('usage_hourly')
+              .from('usage_daily')
               .update({
-                cpu_hours: existingRecord.cpu_hours + cpuHours,
-                memory_gb_hours: existingRecord.memory_gb_hours + memoryGB,
-                storage_gb: Math.max(existingRecord.storage_gb, storageGB), // Use max for storage
-                instance_count: instanceCount,
-                total_cost: existingRecord.total_cost + totalCost,
+                cpu_hours: cpuHours,
+                memory_gb_hours: memoryGB,
+                storage_gb: storageGB,
+                instance_type: instanceType,
+                instance_hours: cpuHours, // Approximate
+                total_cost: totalCost,
+                project_count: userMetrics.projects.length,
+                hopsworks_cluster_id: cluster.id,
                 updated_at: now
               })
               .eq('id', existingRecord.id);
               
             if (updateError) {
+              console.error('Update error:', updateError);
               throw new Error(`Failed to update usage record: ${updateError.message}`);
             }
           } else {
             // Create new record
             const insertData = {
               user_id: assignment.user_id,
-              hour: currentHour,
               date: currentDate,
               hopsworks_cluster_id: cluster.id,
               cpu_hours: cpuHours,
-              memory_gb_hours: memoryGB,
+              gpu_hours: 0,
               storage_gb: storageGB,
+              memory_gb_hours: memoryGB,
               instance_type: instanceType,
-              instance_count: instanceCount,
+              instance_hours: cpuHours, // Approximate
               total_cost: totalCost,
-              projects: userMetrics.projects.map(p => ({
-                id: p.projectId,
-                name: p.projectName,
-                cpu: p.resources.cpuCores,
-                memory: p.resources.memoryGB,
-                pods: p.pods.length
-              }))
+              project_count: userMetrics.projects.length,
+              reported_to_stripe: false
             };
             
-            console.log(`Inserting usage record for ${username}:`, JSON.stringify(insertData, null, 2));
+            console.log(`Inserting daily usage for ${username}:`, JSON.stringify(insertData, null, 2));
             
             const { error: insertError } = await supabaseAdmin
-              .from('usage_hourly')
+              .from('usage_daily')
               .insert(insertData);
               
             if (insertError) {
               console.error('Insert error details:', insertError);
-              throw new Error(`Failed to insert usage record: ${insertError.message || insertError.code || JSON.stringify(insertError)}`);
+              throw new Error(`Failed to insert usage record: ${insertError.message || JSON.stringify(insertError)}`);
             }
+          }
+
+          // Handle prepaid users
+          const { data: user } = await supabaseAdmin
+            .from('users')
+            .select('billing_mode, feature_flags')
+            .eq('id', assignment.user_id)
+            .single();
+
+          if (user?.billing_mode === 'prepaid' && user?.feature_flags?.prepaid_enabled) {
+            await supabaseAdmin.rpc('deduct_user_credits', {
+              p_user_id: assignment.user_id,
+              p_amount: totalCost,
+              p_description: `Daily usage for ${currentDate}`
+            });
           }
 
           results.successful++;
@@ -178,132 +188,11 @@ export async function collectK8sMetrics(forceAggregation = false) {
     }
   }
 
-  // Aggregate hourly data to daily if it's midnight OR if forced
-  if (now.getHours() === 0 || forceAggregation) {
-    // Aggregate today's data so far
-    await aggregateHourlyToDaily(new Date(currentDate).toISOString().split('T')[0], true);
-  }
-
   console.log(`K8s metrics collection completed: ${results.successful} successful, ${results.failed} failed`);
 
   return {
     message: 'K8s metrics collection completed',
-    timestamp: currentHour,
+    timestamp: currentDate,
     results
   };
-}
-
-// Aggregate hourly metrics to daily
-async function aggregateHourlyToDaily(date: string, aggregateToday = false) {
-  try {
-    // Get all hourly records for the target day
-    const targetDate = aggregateToday ? date : (() => {
-      const yesterday = new Date(date);
-      yesterday.setDate(yesterday.getDate() - 1);
-      return yesterday.toISOString().split('T')[0];
-    })();
-
-    const { data: hourlyRecords } = await supabaseAdmin
-      .from('usage_hourly')
-      .select('*')
-      .eq('date', targetDate);
-
-    if (!hourlyRecords || hourlyRecords.length === 0) {
-      return;
-    }
-
-    // Group by user
-    const userTotals = new Map();
-    
-    for (const record of hourlyRecords) {
-      if (!userTotals.has(record.user_id)) {
-        userTotals.set(record.user_id, {
-          cpu_hours: 0,
-          gpu_hours: 0,
-          memory_gb_hours: 0,
-          storage_gb: 0,
-          total_cost: 0,
-          instance_types: new Set(),
-          projects: new Set(),
-          cluster_id: record.hopsworks_cluster_id
-        });
-      }
-
-      const totals = userTotals.get(record.user_id);
-      totals.cpu_hours += record.cpu_hours;
-      totals.gpu_hours += record.gpu_hours || 0;
-      totals.memory_gb_hours += record.memory_gb_hours;
-      totals.storage_gb = Math.max(totals.storage_gb, record.storage_gb);
-      totals.total_cost += record.total_cost;
-      totals.instance_types.add(record.instance_type);
-      
-      if (record.projects) {
-        record.projects.forEach((p: any) => totals.projects.add(p.name));
-      }
-    }
-
-    // Store daily aggregates
-    const userEntries = Array.from(userTotals.entries());
-    for (const [userId, totals] of userEntries) {
-      const { data: user } = await supabaseAdmin
-        .from('users')
-        .select('billing_mode, feature_flags')
-        .eq('id', userId)
-        .single();
-
-      const { data: usageRecord, error } = await supabaseAdmin
-        .from('usage_daily')
-        .upsert({
-          user_id: userId,
-          date: targetDate,
-          hopsworks_cluster_id: totals.cluster_id,
-          cpu_hours: totals.cpu_hours,
-          gpu_hours: totals.gpu_hours,
-          storage_gb: totals.storage_gb,
-          memory_gb_hours: totals.memory_gb_hours,
-          instance_type: Array.from(totals.instance_types).join(','),
-          instance_hours: totals.cpu_hours, // Approximate
-          total_cost: totals.total_cost,
-          project_count: totals.projects.size,
-          reported_to_stripe: false
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error(`Failed to create daily usage for user ${userId}:`, error);
-        continue;
-      }
-
-      // Handle prepaid users
-      if (user?.billing_mode === 'prepaid' && user?.feature_flags?.prepaid_enabled) {
-        await supabaseAdmin.rpc('deduct_user_credits', {
-          p_user_id: userId,
-          p_amount: totals.total_cost,
-          p_description: `Daily usage for ${targetDate}`,
-          p_usage_daily_id: usageRecord.id
-        });
-
-        await supabaseAdmin
-          .from('usage_daily')
-          .update({ 
-            credits_deducted: totals.total_cost,
-            reported_to_stripe: true
-          })
-          .eq('id', usageRecord.id);
-      }
-    }
-
-    // Clean up old hourly records (keep 7 days)
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 7);
-    
-    await supabaseAdmin
-      .from('usage_hourly')
-      .delete()
-      .lt('date', cutoffDate.toISOString().split('T')[0]);
-
-  } catch (error) {
-    console.error('Failed to aggregate hourly to daily:', error);
-  }
 }
