@@ -22,7 +22,7 @@ export async function requireAdmin(
     const { data: user, error } = await supabase
       .from('users')
       .select('is_admin')
-      .eq('id', session.user.sub)
+      .eq('auth0_id', session.user.sub)
       .single();
 
     if (error || !user?.is_admin) {
