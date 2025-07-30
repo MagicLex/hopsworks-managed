@@ -112,7 +112,8 @@ export async function collectK8sMetrics() {
                 storage_gb: storageGB,
                 feature_store_api_calls: 0,
                 model_inference_calls: 0,
-                created_at: now
+                hopsworks_cluster_id: cluster.id,
+                total_cost: totalCost
               })
               .eq('id', existingRecord.id);
               
@@ -121,7 +122,7 @@ export async function collectK8sMetrics() {
               throw new Error(`Failed to update usage record: ${updateError.message}`);
             }
           } else {
-            // Create new record - only use columns from original schema
+            // Create new record - use actual schema columns
             const insertData = {
               user_id: assignment.user_id,
               date: currentDate,
@@ -129,7 +130,9 @@ export async function collectK8sMetrics() {
               gpu_hours: 0,
               storage_gb: storageGB,
               feature_store_api_calls: 0,
-              model_inference_calls: 0
+              model_inference_calls: 0,
+              hopsworks_cluster_id: cluster.id,
+              total_cost: totalCost
             };
             
             console.log(`Inserting daily usage for ${username}:`, JSON.stringify(insertData, null, 2));
