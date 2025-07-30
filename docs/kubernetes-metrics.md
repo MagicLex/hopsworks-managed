@@ -5,9 +5,12 @@ Collects resource usage directly from Kubernetes for billing.
 ## How It Works
 
 1. Connects to K8s cluster using kubeconfig
-2. Maps pods to users via Hopsworks username labels
-3. Aggregates CPU, memory, and storage usage
-4. Stores in `usage_hourly` table for billing
+2. Finds ALL pods with `owner: <username>` label across ALL namespaces
+3. Groups metrics by project (namespace)
+4. Aggregates total CPU, memory across all user's projects
+5. Stores in `usage_hourly` table for billing
+
+**Multi-project**: Automatically tracks all projects for a user. Each Hopsworks project creates pods labeled with the username, so metrics collection finds them all.
 
 ## Setup
 
