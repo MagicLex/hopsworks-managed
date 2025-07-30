@@ -16,14 +16,15 @@
 3. Auto-assigns user to available Hopsworks cluster
 4. Creates OAuth user in Hopsworks & stores username
 
-### Daily Usage Collection (2 AM UTC)
-1. Loops through all active clusters with kubeconfig
-2. For each user:
+### Usage Collection (Every 15 minutes)
+1. Single cron job loops through ALL active clusters with kubeconfig
+2. For each cluster, gets ALL users assigned to it
+3. For each user:
    - Queries Kubernetes for pods labeled with user's hopsworks_username
-   - Gets CPU/memory metrics from metrics-server
-   - Aggregates usage by project namespace
-3. Stores in `usage_hourly` and `usage_daily` with calculated costs
-4. Deducts credits for prepaid users
+   - Gets current CPU/memory usage from metrics-server
+   - Aggregates by project namespace
+4. Accumulates in `usage_daily` table (adds 0.25 hours per run)
+5. Deducts credits for prepaid users
 
 ### Billing
 - **Postpaid** (default): Usage synced to Stripe daily for monthly invoicing

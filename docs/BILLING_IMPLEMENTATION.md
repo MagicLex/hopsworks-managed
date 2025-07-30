@@ -46,14 +46,20 @@ When a new user signs up:
 4. Creates default project for the user
 
 ### 2. Usage Collection (`/api/usage/collect-k8s.ts`)
-FULLY IMPLEMENTED - Collects real usage data from Kubernetes:
-1. Loops through all active clusters with kubeconfig
-2. For each user, fetches from Kubernetes:
-   - All pods labeled with owner/user = hopsworks_username
-   - CPU and memory usage from metrics-server
+FULLY IMPLEMENTED - Collects real usage data from Kubernetes every 15 minutes:
+1. Runs via Vercel cron job every 15 minutes (requires Pro plan)
+2. For ALL users across ALL clusters:
+   - Finds pods labeled with owner = hopsworks_username
+   - Gets current CPU and memory usage from metrics-server
    - Groups by project namespace
-3. Stores in `usage_hourly` and `usage_daily` tables with calculated costs
-4. Deducts credits for prepaid users automatically
+3. Accumulates in `usage_daily` table:
+   - Adds 0.25 hours of usage per interval (15 min = 0.25 hr)
+   - CPU hours accumulate throughout the day
+   - Storage is always current snapshot (not cumulative)
+4. Calculates costs based on instance type and usage
+5. Deducts credits for prepaid users (if implemented)
+
+**Important**: Billing is per-resource ownership. Each Kubernetes pod has an `owner` label, and only the owner is billed for that pod. Project collaborators can access shared resources without being charged.
 
 ### 3. Kubernetes Metrics Integration (`/lib/kubernetes-metrics.ts`)
 Implemented to replace broken Hopsworks API:

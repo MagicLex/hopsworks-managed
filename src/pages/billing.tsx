@@ -15,11 +15,9 @@ interface BillingData {
   prepaidEnabled: boolean;
   currentUsage: {
     cpuHours: string;
-    gpuHours: string;
     storageGB: string;
     currentMonth: {
       cpuCost: number;
-      gpuCost: number;
       storageCost: number;
       total: number;
     };
@@ -66,11 +64,9 @@ export default function Billing() {
 
   const currentUsage = billing?.currentUsage || {
     cpuHours: 0,
-    gpuHours: 0,
     storageGB: 0,
     currentMonth: {
       cpuCost: 0,
-      gpuCost: 0,
       storageCost: 0,
       total: 0
     }
@@ -141,16 +137,11 @@ export default function Billing() {
               </Flex>
               
               <Flex direction="column" gap={16}>
-                <Flex gap={16} className="grid grid-cols-1 md:grid-cols-3">
+                <Flex gap={16} className="grid grid-cols-1 md:grid-cols-2">
                   <Box>
                     <Text className="text-sm text-gray-600">CPU Hours</Text>
                     <Text className="text-xl">{currentUsage.cpuHours || '0'}</Text>
                     <Text className="text-sm text-gray-500">${currentUsage.currentMonth.cpuCost.toFixed(2)}</Text>
-                  </Box>
-                  <Box>
-                    <Text className="text-sm text-gray-600">GPU Hours</Text>
-                    <Text className="text-xl">{currentUsage.gpuHours || '0'}</Text>
-                    <Text className="text-sm text-gray-500">${currentUsage.currentMonth.gpuCost.toFixed(2)}</Text>
                   </Box>
                   <Box>
                     <Text className="text-sm text-gray-600">Storage (GB)</Text>

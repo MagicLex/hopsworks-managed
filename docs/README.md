@@ -1,13 +1,15 @@
 # Documentation
 
-## Quick Links
+## Start Here
+- [Billing System](BILLING_SYSTEM.md) - **MAIN DOC** - How billing and usage tracking works
+- [Architecture](ARCHITECTURE.md) - System overview and tech stack
 - [Quick Start](QUICK_START.md) - Get running in 5 minutes
-- [Architecture](ARCHITECTURE.md) - How it actually works
-- [Database Patterns](DATABASE_PATTERNS.md) - Schema and queries
 
-## Setup Guides
+## Implementation Details
+- [Database Patterns](DATABASE_PATTERNS.md) - Schema and queries
+- [Kubernetes Metrics](kubernetes-metrics.md) - K8s metrics collection details
+- [Billing Implementation](BILLING_IMPLEMENTATION.md) - Technical implementation status
 - [Stripe Setup](STRIPE_SETUP.md) - Payment configuration
-- [Billing Implementation](BILLING_IMPLEMENTATION.md) - What's working vs needs config
 
 ## Key Facts
 - Admin panel: `/admin47392`
@@ -16,11 +18,11 @@
 - Billing: Stripe with hybrid prepaid/postpaid
 - Usage: Collected daily from Kubernetes cluster metrics
 
-## How It Works
-1. User signs up → Auth0 → Webhook creates Stripe subscription
-2. User assigned to Hopsworks cluster automatically
-3. Daily cron pulls usage from Kubernetes metrics (CPU, memory, storage)
-4. Usage billed via Stripe (postpaid) or credits (prepaid)
+## How Billing Works (TL;DR)
+1. User launches pod → Pod labeled with `owner: username`
+2. Every 15 minutes → Collect CPU/storage usage from all clusters
+3. Accumulate in `usage_daily` table (adds 0.25 hours per run)
+4. Daily at 3 AM → Report to Stripe or deduct credits
 
 ## API Endpoints That Matter
 - `/api/usage` - User's usage data

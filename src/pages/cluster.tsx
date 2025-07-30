@@ -97,7 +97,15 @@ export default function Cluster() {
               <Button 
                 intent="primary" 
                 className="text-lg px-6 py-3"
-                onClick={() => instanceData.endpoint ? window.open(instanceData.endpoint, '_blank') : alert('No cluster assigned yet. Please contact support.')}
+                onClick={() => {
+                  if (instanceData.endpoint) {
+                    // Use OAuth auto-login URL to bypass Hopsworks login page
+                    const autoLoginUrl = `${instanceData.endpoint}/hopsworks-api/auth/oauth`;
+                    window.open(autoLoginUrl, '_blank');
+                  } else {
+                    alert('No cluster assigned yet. Please contact support.');
+                  }
+                }}
                 disabled={!instanceData.endpoint}
               >
                 Launch Hopsworks →
@@ -132,10 +140,6 @@ export default function Cluster() {
                   <Text className="font-semibold">{usageData.cpuHours.toFixed(0)} hours</Text>
                 </Box>
                 <Box>
-                  <Text className="text-gray-600">GPU Credits</Text>
-                  <Text className="font-semibold">{usageData.gpuHours.toFixed(0)} hours</Text>
-                </Box>
-                <Box>
                   <Text className="text-gray-600">Storage Used</Text>
                   <Text className="font-semibold">{usageData.storageGB.toFixed(1)} GB</Text>
                 </Box>
@@ -158,48 +162,6 @@ export default function Cluster() {
             </Flex>
           </Card>
 
-          {/* Connection Details */}
-          <Card className="p-6 mb-6">
-            <Title as="h3" className="text-lg mb-4">Connection Details</Title>
-            
-            <Flex direction="column" gap={16}>
-              <Box>
-                <Text className="text-sm text-gray-600 mb-2">Instance URL</Text>
-                <Card variant="readOnly" className="p-3">
-                  <Flex justify="between" align="center">
-                    <Text className="text-sm">{instanceData.endpoint || 'Not available'}</Text>
-                    <Flex gap={8}>
-                      <Button 
-                        intent="ghost" 
-                        className="text-sm"
-                        onClick={() => copyToClipboard(instanceData.endpoint || '', 'endpoint')}
-                      >
-                        {copied === 'endpoint' ? <CheckCircle size={16} /> : <Copy size={16} />}
-                      </Button>
-                      <Button 
-                        intent="ghost" 
-                        className="text-sm"
-                        onClick={() => instanceData.endpoint && window.open(instanceData.endpoint, '_blank')}
-                        disabled={!instanceData.endpoint}
-                      >
-                        <ExternalLink size={16} />
-                      </Button>
-                    </Flex>
-                  </Flex>
-                </Card>
-              </Box>
-
-              <Box>
-                <Text className="text-sm text-gray-600 mb-2">Authentication</Text>
-                <Card variant="readOnly" className="p-3">
-                  <Text className="text-sm">Single Sign-On via Auth0</Text>
-                </Card>
-                <Text className="text-xs text-gray-500 mt-2">
-                  You&apos;ll be automatically logged in using your current credentials
-                </Text>
-              </Box>
-            </Flex>
-          </Card>
 
           {/* Quick Start */}
           <Card className="p-6 mb-6">
@@ -284,7 +246,15 @@ fg = fs.create_feature_group(
               </Button>
               <Button 
                 intent="secondary" 
-                onClick={() => instanceData.endpoint ? window.open(instanceData.endpoint, '_blank') : alert('No cluster assigned yet. Please contact support.')}
+                onClick={() => {
+                  if (instanceData.endpoint) {
+                    // Use OAuth auto-login URL to bypass Hopsworks login page
+                    const autoLoginUrl = `${instanceData.endpoint}/hopsworks-api/auth/oauth`;
+                    window.open(autoLoginUrl, '_blank');
+                  } else {
+                    alert('No cluster assigned yet. Please contact support.');
+                  }
+                }}
                 disabled={!instanceData.endpoint}
               >
                 Launch Instance →

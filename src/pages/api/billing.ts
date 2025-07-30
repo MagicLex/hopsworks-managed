@@ -47,11 +47,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Calculate totals
     const totals = usageData?.reduce((acc, day) => ({
       cpuHours: acc.cpuHours + (day.cpu_hours || 0),
-      gpuHours: acc.gpuHours + (day.gpu_hours || 0),
       storageGB: Math.max(acc.storageGB, day.storage_gb || 0),
       totalCost: acc.totalCost + (day.total_cost || 0)
-    }), { cpuHours: 0, gpuHours: 0, storageGB: 0, totalCost: 0 }) || 
-    { cpuHours: 0, gpuHours: 0, storageGB: 0, totalCost: 0 };
+    }), { cpuHours: 0, storageGB: 0, totalCost: 0 }) || 
+    { cpuHours: 0, storageGB: 0, totalCost: 0 };
 
     // For prepaid users, get credit balance
     let creditBalance = null;
@@ -89,11 +88,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       prepaidEnabled: user?.feature_flags?.prepaid_enabled || false,
       currentUsage: {
         cpuHours: totals.cpuHours.toFixed(2),
-        gpuHours: totals.gpuHours.toFixed(2),
         storageGB: totals.storageGB.toFixed(2),
         currentMonth: {
           cpuCost: totals.cpuHours * 0.10,
-          gpuCost: totals.gpuHours * 0.50,
           storageCost: totals.storageGB * 0.10,
           total: totals.totalCost
         }

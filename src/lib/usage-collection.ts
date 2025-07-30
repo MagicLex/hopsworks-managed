@@ -66,10 +66,15 @@ export async function collectK8sMetrics() {
           // Get user metrics from Kubernetes
           const userMetrics = await k8sClient.getUserMetrics(username);
           
-          // Calculate hourly usage (assuming metrics are current snapshots)
-          const cpuHours = userMetrics.totals.cpuCores; // Already in cores
+          // Calculate usage for 15-minute interval (0.25 hours)
+          const intervalHours = 0.25; // 15 minutes = 0.25 hours
+          const cpuCores = userMetrics.totals.cpuCores; // Current CPU cores in use
           const memoryGB = userMetrics.totals.memoryGB;
           const storageGB = userMetrics.totals.storageGB;
+          
+          // Calculate resource hours for this 15-minute interval
+          const cpuHours = cpuCores * intervalHours; // cores * 0.25 hours
+          const memoryGBHours = memoryGB * intervalHours;
 
           // Determine primary instance type from pod names
           let instanceType = 'unknown';
@@ -86,13 +91,13 @@ export async function collectK8sMetrics() {
             }
           }
 
-          // Calculate costs
-          const cpuCost = calculateCpuCost(instanceType, 1); // 1 hour
-          const storageCost = calculateStorageCost(storageGB);
+          // Calculate costs for this 15-minute interval
+          const cpuCost = calculateCpuCost(instanceType, intervalHours); // Cost for 0.25 hours
+          const storageCost = calculateStorageCost(storageGB) * intervalHours; // Pro-rated storage cost
           const apiCost = 0; // API calls need separate tracking
           const totalCost = cpuCost + storageCost + apiCost;
 
-          console.log(`User ${username}: CPU=${cpuHours} cores, Memory=${memoryGB}GB, Storage=${storageGB}GB, Cost=$${totalCost}`);
+          console.log(`User ${username}: 15-min interval - CPU=${cpuCores} cores (+${cpuHours} core-hours), Memory=${memoryGB}GB, Storage=${storageGB}GB, Interval cost=$${totalCost.toFixed(4)}`);
 
           // Check if we already have a record for today
           const { data: existingRecord } = await supabaseAdmin
@@ -103,17 +108,17 @@ export async function collectK8sMetrics() {
             .single();
 
           if (existingRecord) {
-            // Update existing record (use current snapshot values)
+            // For 15-minute intervals: ADD to existing values
             const { error: updateError } = await supabaseAdmin
               .from('usage_daily')
               .update({
-                cpu_hours: cpuHours,
-                gpu_hours: 0,
-                storage_gb: storageGB,
-                feature_store_api_calls: 0,
-                model_inference_calls: 0,
+                cpu_hours: existingRecord.cpu_hours + cpuHours, // Accumulate CPU hours
+                gpu_hours: existingRecord.gpu_hours + 0,
+                storage_gb: storageGB, // Storage is current snapshot
+                feature_store_api_calls: existingRecord.feature_store_api_calls + 0,
+                model_inference_calls: existingRecord.model_inference_calls + 0,
                 hopsworks_cluster_id: cluster.id,
-                total_cost: totalCost
+                total_cost: existingRecord.total_cost + totalCost // Accumulate costs
               })
               .eq('id', existingRecord.id);
               
