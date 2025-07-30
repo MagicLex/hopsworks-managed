@@ -99,9 +99,9 @@ export default function Cluster() {
                 className="text-lg px-6 py-3"
                 onClick={() => {
                   if (instanceData.endpoint) {
-                    // Use OAuth auto-login URL to bypass Hopsworks login page
-                    const autoLoginUrl = `${instanceData.endpoint}/hopsworks-api/auth/oauth`;
-                    window.open(autoLoginUrl, '_blank');
+                    // Use the autoOAuth endpoint that Ermias mentioned
+                    const autoOAuthUrl = `${instanceData.endpoint}/autoOAuth`;
+                    window.open(autoOAuthUrl, '_blank');
                   } else {
                     alert('No cluster assigned yet. Please contact support.');
                   }
@@ -248,9 +248,9 @@ fg = fs.create_feature_group(
                 intent="secondary" 
                 onClick={() => {
                   if (instanceData.endpoint) {
-                    // Use OAuth auto-login URL to bypass Hopsworks login page
-                    const autoLoginUrl = `${instanceData.endpoint}/hopsworks-api/auth/oauth`;
-                    window.open(autoLoginUrl, '_blank');
+                    // Use the autoOAuth endpoint that Ermias mentioned
+                    const autoOAuthUrl = `${instanceData.endpoint}/autoOAuth`;
+                    window.open(autoOAuthUrl, '_blank');
                   } else {
                     alert('No cluster assigned yet. Please contact support.');
                   }
