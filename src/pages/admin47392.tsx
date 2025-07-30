@@ -13,6 +13,7 @@ interface User {
   login_count: number;
   status: string;
   is_admin: boolean;
+  hopsworks_username?: string;
   user_credits?: {
     total_purchased: number;
     total_used: number;
@@ -240,6 +241,33 @@ export default function AdminPage() {
     }
   };
 
+  const syncUsername = async (userId: string) => {
+    const syncKey = `sync-${userId}`;
+    setTestingHopsworks({ ...testingHopsworks, [syncKey]: true });
+
+    try {
+      const response = await fetch('/api/admin/sync-username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert(`Success: ${data.message}`);
+        // Refresh users list to show updated username
+        fetchUsers();
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (err) {
+      alert(`Failed to sync: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setTestingHopsworks({ ...testingHopsworks, [syncKey]: false });
+    }
+  };
+
   if (isLoading || loadingUsers || loadingClusters) {
     return (
       <Flex align="center" justify="center" className="min-h-screen">
@@ -276,12 +304,12 @@ export default function AdminPage() {
                     <tr className="border-b border-grayShade2">
                       <th className="text-left py-2">Email</th>
                       <th className="text-left py-2">Name</th>
+                      <th className="text-left py-2">HW Username</th>
                       <th className="text-left py-2">Status</th>
                       <th className="text-left py-2">Admin</th>
                       <th className="text-left py-2">Cluster</th>
                       <th className="text-left py-2">Logins</th>
                       <th className="text-left py-2">Credits Used</th>
-                      <th className="text-left py-2">Instance</th>
                       <th className="text-left py-2">Created</th>
                       <th className="text-left py-2">Actions</th>
                     </tr>
@@ -294,6 +322,23 @@ export default function AdminPage() {
                         </td>
                         <td className="py-2">
                           <Text>{user.name || '-'}</Text>
+                        </td>
+                        <td className="py-2">
+                          <Flex align="center" gap={4}>
+                            <Text className="font-mono text-sm">
+                              {user.hopsworks_username || '-'}
+                            </Text>
+                            {!user.hopsworks_username && user.user_hopsworks_assignments?.[0] && (
+                              <Button
+                                onClick={() => syncUsername(user.id)}
+                                disabled={testingHopsworks[`sync-${user.id}`]}
+                                className="text-xs px-2 py-1"
+                                intent="secondary"
+                              >
+                                {testingHopsworks[`sync-${user.id}`] ? '...' : 'Sync'}
+                              </Button>
+                            )}
+                          </Flex>
                         </td>
                         <td className="py-2">
                           <Badge 
@@ -322,9 +367,6 @@ export default function AdminPage() {
                           <Text className="font-mono">
                             ${user.user_credits?.total_used?.toFixed(2) || '0.00'}
                           </Text>
-                        </td>
-                        <td className="py-2">
-                          <Text>{user.user_hopsworks_assignments?.[0] ? 'Active' : 'Not Assigned'}</Text>
                         </td>
                         <td className="py-2">
                           <Text className="text-gray">{new Date(user.created_at).toLocaleDateString()}</Text>
