@@ -58,6 +58,8 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('users');
   const [editingCluster, setEditingCluster] = useState<string | null>(null);
   const [kubeconfigModal, setKubeconfigModal] = useState<string | null>(null);
+  const [collectingUsage, setCollectingUsage] = useState(false);
+  const [collectionResult, setCollectionResult] = useState<any>(null);
 
   // New cluster form
   const [newCluster, setNewCluster] = useState({
@@ -268,6 +270,31 @@ export default function AdminPage() {
     }
   };
 
+  const triggerUsageCollection = async () => {
+    setCollectingUsage(true);
+    setCollectionResult(null);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/admin/usage/collect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setCollectionResult(data);
+      } else {
+        setError(data.error || 'Failed to trigger collection');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to trigger usage collection');
+    } finally {
+      setCollectingUsage(false);
+    }
+  };
+
   if (isLoading || loadingUsers || loadingClusters) {
     return (
       <Flex align="center" justify="center" className="min-h-screen">
@@ -297,7 +324,40 @@ export default function AdminPage() {
 
           <TabsContent value="users">
             <Card withShadow>
-              <Title as="h2" className="text-lg mb-4">All Users ({users.length})</Title>
+              <Flex justify="between" align="center" className="mb-4">
+                <Title as="h2" className="text-lg">All Users ({users.length})</Title>
+                <Button
+                  onClick={triggerUsageCollection}
+                  disabled={collectingUsage}
+                  intent="primary"
+                >
+                  {collectingUsage ? 'Collecting...' : 'Force Consumption Collection'}
+                </Button>
+              </Flex>
+              
+              {/* Collection Result */}
+              {collectionResult && (
+                <Card className="mb-4 border border-successDefault bg-successShade1">
+                  <Text className="text-successDefault font-semibold mb-2">Collection Completed</Text>
+                  <Text className="text-sm mb-1">
+                    Successful: {collectionResult.result?.results?.successful || 0} users
+                  </Text>
+                  <Text className="text-sm mb-1">
+                    Failed: {collectionResult.result?.results?.failed || 0} users
+                  </Text>
+                  {collectionResult.result?.results?.errors?.length > 0 && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-sm text-gray">View Errors</summary>
+                      <Box className="mt-2 p-2 bg-grayShade1 rounded">
+                        {collectionResult.result.results.errors.map((err: string, i: number) => (
+                          <Text key={i} className="text-xs text-errorDefault">{err}</Text>
+                        ))}
+                      </Box>
+                    </details>
+                  )}
+                </Card>
+              )}
+              
               <Box className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
