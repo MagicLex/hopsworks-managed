@@ -30,6 +30,7 @@ SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-key>
 
 # Hopsworks Configuration
 # Note: Each cluster has its own API credentials stored in DB
+# WARNING: Code accepts self-signed certificates for Hopsworks API calls
 
 # Auth0 Webhook (for user provisioning)
 AUTH0_WEBHOOK_SECRET=<webhook-secret-from-auth0>
