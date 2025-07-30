@@ -34,7 +34,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Get user details
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('*')
+      .select('*, user_hopsworks_assignments!left(hopsworks_username)')
       .eq('id', userId)
       .single();
 
@@ -45,6 +45,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Import the Hopsworks API functions
     const { 
       getHopsworksUserByAuth0Id, 
+      getHopsworksUserByUsername,
       getUserProjects,
       getAllUsers,
       getAllProjects
@@ -73,122 +74,24 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     };
 
     let hopsworksUser: any = null;
-    try {
-      // Get Hopsworks user by email (since Auth0 IDs aren't stored in Hopsworks)
-      hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, user.email);
+    
+    // First check if we have a stored username
+    const storedUsername = user.hopsworks_username || user.user_hopsworks_assignments?.[0]?.hopsworks_username;
+    
+    if (storedUsername) {
+      // We have a stored username, use it directly
+      hopsworksUser = {
+        username: storedUsername,
+        email: user.email
+      };
       results.hopsworksData.user = hopsworksUser;
-
-      if (hopsworksUser) {
-        // Get user's projects
-        try {
-          const projects = await getUserProjects(credentials, hopsworksUser.username);
-          results.hopsworksData.projects = projects;
-          results.hopsworksData.projectCount = projects.length;
-          
-          // Get detailed project information with metrics
-          if (projects.length > 0) {
-            results.hopsworksData.projectDetails = [];
-            
-            for (const project of projects) {
-              try {
-                // Get project details
-                const projectDetailResponse = await fetch(
-                  `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${project.id}`,
-                  {
-                    headers: {
-                      'Authorization': `ApiKey ${credentials.apiKey}`
-                    }
-                  }
-                );
-                
-                if (projectDetailResponse.ok) {
-                  const projectDetail = await projectDetailResponse.json();
-                  
-                  // Try to get feature stores for the project
-                  const featureStoreResponse = await fetch(
-                    `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${project.id}/featurestores`,
-                    {
-                      headers: {
-                        'Authorization': `ApiKey ${credentials.apiKey}`
-                      }
-                    }
-                  );
-                  
-                  let featureStoreData = null;
-                  if (featureStoreResponse.ok) {
-                    featureStoreData = await featureStoreResponse.json();
-                  }
-                  
-                  // Try to get datasets for the project
-                  const datasetResponse = await fetch(
-                    `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${project.id}/dataset`,
-                    {
-                      headers: {
-                        'Authorization': `ApiKey ${credentials.apiKey}`
-                      }
-                    }
-                  );
-                  
-                  let datasetData = null;
-                  if (datasetResponse.ok) {
-                    datasetData = await datasetResponse.json();
-                  }
-                  
-                  // Try to get jobs for the project
-                  const jobsResponse = await fetch(
-                    `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${project.id}/jobs`,
-                    {
-                      headers: {
-                        'Authorization': `ApiKey ${credentials.apiKey}`
-                      }
-                    }
-                  );
-                  
-                  let jobsData = null;
-                  if (jobsResponse.ok) {
-                    jobsData = await jobsResponse.json();
-                  }
-                  
-                  results.hopsworksData.projectDetails.push({
-                    ...projectDetail,
-                    featureStores: featureStoreData,
-                    datasets: datasetData,
-                    jobs: jobsData
-                  });
-                }
-              } catch (detailError) {
-                console.error(`Error fetching details for project ${project.id}:`, detailError);
-              }
-            }
-          }
-        } catch (projectError) {
-          results.hopsworksData.projectsError = projectError instanceof Error ? projectError.message : 'Failed to fetch projects';
-        }
-      }
-    } catch (apiError) {
-      results.hopsworksData.userLookupError = apiError instanceof Error ? apiError.message : 'Failed to fetch user';
+      results.hopsworksData.storedUsername = true;
+    } else {
+      results.hopsworksData.userLookupError = 'No stored Hopsworks username found';
     }
 
     // Skip Hopsworks API metrics endpoints since they're not working
     results.hopsworksData.metricsNote = 'Hopsworks API metrics endpoints not available - using Kubernetes metrics instead';
-
-    // Try to get project quota/usage information
-    if (results.hopsworksData.projects && results.hopsworksData.projects.length > 0) {
-      const firstProject = results.hopsworksData.projects[0];
-      try {
-        // Check if there's a quota endpoint
-        const quotaResponse = await fetch(`${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${firstProject.id}/quotas`, {
-          headers: {
-            'Authorization': `ApiKey ${credentials.apiKey}`
-          }
-        });
-        if (quotaResponse.ok) {
-          results.hopsworksData.sampleProjectQuota = await quotaResponse.json();
-        }
-      } catch (quotaError) {
-        console.error('Quota endpoint error:', quotaError);
-      }
-    }
 
     // Test Kubernetes metrics collection
     try {

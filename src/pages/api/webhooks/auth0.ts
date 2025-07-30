@@ -170,9 +170,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           await supabaseAdmin
             .from('users')
             .update({ 
-              hopsworks_project_id: hopsworksUsername // Store username for now
+              hopsworks_username: hopsworksUsername
             })
             .eq('id', user_id);
+
+          // Update assignment with username
+          await supabaseAdmin
+            .from('user_hopsworks_assignments')
+            .update({
+              hopsworks_username: hopsworksUsername
+            })
+            .eq('user_id', user_id)
+            .eq('hopsworks_cluster_id', availableCluster.id);
 
           // Create default project
           const projectName = `${email.split('@')[0]}-project`.toLowerCase().replace(/[^a-z0-9-]/g, '-');

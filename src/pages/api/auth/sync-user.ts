@@ -84,7 +84,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // First get current login count
       const { data: currentUser } = await supabaseAdmin
         .from('users')
-        .select('login_count')
+        .select('login_count, hopsworks_username, user_hopsworks_assignments!left(hopsworks_cluster_id, hopsworks_username)')
         .eq('id', userId)
         .single();
       
@@ -95,6 +95,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           login_count: (currentUser?.login_count || 0) + 1
         })
         .eq('id', userId);
+        
+      // Check if user needs Hopsworks username sync
+      if (!currentUser?.hopsworks_username && currentUser?.user_hopsworks_assignments?.[0]) {
+        const assignment = currentUser.user_hopsworks_assignments[0];
+        
+        // Get cluster details
+        const { data: cluster } = await supabaseAdmin
+          .from('hopsworks_clusters')
+          .select('api_url, api_key')
+          .eq('id', assignment.hopsworks_cluster_id)
+          .single();
+          
+        if (cluster) {
+          try {
+            // Import the function to look up user by email
+            const { getHopsworksUserByAuth0Id } = await import('../../../lib/hopsworks-api');
+            
+            const credentials = {
+              apiUrl: cluster.api_url,
+              apiKey: cluster.api_key
+            };
+            
+            // Try to find existing Hopsworks user by email
+            const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, email);
+            
+            if (hopsworksUser?.username) {
+              // Update both users table and assignment with the username
+              await supabaseAdmin
+                .from('users')
+                .update({ hopsworks_username: hopsworksUser.username })
+                .eq('id', userId);
+                
+              await supabaseAdmin
+                .from('user_hopsworks_assignments')
+                .update({ hopsworks_username: hopsworksUser.username })
+                .eq('user_id', userId)
+                .eq('hopsworks_cluster_id', assignment.hopsworks_cluster_id);
+                
+              console.log(`Synced Hopsworks username ${hopsworksUser.username} for user ${email}`);
+            }
+          } catch (error) {
+            console.error(`Failed to sync Hopsworks username for ${email}:`, error);
+            // Don't fail the login if we can't sync the username
+          }
+        }
+      }
     }
 
     return res.status(200).json({ success: true });

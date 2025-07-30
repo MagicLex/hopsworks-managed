@@ -183,6 +183,7 @@ export async function getProjectUsage(
 
 /**
  * Get user by Auth0 ID
+ * @deprecated Use getHopsworksUserByUsername instead when username is known
  */
 export async function getHopsworksUserByAuth0Id(
   credentials: HopsworksCredentials,
@@ -217,6 +218,37 @@ export async function getHopsworksUserByAuth0Id(
   );
   
   return user || null;
+}
+
+/**
+ * Get user by username (more efficient than by email)
+ */
+export async function getHopsworksUserByUsername(
+  credentials: HopsworksCredentials,
+  username: string
+): Promise<HopsworksUser | null> {
+  try {
+    const response = await fetch(
+      `${credentials.apiUrl}${ADMIN_API_BASE}/users/${username}`,
+      {
+        headers: {
+          'Authorization': `ApiKey ${credentials.apiKey}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      throw new Error(`Failed to fetch user: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Failed to fetch user ${username}:`, error);
+    return null;
+  }
 }
 
 /**

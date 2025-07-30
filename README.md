@@ -31,6 +31,9 @@ SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-key>
 # Hopsworks Configuration
 # Note: Each cluster has its own API credentials stored in DB
 
+# Auth0 Webhook (for user provisioning)
+AUTH0_WEBHOOK_SECRET=<webhook-secret-from-auth0>
+
 # Stripe Configuration  
 STRIPE_SECRET_KEY=<your-stripe-secret-key>
 STRIPE_PUBLISHABLE_KEY=<your-stripe-publishable-key>
@@ -60,6 +63,7 @@ The Supabase database stores:
 - Billing and subscription status
 - Cluster configurations and endpoints
 - Usage tracking for billing
+- Hopsworks usernames (synced on login)
 
 ## Admin Interface
 
