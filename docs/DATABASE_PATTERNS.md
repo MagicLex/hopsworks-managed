@@ -1,259 +1,58 @@
 # Database Patterns
 
-## Authentication & Authorization
+## Key Patterns
 
-### User Sync Pattern
-- Auth0 is the source of truth for authentication
-- Supabase stores user metadata and app-specific data
-- Users are synced on first login via `/api/auth/sync-user`
-- Admin status is stored in Supabase `users.is_admin` column
+1. **Auth0 ID as Primary Key**: Use Auth0 `sub` field directly
+2. **Service Role for APIs**: Skip RLS, handle auth in application
+3. **Hopsworks Username**: Store for K8s metrics mapping
+4. **Usage Tracking**: Hourly snapshots → daily aggregation
 
-### Admin Access Pattern
+## Main Tables
+
+```sql
+users                           -- Auth0 users
+├── id (auth0_sub)
+├── hopsworks_username          -- For K8s metrics
+└── is_admin
+
+hopsworks_clusters              -- Shared clusters
+├── api_url, api_key
+├── kubeconfig                  -- For K8s metrics
+└── current_users/max_users
+
+user_hopsworks_assignments      -- User → Cluster mapping
+├── user_id
+├── hopsworks_cluster_id
+└── hopsworks_username
+
+usage_hourly/usage_daily        -- Resource consumption
+├── cpu_hours, memory_gb_hours
+├── storage_gb
+└── total_cost
+```
+
+## Common Queries
+
 ```typescript
-// Backend: Check admin status
-const { data: user } = await supabase
-  .from('users')
-  .select('is_admin')
-  .eq('id', session.user.sub)
-  .single();
-
-if (!user?.is_admin) {
-  return res.status(403).json({ error: 'Forbidden' });
-}
-
-// Frontend: Use the useAdmin hook
-const { isAdmin, loading } = useAdmin();
-```
-
-## Row Level Security (RLS)
-
-We use service role key for all API operations, handling auth in the application layer:
-
-```sql
--- Simple RLS policies for service role
-CREATE POLICY "Service role full access" ON table_name FOR ALL USING (true);
-```
-
-This approach:
-- Simplifies policy management
-- Allows complex business logic in API layer
-- Better performance (no RLS overhead)
-- Auth0 handles authentication, we handle authorization
-
-## Database Migrations
-
-### Running Migrations
-1. Use Supabase SQL editor for production
-2. Always use `IF NOT EXISTS` clauses
-3. Check existing schema before running
-
-### Migration Pattern
-```sql
--- Tables
-CREATE TABLE IF NOT EXISTS table_name (...);
-
--- Columns
-ALTER TABLE table_name ADD COLUMN IF NOT EXISTS column_name TYPE;
-
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_name ON table_name(column);
-
--- Policies
-CREATE POLICY IF NOT EXISTS "policy_name" ON table_name ...;
-```
-
-## Cluster Management
-
-### Cluster Architecture
-**`hopsworks_clusters`** - Shared Hopsworks cluster endpoints (e.g., demo.hops.works)
-- Multiple users share each cluster endpoint
-- Users are assigned to clusters on signup
-- Each cluster has a max_users capacity limit
-
-### Auto-assignment Pattern
-When users sign up:
-1. Find hopsworks_cluster with available capacity
-2. Assign user to hopsworks_cluster
-3. Increment cluster's `current_users`
-4. Store assignment in `user_hopsworks_assignments`
-
-The assignment happens automatically in `/api/auth/sync-user` when a new user signs up.
-
-### Hopsworks Cluster States
-- `active`: Accepting new users
-- `full`: At capacity (current_users >= max_users)
-- `maintenance`: Temporarily unavailable
-- `inactive`: Decommissioned
-
-## Performance Patterns
-
-### Indexes
-Always index:
-- Foreign keys
-- Columns used in WHERE clauses
-- Columns used in JOIN conditions
-- Boolean flags with WHERE conditions
-
-### Timestamps
-- Use `TIMESTAMP WITH TIME ZONE` for all timestamps
-- Auto-update `updated_at` with triggers
-- Store UTC times, display in user's timezone
-
-## Database Schema
-
-### Core Tables
-
-#### users
-```sql
-users
-├── id (TEXT, PK)           -- Auth0 sub
-├── email (TEXT, UNIQUE)
-├── name (TEXT)
-├── is_admin (BOOLEAN)      -- Admin access
-├── status (TEXT)           -- active/suspended/deleted
-├── created_at (TIMESTAMPTZ)
-├── updated_at (TIMESTAMPTZ)
-├── last_login_at (TIMESTAMPTZ)
-├── login_count (INTEGER)
-└── metadata (JSONB)        -- Flexible extra data
-```
-
-#### user_credits
-```sql
-user_credits
-├── id (UUID, PK)
-├── user_id (TEXT, FK → users.id)
-├── total_purchased (DECIMAL)
-├── total_used (DECIMAL)
-├── cpu_hours_used (DECIMAL)
-├── gpu_hours_used (DECIMAL)
-├── storage_gb_months (DECIMAL)
-└── updated_at (TIMESTAMPTZ)
-```
-
-
-#### hopsworks_clusters (Cluster Endpoints)
-```sql
-hopsworks_clusters
-├── id (UUID, PK)
-├── name (TEXT, UNIQUE)     -- e.g., 'demo.hops.works'
-├── api_url (TEXT)
-├── api_key (TEXT)          -- Encrypted
-├── max_users (INTEGER)
-├── current_users (INTEGER)
-├── status (TEXT)           -- active/maintenance/full/inactive
-├── metadata (JSONB)
-└── created_at/updated_at (TIMESTAMPTZ)
-```
-
-#### user_hopsworks_assignments
-```sql
-user_hopsworks_assignments
-├── id (UUID, PK)
-├── user_id (TEXT, FK → users.id)
-├── hopsworks_cluster_id (UUID, FK → hopsworks_clusters.id)
-├── assigned_at (TIMESTAMPTZ)
-└── UNIQUE(user_id, hopsworks_cluster_id)
-```
-
-
-### Query Patterns
-
-#### Get User with All Related Data
-```typescript
-const { data: userData } = await supabase
+// Get user with cluster
+const { data } = await supabase
   .from('users')
   .select(`
     *,
-    user_credits (
-      total_purchased,
-      total_used,
-      cpu_hours_used,
-      gpu_hours_used
-    ),
     user_hopsworks_assignments (
-      hopsworks_clusters (
-        name,
-        api_url
-      )
+      hopsworks_clusters (*)
     )
   `)
   .eq('id', userId)
   .single();
-```
 
-#### Find Available Hopsworks Cluster for New User
-```typescript
-const { data: availableCluster } = await supabase
+// Find available cluster
+const { data: cluster } = await supabase
   .from('hopsworks_clusters')
   .select('*')
   .eq('status', 'active')
   .lt('current_users', supabase.raw('max_users'))
-  .order('current_users', { ascending: true })
+  .order('current_users')
   .limit(1)
   .single();
-```
-
-#### Get User's Daily Usage
-```typescript
-const { data: usage } = await supabase
-  .from('usage_daily')
-  .select('*')
-  .eq('user_id', userId)
-  .gte('date', startDate)
-  .lte('date', endDate)
-  .order('date', { ascending: false });
-```
-
-#### Admin: Get All Users with Credits
-```typescript
-const { data: users } = await supabase
-  .from('users')
-  .select(`
-    *,
-    user_credits!left (
-      total_purchased,
-      total_used
-    )
-  `)
-  .order('created_at', { ascending: false });
-```
-
-#### Update User Credits (Atomic)
-```typescript
-// Read current value
-const { data: credits } = await supabase
-  .from('user_credits')
-  .select('total_used')
-  .eq('user_id', userId)
-  .single();
-
-// Update with new value
-const newTotal = (credits?.total_used || 0) + amountUsed;
-await supabase
-  .from('user_credits')
-  .update({ total_used: newTotal })
-  .eq('user_id', userId);
-```
-
-### JSONB Queries
-
-#### Store Flexible Metadata
-```typescript
-// Store
-await supabase
-  .from('users')
-  .update({ 
-    metadata: {
-      preferences: { theme: 'dark', notifications: true },
-      tags: ['beta', 'power-user']
-    }
-  })
-  .eq('id', userId);
-
-// Query by JSONB field
-const { data } = await supabase
-  .from('users')
-  .select('*')
-  .contains('metadata', { tags: ['beta'] });
 ```

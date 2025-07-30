@@ -14,7 +14,7 @@
 1. Auth0 authentication
 2. Auth0 webhook → Creates Stripe customer & subscription
 3. Auto-assigns user to available Hopsworks cluster
-4. Creates OAuth user in Hopsworks (if configured)
+4. Creates OAuth user in Hopsworks & stores username
 
 ### Daily Usage Collection (2 AM UTC)
 1. Loops through all active clusters with kubeconfig
@@ -36,7 +36,6 @@
 - **`user_hopsworks_assignments`** - Maps users to clusters
 - **`usage_hourly`** - Granular usage tracking from Kubernetes
 - **`usage_daily`** - Aggregated daily usage for billing
-- **`usage_daily`** - Daily usage records with costs
 - **`user_credits`** - Prepaid credit tracking
 - **`user_billing_subscriptions`** - Stripe subscription info
 
