@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
+import { collectK8sMetrics } from '../../../../lib/usage-collection';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,21 +37,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    // Call the collect-k8s endpoint with cron secret
-    const collectResponse = await fetch(`${process.env.AUTH0_BASE_URL}/api/usage/collect-k8s`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.CRON_SECRET}`
-      }
-    });
-
-    if (!collectResponse.ok) {
-      const error = await collectResponse.text();
-      throw new Error(`Collection failed: ${error}`);
-    }
-
-    const result = await collectResponse.json();
+    // Call the collection function directly instead of making HTTP request
+    const result = await collectK8sMetrics();
 
     return res.status(200).json({
       message: 'Usage collection triggered successfully',
