@@ -93,6 +93,8 @@ export async function collectK8sMetrics() {
           const apiCost = 0; // API calls need separate tracking
           const totalCost = cpuCost + storageCost + apiCost;
 
+          console.log(`User ${username}: CPU=${cpuHours} cores, Memory=${memoryGB}GB, Storage=${storageGB}GB, Cost=$${totalCost}`);
+
           // Check if we already have a record for this hour
           const { data: existingRecord } = await supabaseAdmin
             .from('usage_hourly')
@@ -103,7 +105,7 @@ export async function collectK8sMetrics() {
 
           if (existingRecord) {
             // Update existing record (accumulate)
-            await supabaseAdmin
+            const { error: updateError } = await supabaseAdmin
               .from('usage_hourly')
               .update({
                 cpu_hours: existingRecord.cpu_hours + cpuHours,
@@ -114,9 +116,13 @@ export async function collectK8sMetrics() {
                 updated_at: now
               })
               .eq('id', existingRecord.id);
+              
+            if (updateError) {
+              throw new Error(`Failed to update usage record: ${updateError.message}`);
+            }
           } else {
             // Create new record
-            await supabaseAdmin
+            const { error: insertError } = await supabaseAdmin
               .from('usage_hourly')
               .insert({
                 user_id: assignment.user_id,
@@ -137,6 +143,10 @@ export async function collectK8sMetrics() {
                   pods: p.pods.length
                 }))
               });
+              
+            if (insertError) {
+              throw new Error(`Failed to insert usage record: ${insertError.message}`);
+            }
           }
 
           results.successful++;

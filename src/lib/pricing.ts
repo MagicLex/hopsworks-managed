@@ -59,6 +59,14 @@ export const instanceHourlyRates: Record<string, number> = {
   'n2-standard-16': 2.32,
   'n2-standard-32': 4.64,
   
+  // Hopsworks specific instances
+  'jupyter.small': 0.10,   // Small Jupyter notebook
+  'jupyter.medium': 0.25,  // Medium Jupyter notebook
+  'jupyter.large': 0.50,   // Large Jupyter notebook
+  'compute.small': 0.25,   // Small compute job
+  'compute.medium': 0.50,  // Medium compute job
+  'compute.large': 1.00,   // Large compute job
+  
   // Default for unknown instance types
   'unknown': 0.10
 };
