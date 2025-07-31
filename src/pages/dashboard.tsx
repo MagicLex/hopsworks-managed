@@ -90,17 +90,6 @@ export default function Dashboard() {
   const { data: instance, loading: instanceLoading } = useApiData<InstanceData>('/api/instance');
   const { data: teamMembers, loading: teamLoading } = useApiData<TeamMember[]>('/api/team/members');
   const { data: billing, loading: billingLoading } = useApiData<BillingInfo>('/api/billing');
-  
-  // Debug billing data
-  useEffect(() => {
-    if (billing) {
-      console.log('Billing data received:', {
-        hasPaymentMethod: billing.hasPaymentMethod,
-        billingMode: billing.billingMode,
-        raw: billing
-      });
-    }
-  }, [billing]);
   const [activeTab, setActiveTab] = useState('cluster');
   const [copied, setCopied] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
