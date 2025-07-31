@@ -104,9 +104,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // Check if customer has payment methods
+    let hasPaymentMethod = false;
+    if (user?.stripe_customer_id) {
+      try {
+        const Stripe = (await import('stripe')).default;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+          apiVersion: '2025-06-30.basil'
+        });
+        const paymentMethods = await stripe.paymentMethods.list({
+          customer: user.stripe_customer_id,
+          type: 'card'
+        });
+        hasPaymentMethod = paymentMethods.data.length > 0;
+      } catch (error) {
+        console.error('Error checking payment methods:', error);
+      }
+    }
+
     return res.status(200).json({
       billingMode: user?.billing_mode || 'postpaid',
-      hasPaymentMethod: !!user?.stripe_customer_id,
+      hasPaymentMethod,
       subscriptionStatus: user?.stripe_subscription_status,
       prepaidEnabled: user?.feature_flags?.prepaid_enabled || false,
       currentUsage: {
