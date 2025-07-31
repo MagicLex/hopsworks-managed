@@ -126,6 +126,11 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
             <Box className="text-sm text-gray-600 mb-2">
               {price === 0 && deployment.id === 'serverless' ? (
                 <Badge variant="primary" size="sm" className="font-mono font-semibold">FREE</Badge>
+              ) : deployment.id === 'payg' ? (
+                <Flex align="baseline" gap={4}>
+                  <Text className="font-mono font-semibold">$1</Text>
+                  <Labeling gray>/CPU hour</Labeling>
+                </Flex>
               ) : (
                 <Flex align="baseline" gap={4}>
                   <Text className="font-mono font-semibold">${price}</Text>
