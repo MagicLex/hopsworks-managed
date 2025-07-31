@@ -78,15 +78,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Get billing history
-    const { data: billingHistory, error: billingError } = await supabaseAdmin
-      .from('billing_history')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    if (billingError) console.error('Billing error:', billingError);
+    // Get billing history from Stripe
+    let billingHistory: any[] = [];
+    if (user?.stripe_customer_id) {
+      try {
+        const Stripe = (await import('stripe')).default;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+          apiVersion: '2025-06-30.basil'
+        });
+        
+        const invoices = await stripe.invoices.list({
+          customer: user.stripe_customer_id,
+          limit: 5
+        });
+        
+        billingHistory = invoices.data.map(invoice => ({
+          id: invoice.id,
+          invoice_id: invoice.number || invoice.id,
+          amount: (invoice.amount_paid || 0) / 100,
+          status: invoice.status,
+          created_at: new Date(invoice.created * 1000).toISOString()
+        }));
+      } catch (stripeError) {
+        console.error('Error fetching Stripe invoices:', stripeError);
+      }
+    }
 
     return res.status(200).json({
       billingMode: user?.billing_mode || 'postpaid',
