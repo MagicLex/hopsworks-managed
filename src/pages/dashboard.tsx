@@ -3,8 +3,8 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApiData } from '@/hooks/useApiData';
-import { Box, Flex, Title, Text, Button, Card, Badge, Tabs, TabsContent, TabsList, TabsTrigger } from 'tailwind-quartz';
-import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle } from 'lucide-react';
+import { Box, Flex, Title, Text, Button, Card, Badge, Tabs, TabsContent, TabsList, TabsTrigger, Modal, Input } from 'tailwind-quartz';
+import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle, UserPlus, Mail, Download } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import ClusterAccessStatus from '@/components/ClusterAccessStatus';
@@ -71,6 +71,13 @@ interface BillingInfo {
     storageGB: number;
     totalCost: number;
   };
+  invoices?: Array<{
+    id: string;
+    invoice_number: string;
+    amount: number;
+    status: string;
+    created_at: string;
+  }>;
 }
 
 export default function Dashboard() {
@@ -83,6 +90,10 @@ export default function Dashboard() {
   const { data: billing, loading: billingLoading } = useApiData<BillingInfo>('/api/billing/info');
   const [activeTab, setActiveTab] = useState('cluster');
   const [copied, setCopied] = useState('');
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -290,13 +301,15 @@ export default function Dashboard() {
                   <Text className="text-sm text-gray-600">No team members yet.</Text>
                 )}
                 
-                <Box className="mt-6">
-                  <Link href="/team">
-                    <Button intent="primary" className="uppercase">
-                      Manage Team →
-                    </Button>
-                  </Link>
-                </Box>
+                <Flex gap={12} className="mt-6">
+                  <Button
+                    intent="primary"
+                    onClick={() => setShowInviteModal(true)}
+                  >
+                    <UserPlus size={16} className="mr-2" />
+                    Invite Member
+                  </Button>
+                </Flex>
               </Card>
             </TabsContent>
 
@@ -352,11 +365,46 @@ export default function Dashboard() {
                 </>
               )}
               
-              <Link href="/billing">
-                <Button intent="primary" className="uppercase">
-                  Manage Billing →
-                </Button>
-              </Link>
+              {billing?.hasPaymentMethod ? (
+                <>
+                  <Card className="p-6">
+                    <Title as="h2" className="text-lg mb-4">Invoices</Title>
+                    {billing.invoices && billing.invoices.length > 0 ? (
+                      <Box className="space-y-2">
+                        {billing.invoices.slice(0, 5).map(invoice => (
+                          <Flex key={invoice.id} justify="between" align="center" className="py-2 border-b border-gray-100 last:border-0">
+                            <Box>
+                              <Text className="font-medium">{invoice.invoice_number}</Text>
+                              <Text className="text-xs text-gray-500">
+                                {new Date(invoice.created_at).toLocaleDateString()}
+                              </Text>
+                            </Box>
+                            <Flex align="center" gap={12}>
+                              <Text className="font-medium">${invoice.amount.toFixed(2)}</Text>
+                              <Badge variant={invoice.status === 'paid' ? 'success' : 'default'} size="sm">
+                                {invoice.status}
+                              </Badge>
+                            </Flex>
+                          </Flex>
+                        ))}
+                      </Box>
+                    ) : (
+                      <Text className="text-sm text-gray-600">No invoices yet.</Text>
+                    )}
+                  </Card>
+                </>
+              ) : (
+                <Card className="p-6">
+                  <Title as="h2" className="text-lg mb-4">Add Payment Method</Title>
+                  <Text className="text-sm text-gray-600 mb-4">
+                    Add a payment method to start using Hopsworks.
+                  </Text>
+                  <Button intent="primary">
+                    <CreditCard size={16} className="mr-2" />
+                    Add Card
+                  </Button>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="settings">
@@ -392,6 +440,66 @@ export default function Dashboard() {
           </Tabs>
         </Box>
       </Box>
+      
+      {/* Invite Modal */}
+      <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)}>
+        <Box className="p-6">
+          <Title as="h2" className="text-lg mb-4">Invite Team Member</Title>
+          <Text className="text-sm text-gray-600 mb-4">
+            They&apos;ll receive an email invitation to join your Hopsworks team.
+          </Text>
+          <Input
+            type="email"
+            placeholder="colleague@company.com"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            className="mb-4"
+          />
+          {inviteError && (
+            <Text className="text-sm text-red-500 mb-4">{inviteError}</Text>
+          )}
+          <Flex gap={12} justify="end">
+            <Button
+              intent="ghost"
+              onClick={() => {
+                setShowInviteModal(false);
+                setInviteEmail('');
+                setInviteError('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              intent="primary"
+              disabled={!inviteEmail || inviteLoading}
+              onClick={async () => {
+                setInviteError('');
+                setInviteLoading(true);
+                try {
+                  const response = await fetch('/api/team/invite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: inviteEmail })
+                  });
+                  const data = await response.json();
+                  if (!response.ok) {
+                    throw new Error(data.error || 'Failed to send invite');
+                  }
+                  setShowInviteModal(false);
+                  setInviteEmail('');
+                  // Optionally refresh team members
+                } catch (error: any) {
+                  setInviteError(error.message || 'Failed to send invite');
+                } finally {
+                  setInviteLoading(false);
+                }
+              }}
+            >
+              {inviteLoading ? 'Sending...' : 'Send Invite'}
+            </Button>
+          </Flex>
+        </Box>
+      </Modal>
     </>
   );
 }
