@@ -56,13 +56,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
       
       if (paymentMethods.data.length > 0) {
-        // Create billing portal session to manage existing payment methods
-        const portalSession = await stripe.billingPortal.sessions.create({
-          customer: user.stripe_customer_id,
-          return_url: `${process.env.AUTH0_BASE_URL}/dashboard?tab=billing`,
-        });
-        
-        return res.status(200).json({ portalUrl: portalSession.url });
+        try {
+          // Create billing portal session to manage existing payment methods
+          const portalSession = await stripe.billingPortal.sessions.create({
+            customer: user.stripe_customer_id,
+            return_url: `${process.env.AUTH0_BASE_URL}/dashboard?tab=billing`,
+          });
+          
+          return res.status(200).json({ portalUrl: portalSession.url });
+        } catch (portalError: any) {
+          // If portal not configured, let them add another payment method
+          console.error('Portal error:', portalError.message);
+        }
       }
     }
 
