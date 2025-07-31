@@ -169,8 +169,8 @@ export default function Cluster() {
                 intent="ghost"
                 className="absolute top-2 right-2 text-xs"
                 onClick={() => {
-                  const code = `import hopsworks
-import pandas as pd
+                  const code = `# Feature Pipeline (Hopsworks)
+import hopsworks
 
 # Login with host
 project = hopsworks.login(
@@ -178,14 +178,6 @@ project = hopsworks.login(
 )
 fs = project.get_feature_store()
 
-# Load your data (example)
-features = pd.DataFrame({
-    'user_id': [1, 2, 3, 1, 2],
-    'order_id': [100, 101, 102, 103, 104],
-    'order_value': [10.5, 25.2, 12.6, 8.8, 30.0],
-    'order_date': pd.to_datetime(['2024-06-01', '2024-06-02', '2024-06-03', '2024-06-02', '2024-06-04'])
-})
-    
 # Create feature group
 fg = fs.get_or_create_feature_group(
     name='user_features',
@@ -195,8 +187,7 @@ fg = fs.get_or_create_feature_group(
     description='User features based on order history'
 )
 
-# Insert features into the Feature Store
-fg.insert(features)`;
+print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                   navigator.clipboard.writeText(code);
                   setCopied('quickstart');
                   setTimeout(() => setCopied(''), 2000);
@@ -216,29 +207,37 @@ fg.insert(features)`;
               </Button>
               <pre className="overflow-x-auto p-4 text-sm bg-gray-900 text-gray-300 rounded">
                 <code>
+                  <span className="text-gray-500"># Feature Pipeline (Hopsworks)</span>
+                  {'\n'}
                   <span className="text-purple-400">import</span> <span className="text-green-400">hopsworks</span>
                   {'\n\n'}
-                  <span className="text-gray-500"># Login via browser (SSO)</span>
+                  <span className="text-gray-500"># Login with host</span>
                   {'\n'}
-                  <span className="text-blue-300">connection</span> = <span className="text-green-400">hopsworks</span>.<span className="text-yellow-300">login</span>(
+                  <span className="text-blue-300">project</span> = <span className="text-green-400">hopsworks</span>.<span className="text-yellow-300">login</span>(
                   {'\n    '}
                   <span className="text-orange-300">host</span>=<span className="text-green-300">&quot;{instanceData?.endpoint || 'your-hopsworks-instance.com'}&quot;</span>
                   {'\n'}
                   )
-                  {'\n\n'}
-                  <span className="text-gray-500"># Get the feature store</span>
                   {'\n'}
-                  <span className="text-blue-300">fs</span> = <span className="text-blue-300">connection</span>.<span className="text-yellow-300">get_feature_store</span>()
+                  <span className="text-blue-300">fs</span> = <span className="text-blue-300">project</span>.<span className="text-yellow-300">get_feature_store</span>()
                   {'\n\n'}
-                  <span className="text-gray-500"># Create a new feature group</span>
+                  <span className="text-gray-500"># Create feature group</span>
                   {'\n'}
-                  <span className="text-blue-300">fg</span> = <span className="text-blue-300">fs</span>.<span className="text-yellow-300">create_feature_group</span>(
+                  <span className="text-blue-300">fg</span> = <span className="text-blue-300">fs</span>.<span className="text-yellow-300">get_or_create_feature_group</span>(
                   {'\n    '}
-                  <span className="text-orange-300">name</span>=<span className="text-green-300">&quot;sales_features&quot;</span>,
+                  <span className="text-orange-300">name</span>=<span className="text-green-300">&apos;user_features&apos;</span>,
                   {'\n    '}
-                  <span className="text-orange-300">version</span>=<span className="text-purple-300">1</span>
+                  <span className="text-orange-300">version</span>=<span className="text-purple-300">1</span>,
+                  {'\n    '}
+                  <span className="text-orange-300">primary_key</span>=[<span className="text-green-300">&apos;user_id&apos;</span>],
+                  {'\n    '}
+                  <span className="text-orange-300">online</span>=<span className="text-purple-300">True</span>,
+                  {'\n    '}
+                  <span className="text-orange-300">description</span>=<span className="text-green-300">&apos;User features based on order history&apos;</span>
                   {'\n'}
                   )
+                  {'\n\n'}
+                  <span className="text-purple-400">print</span>(<span className="text-purple-400">f</span><span className="text-green-300">&quot;Feature group &apos;{'{fg.name}'}&apos; created/retrieved successfully&quot;</span>)
                 </code>
               </pre>
             </Card>
