@@ -49,13 +49,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Check if already has payment method
     if (user.stripe_customer_id) {
-      // Check if customer has payment methods
+      // Check if customer has payment methods - check all types
       const paymentMethods = await stripe.paymentMethods.list({
-        customer: user.stripe_customer_id,
-        type: 'card'
+        customer: user.stripe_customer_id
       });
       
-      if (paymentMethods.data.length > 0) {
+      // Also check for successful setup intents
+      const setupIntents = await stripe.setupIntents.list({
+        customer: user.stripe_customer_id,
+        limit: 1
+      });
+      const hasSuccessfulSetup = setupIntents.data.some(si => si.status === 'succeeded');
+      
+      console.log(`Payment method check in setup-payment for ${user.stripe_customer_id}:`, {
+        paymentMethodsCount: paymentMethods.data.length,
+        hasSuccessfulSetup,
+        paymentMethodIds: paymentMethods.data.map(pm => pm.id)
+      });
+      
+      if (paymentMethods.data.length > 0 || hasSuccessfulSetup) {
         try {
           // Create billing portal session to manage existing payment methods
           const portalSession = await stripe.billingPortal.sessions.create({
