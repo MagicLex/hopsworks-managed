@@ -4,7 +4,7 @@ import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApiData } from '@/hooks/useApiData';
 import { Box, Flex, Title, Text, Button, Card, Badge, Tabs, TabsContent, TabsList, TabsTrigger } from 'tailwind-quartz';
-import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users } from 'lucide-react';
+import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import ClusterAccessStatus from '@/components/ClusterAccessStatus';
@@ -38,12 +38,51 @@ interface HopsworksInfo {
   }>;
 }
 
+interface InstanceData {
+  name: string;
+  status: string;
+  endpoint: string;
+  plan: string;
+  created: string | null;
+}
+
+interface TeamMember {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  addedAt: string;
+}
+
+interface PaymentMethod {
+  id: string;
+  brand: string;
+  last4: string;
+  isDefault: boolean;
+}
+
+interface BillingInfo {
+  hasPaymentMethod: boolean;
+  paymentMethods: PaymentMethod[];
+  currentBalance: number;
+  monthlyUsage: {
+    cpuHours: number;
+    gpuHours: number;
+    storageGB: number;
+    totalCost: number;
+  };
+}
+
 export default function Dashboard() {
   const { user, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
   const { data: usage, loading: usageLoading } = useApiData<UsageData>('/api/usage');
   const { data: hopsworksInfo, loading: hopsworksLoading } = useApiData<HopsworksInfo>('/api/user/hopsworks-info');
-  const [activeTab, setActiveTab] = useState('overview');
+  const { data: instance, loading: instanceLoading } = useApiData<InstanceData>('/api/instance');
+  const { data: teamMembers, loading: teamLoading } = useApiData<TeamMember[]>('/api/team/members');
+  const { data: billing, loading: billingLoading } = useApiData<BillingInfo>('/api/billing/info');
+  const [activeTab, setActiveTab] = useState('cluster');
+  const [copied, setCopied] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -71,117 +110,153 @@ export default function Dashboard() {
       <Navbar />
       <Box className="min-h-screen py-10 px-5">
         <Box className="max-w-6xl mx-auto">
-          <Flex justify="between" align="center" className="mb-8">
-            <Title as="h1" className="text-2xl">Dashboard</Title>
-            <Card className="p-4">
-              <Text className="text-sm text-gray-600">Logged in as {user.email}</Text>
-            </Card>
-          </Flex>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="mb-6">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="cluster">Cluster</TabsTrigger>
               <TabsTrigger value="team">Team</TabsTrigger>
               <TabsTrigger value="billing">Billing</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview">
+            <TabsContent value="cluster">
               {/* Cluster Access Status */}
               <Box className="mb-6">
                 <ClusterAccessStatus 
                   hasCluster={hopsworksInfo?.hasCluster || false}
-                  hasPaymentMethod={false} // TODO: Get this from billing API
+                  hasPaymentMethod={billing?.hasPaymentMethod || false}
                   clusterName={hopsworksInfo?.clusterName}
                 />
               </Box>
 
-              {/* Usage Metrics */}
-              <Box className="mb-6">
-                <Title as="h2" className="text-lg mb-4">Current Usage</Title>
-                <Flex gap={16} className="grid grid-cols-1 md:grid-cols-2">
-                  <Card className="p-4">
-                    <Flex align="center" gap={8} className="mb-2">
-                      <Cpu size={16} className="text-[#1eb182]" />
-                      <Text className="text-sm text-gray-600">Hops Credits</Text>
+
+              {instance ? (
+                <>
+                  <Card className="p-6 mb-6">
+                    <Flex align="center" gap={12} className="mb-4">
+                      <Server size={20} className="text-[#1eb182]" />
+                      <Title as="h2" className="text-lg">Your Hopsworks Instance</Title>
+                      <Badge variant={instance.status === 'active' ? 'success' : 'default'}>
+                        {instance.status || 'Unknown'}
+                      </Badge>
                     </Flex>
-                    <Text className="text-xl font-semibold">
-                      {usageLoading ? '...' : (usage?.cpuHours?.toFixed(0) || '0')}
-                    </Text>
-                    <Text className="text-xs text-gray-500">CPU hours this month</Text>
-                  </Card>
-                  {hopsworksInfo?.hasHopsworksUser && (
-                    <Card className="p-4">
-                      <Flex align="center" gap={8} className="mb-2">
-                        <Database size={16} className="text-[#1eb182]" />
-                        <Text className="text-sm text-gray-600">Projects</Text>
+                    
+                    <Box className="space-y-3">
+                      <Flex justify="between">
+                        <Text className="text-sm text-gray-600">Instance Name</Text>
+                        <Text className="text-sm font-medium">{instance.name}</Text>
                       </Flex>
-                      <Text className="text-xl font-semibold">
-                        {hopsworksLoading ? '...' : (hopsworksInfo?.hopsworksUser?.numActiveProjects || '0')}
-                      </Text>
-                      <Text className="text-xs text-gray-500">Active projects</Text>
+                      
+                      <Flex justify="between">
+                        <Text className="text-sm text-gray-600">Plan</Text>
+                        <Text className="text-sm font-medium">{instance.plan}</Text>
+                      </Flex>
+                      
+                      {instance.created && (
+                        <Flex justify="between">
+                          <Text className="text-sm text-gray-600">Created</Text>
+                          <Text className="text-sm font-medium">
+                            {new Date(instance.created).toLocaleDateString()}
+                          </Text>
+                        </Flex>
+                      )}
+                      
+                      <Box className="pt-3 border-t border-gray-100">
+                        <Flex justify="between" align="center">
+                          <Text className="text-sm text-gray-600">Endpoint</Text>
+                          <Flex gap={8}>
+                            <Text className="text-sm font-mono bg-gray-50 px-2 py-1 rounded">
+                              {instance.endpoint}
+                            </Text>
+                            <Button
+                              intent="ghost"
+                              className="p-1"
+                              onClick={() => {
+                                navigator.clipboard.writeText(instance.endpoint);
+                                setCopied('endpoint');
+                                setTimeout(() => setCopied(''), 2000);
+                              }}
+                            >
+                              {copied === 'endpoint' ? <CheckCircle size={14} /> : <Copy size={14} />}
+                            </Button>
+                          </Flex>
+                        </Flex>
+                      </Box>
+                    </Box>
+                    
+                    <Flex gap={12} className="mt-6">
+                      <Button 
+                        intent="primary"
+                        className="uppercase flex-1"
+                        onClick={() => window.open(instance.endpoint, '_blank')}
+                      >
+                        <ExternalLink size={16} className="mr-2" />
+                        Access Hopsworks
+                      </Button>
+                    </Flex>
+                  </Card>
+
+                  {/* Usage Metrics */}
+                  <Box className="mb-6">
+                    <Title as="h2" className="text-lg mb-4">Current Usage</Title>
+                    <Flex gap={16} className="grid grid-cols-1 md:grid-cols-2">
+                      <Card className="p-4">
+                        <Flex align="center" gap={8} className="mb-2">
+                          <Cpu size={16} className="text-[#1eb182]" />
+                          <Text className="text-sm text-gray-600">CPU Hours</Text>
+                        </Flex>
+                        <Text className="text-xl font-semibold">
+                          {usageLoading ? '...' : (usage?.cpuHours?.toFixed(0) || '0')}
+                        </Text>
+                        <Text className="text-xs text-gray-500">This month</Text>
+                      </Card>
+                      {hopsworksInfo?.hasHopsworksUser && (
+                        <Card className="p-4">
+                          <Flex align="center" gap={8} className="mb-2">
+                            <Database size={16} className="text-[#1eb182]" />
+                            <Text className="text-sm text-gray-600">Projects</Text>
+                          </Flex>
+                          <Text className="text-xl font-semibold">
+                            {hopsworksLoading ? '...' : (hopsworksInfo?.hopsworksUser?.numActiveProjects || '0')}
+                          </Text>
+                          <Text className="text-xs text-gray-500">Active projects</Text>
+                        </Card>
+                      )}
+                    </Flex>
+                  </Box>
+
+                  {hopsworksInfo?.projects && hopsworksInfo.projects.length > 0 && (
+                    <Card className="p-6">
+                      <Flex align="center" gap={12} className="mb-4">
+                        <Database size={20} className="text-[#1eb182]" />
+                        <Title as="h2" className="text-lg">Your Projects</Title>
+                      </Flex>
+                      <Box className="space-y-2">
+                        {hopsworksInfo.projects.map(project => (
+                          <Flex key={project.id} justify="between" align="center" className="py-2 border-b border-gray-100 last:border-0">
+                            <Box>
+                              <Text className="font-medium">{project.name}</Text>
+                              <Text className="text-xs text-gray-500">Created {new Date(project.created).toLocaleDateString()}</Text>
+                            </Box>
+                            <Badge variant="default" size="sm">ID: {project.id}</Badge>
+                          </Flex>
+                        ))}
+                      </Box>
                     </Card>
                   )}
-                </Flex>
-              </Box>
-
-              {hopsworksInfo?.projects && hopsworksInfo.projects.length > 0 && (
-                <Card className="p-6">
-                  <Flex align="center" gap={12} className="mb-4">
-                    <Database size={20} className="text-[#1eb182]" />
-                    <Title as="h2" className="text-lg">Your Projects</Title>
-                  </Flex>
-                  <Box className="space-y-2">
-                    {hopsworksInfo.projects.map(project => (
-                      <Flex key={project.id} justify="between" align="center" className="py-2 border-b border-gray-100 last:border-0">
-                        <Box>
-                          <Text className="font-medium">{project.name}</Text>
-                          <Text className="text-xs text-gray-500">Created {new Date(project.created).toLocaleDateString()}</Text>
-                        </Box>
-                        <Badge variant="default" size="sm">ID: {project.id}</Badge>
-                      </Flex>
-                    ))}
-                  </Box>
-                </Card>
-              )}
-            </TabsContent>
-
-            <TabsContent value="cluster">
-              {hopsworksInfo?.hasCluster ? (
-                <Card className="p-6">
-                  <Flex align="center" gap={12} className="mb-4">
-                    <Server size={20} className="text-[#1eb182]" />
-                    <Title as="h2" className="text-lg">Your Hopsworks Cluster</Title>
-                    {hopsworksInfo?.hasHopsworksUser && (
-                      <Badge variant="success">Active</Badge>
-                    )}
-                  </Flex>
-                  {hopsworksInfo?.clusterName && (
-                    <Text className="text-sm font-medium mb-2">{hopsworksInfo.clusterName}</Text>
-                  )}
-                  {hopsworksInfo?.hasHopsworksUser && hopsworksInfo?.hopsworksUser && (
-                    <Text className="text-sm text-gray-600 mb-2">
-                      Username: {hopsworksInfo.hopsworksUser.username}
-                    </Text>
-                  )}
-                  <Text className="text-sm text-gray-600 mb-4">
-                    Access your feature store, model registry, and ML pipelines
-                  </Text>
-                  <Button 
-                    intent="primary"
-                    className="uppercase"
-                    onClick={() => router.push('/cluster')}
-                  >
-                    Access Hopsworks →
-                  </Button>
-                </Card>
+                </>
               ) : (
                 <Card className="p-6">
                   <Title as="h2" className="text-lg mb-4">No Cluster Assigned</Title>
-                  <Text className="text-sm text-gray-600">
+                  <Text className="text-sm text-gray-600 mb-4">
                     Please add a payment method to get started with your Hopsworks cluster.
                   </Text>
+                  <Button
+                    intent="primary"
+                    onClick={() => setActiveTab('billing')}
+                  >
+                    Add Payment Method
+                  </Button>
                 </Card>
               )}
             </TabsContent>
@@ -190,40 +265,98 @@ export default function Dashboard() {
               <Card className="p-6">
                 <Flex align="center" gap={12} className="mb-4">
                   <Users size={20} className="text-[#1eb182]" />
-                  <Title as="h2" className="text-lg">Team Management</Title>
+                  <Title as="h2" className="text-lg">Team Members</Title>
                 </Flex>
-                <Text className="text-sm text-gray-600 mb-4">
-                  Manage team members and invitations
-                </Text>
-                <Link href="/team">
-                  <Button 
-                    intent="primary"
-                    className="uppercase"
-                  >
-                    Manage Team →
-                  </Button>
-                </Link>
+                
+                {teamLoading ? (
+                  <Text className="text-sm text-gray-600">Loading team members...</Text>
+                ) : teamMembers && teamMembers.length > 0 ? (
+                  <Box className="space-y-3">
+                    {teamMembers.map(member => (
+                      <Flex key={member.id} justify="between" align="center" className="py-3 border-b border-gray-100 last:border-0">
+                        <Box>
+                          <Text className="font-medium">{member.email}</Text>
+                          <Text className="text-xs text-gray-500">
+                            {member.role} • Added {new Date(member.addedAt).toLocaleDateString()}
+                          </Text>
+                        </Box>
+                        <Badge variant={member.status === 'active' ? 'success' : 'default'} size="sm">
+                          {member.status}
+                        </Badge>
+                      </Flex>
+                    ))}
+                  </Box>
+                ) : (
+                  <Text className="text-sm text-gray-600">No team members yet.</Text>
+                )}
+                
+                <Box className="mt-6">
+                  <Link href="/team">
+                    <Button intent="primary" className="uppercase">
+                      Manage Team →
+                    </Button>
+                  </Link>
+                </Box>
               </Card>
             </TabsContent>
 
             <TabsContent value="billing">
-              <Card className="p-6">
-                <Flex align="center" gap={12} className="mb-4">
-                  <CreditCard size={20} className="text-[#1eb182]" />
-                  <Title as="h2" className="text-lg">Billing & Usage</Title>
-                </Flex>
-                <Text className="text-sm text-gray-600 mb-4">
-                  View usage, manage Hops Credits and payment methods
-                </Text>
-                <Link href="/billing">
-                  <Button 
-                    intent="primary"
-                    className="uppercase"
-                  >
-                    Manage Billing →
-                  </Button>
-                </Link>
-              </Card>
+              {billing && (
+                <>
+                  <Card className="p-6 mb-6">
+                    <Flex align="center" gap={12} className="mb-4">
+                      <CreditCard size={20} className="text-[#1eb182]" />
+                      <Title as="h2" className="text-lg">Payment Methods</Title>
+                    </Flex>
+                    
+                    {billing.paymentMethods.length > 0 ? (
+                      <Box className="space-y-3">
+                        {billing.paymentMethods.map(method => (
+                          <Flex key={method.id} justify="between" align="center" className="py-3 border-b border-gray-100 last:border-0">
+                            <Flex align="center" gap={12}>
+                              <CreditCard size={16} className="text-gray-400" />
+                              <Box>
+                                <Text className="font-medium">
+                                  {method.brand} •••• {method.last4}
+                                </Text>
+                                {method.isDefault && (
+                                  <Badge variant="success" size="sm">Default</Badge>
+                                )}
+                              </Box>
+                            </Flex>
+                          </Flex>
+                        ))}
+                      </Box>
+                    ) : (
+                      <Text className="text-sm text-gray-600">No payment methods added yet.</Text>
+                    )}
+                  </Card>
+                  
+                  <Card className="p-6 mb-6">
+                    <Title as="h2" className="text-lg mb-4">Monthly Usage</Title>
+                    <Flex gap={16} className="grid grid-cols-1 md:grid-cols-2">
+                      <Box>
+                        <Text className="text-sm text-gray-600 mb-1">CPU Hours</Text>
+                        <Text className="text-xl font-semibold">
+                          {billing.monthlyUsage.cpuHours.toFixed(0)}
+                        </Text>
+                      </Box>
+                      <Box>
+                        <Text className="text-sm text-gray-600 mb-1">Total Cost</Text>
+                        <Text className="text-xl font-semibold">
+                          ${billing.monthlyUsage.totalCost.toFixed(2)}
+                        </Text>
+                      </Box>
+                    </Flex>
+                  </Card>
+                </>
+              )}
+              
+              <Link href="/billing">
+                <Button intent="primary" className="uppercase">
+                  Manage Billing →
+                </Button>
+              </Link>
             </TabsContent>
 
             <TabsContent value="settings">
