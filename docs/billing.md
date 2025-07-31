@@ -18,8 +18,14 @@ The billing system tracks resource usage across Hopsworks clusters and charges u
 Note: GPU and storage billing are implemented in the system but not currently displayed in the UI.
 
 ### Billing Modes
-- **Postpaid** (default): Monthly charges based on usage
-- **Prepaid** (opt-in): Purchase credits upfront, deduct as used
+- **Postpaid** (default): Monthly charges based on usage via Stripe subscription
+  - Payment method required during registration
+  - Monthly invoicing for actual usage
+  - Cannot add payment methods after registration (contact support)
+- **Prepaid** (feature flag required): Purchase credits upfront
+  - Only available to users with `prepaid_enabled` feature flag
+  - Minimum purchase: $25 credits
+  - Valid amounts: $25, $50, $100, $500
 - **Hybrid**: System supports users with different billing modes simultaneously
 
 ## Implementation
@@ -76,17 +82,23 @@ CREATE TABLE user_credits (
 
 ### 3. Stripe Integration
 
+#### Payment Method Setup
+- **Postpaid Users**: Payment method must be set up during initial registration
+- **Adding Payment Methods**: Not supported post-registration (architectural limitation)
+- **Prepaid Credits**: Available via `/api/billing/purchase-credits` endpoint
+
 #### Products Setup
 1. Create products in Stripe Dashboard:
    - CPU Hour
-   - GPU Hour
+   - GPU Hour  
    - Storage GB-Month
    - API Calls
    - Credits
 
-2. Configure webhook endpoint:
+2. Configure webhook endpoints:
    ```
-   https://your-domain.vercel.app/api/webhooks/stripe
+   Production: https://your-domain.vercel.app/api/webhooks/stripe
+   Testing: https://your-domain.vercel.app/api/webhooks/stripe-test
    ```
 
 3. Set environment variables (see [.env.example](../.env.example))
@@ -110,6 +122,38 @@ Access at `/admin47392`:
 - Force usage collection
 - Monitor billing status
 
+## API Endpoints
+
+### GET /api/billing
+Returns current billing information:
+```json
+{
+  "billingMode": "postpaid",
+  "hasPaymentMethod": true,
+  "subscriptionStatus": "active",
+  "prepaidEnabled": false,
+  "currentUsage": {
+    "cpuHours": "123.45",
+    "storageGB": "50.00",
+    "currentMonth": {
+      "cpuCost": 12.35,
+      "storageCost": 5.00,
+      "total": 17.35
+    }
+  },
+  "creditBalance": null,
+  "invoices": []
+}
+```
+
+### POST /api/billing/purchase-credits
+Purchase prepaid credits (requires `prepaid_enabled` flag):
+```json
+{
+  "amount": 50  // Must be 25, 50, 100, or 500
+}
+```
+
 ## Troubleshooting
 
 ### No Metrics Collected
@@ -124,6 +168,11 @@ Access at `/admin47392`:
 3. Review Stripe dashboard for failed payments
 4. Check daily sync job is running
 
+### "No Payment Method" Error
+- For postpaid users: Payment method should have been added during registration
+- This is a known limitation - users cannot add payment methods post-registration
+- Contact support to resolve payment method issues
+
 ### Common SQL Queries
 
 ```sql
@@ -137,10 +186,26 @@ AND date >= date_trunc('month', CURRENT_DATE);
 SELECT total_purchased - total_used as balance
 FROM user_credits
 WHERE user_id = 'USER_ID';
+
+-- Check user billing mode and flags
+SELECT 
+  billing_mode,
+  stripe_customer_id,
+  stripe_subscription_status,
+  feature_flags->>'prepaid_enabled' as prepaid_enabled
+FROM users
+WHERE id = 'USER_ID';
 ```
+
+## Implementation Notes
+
+### Dashboard Integration
+- Billing tab shows payment status and recent invoices
+- No "Add Card" functionality - payment methods set up during registration only
+- Prepaid credit purchase only available to flagged users
+- Team members cannot access billing information
 
 ## Related Documentation
 
-- [Kubernetes Metrics Details](kubernetes-metrics.md)
-- [Stripe Setup Guide](stripe-setup.md)
-- [Database Schema](database.md)
+- [API Documentation](api.md)
+- [Deployment Guide](deployment.md)
