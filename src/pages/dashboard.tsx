@@ -236,20 +236,33 @@ export default function Dashboard() {
                         className="absolute top-2 right-2 text-xs p-1"
                         onClick={() => {
                           const code = `import hopsworks
+import pandas as pd
 
-# Login via browser (SSO)
-connection = hopsworks.login(
-    host="${instance?.endpoint || 'your-hopsworks-instance.com'}"
+# Login with host
+project = hopsworks.login(
+    host="${instance?.endpoint || 'https://your-hopsworks-instance.com'}"
+)
+fs = project.get_feature_store()
+
+# Load your data (example)
+features = pd.DataFrame({
+    'user_id': [1, 2, 3, 1, 2],
+    'order_id': [100, 101, 102, 103, 104],
+    'order_value': [10.5, 25.2, 12.6, 8.8, 30.0],
+    'order_date': pd.to_datetime(['2024-06-01', '2024-06-02', '2024-06-03', '2024-06-02', '2024-06-04'])
+})
+    
+# Create feature group
+fg = fs.get_or_create_feature_group(
+    name='user_features',
+    version=1,
+    primary_key=['user_id'],
+    online=True,
+    description='User features based on order history'
 )
 
-# Get the feature store
-fs = connection.get_feature_store()
-
-# Create a new feature group
-fg = fs.create_feature_group(
-    name="sales_features",
-    version=1
-)`;
+# Insert features into the Feature Store
+fg.insert(features)`;
                           navigator.clipboard.writeText(code);
                           setCopied('quickstart');
                           setTimeout(() => setCopied(''), 2000);
