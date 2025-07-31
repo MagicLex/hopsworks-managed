@@ -437,7 +437,6 @@ fg = fs.create_feature_group(
                         )}
                         <Button
                           intent="ghost"
-                          size="sm"
                           onClick={async () => {
                             try {
                               const response = await fetch('/api/billing/setup-payment', {

@@ -23,7 +23,7 @@ export function useApiData<T>(url: string) {
 
   useEffect(() => {
     refetch();
-  }, [url]);
+  }, [url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { data, loading, error, refetch };
 }
