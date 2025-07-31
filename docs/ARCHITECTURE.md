@@ -12,9 +12,16 @@
 
 ### User Signup
 1. Auth0 authentication
-2. Auth0 webhook → Creates Stripe customer & subscription
-3. Auto-assigns user to available Hopsworks cluster
-4. Creates OAuth user in Hopsworks & stores username
+2. Auth0 webhook → Creates user in database only
+3. User must add payment method before cluster assignment
+4. After payment method added → Auto-assigns to available Hopsworks cluster
+5. Creates OAuth user in Hopsworks & stores username
+
+### Team Management
+1. Account owners can invite team members via email
+2. Team members join through invitation links
+3. Team member usage is billed to account owner
+4. Account owners manage team through dashboard
 
 ### Usage Collection (Every 15 minutes)
 1. Single cron job loops through ALL active clusters with kubeconfig
@@ -30,20 +37,20 @@
 - **Postpaid** (default): Usage synced to Stripe daily for monthly invoicing
 - **Prepaid** (opt-in): Users buy credits, usage deducted immediately
 - Hybrid model supports both simultaneously
+- Team member usage aggregated to account owner
 
 ## Database Schema
-- **`users`** - Auth0 ID as primary key, includes hopsworks_username for K8s mapping
+- **`users`** - Auth0 ID as primary key, includes hopsworks_username, team support via account_owner_id
+- **`team_invites`** - Pending team invitations
 - **`hopsworks_clusters`** - Shared cluster endpoints with kubeconfig for metrics
 - **`user_hopsworks_assignments`** - Maps users to clusters
-- **`usage_hourly`** - Granular usage tracking from Kubernetes
-- **`usage_daily`** - Aggregated daily usage for billing
+- **`usage_daily`** - Daily aggregated usage for billing
 - **`user_credits`** - Prepaid credit tracking
-- **`user_billing_subscriptions`** - Stripe subscription info
-
-Note: The old `clusters` table was removed - we only use `hopsworks_clusters` now.
+- **`stripe_products`** - Stripe product/price mappings (deprecated)
 
 ## Security
 - All API routes protected by Auth0
 - Admin routes check `is_admin` flag in DB
 - Service role key for Supabase operations
 - Cluster API keys stored encrypted in DB
+- Team members cannot access billing information

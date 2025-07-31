@@ -39,27 +39,25 @@ Configure Hopsworks to accept Auth0 users:
 Run migrations in Supabase SQL Editor:
 
 ```sql
--- Create tables (see docs/database.md for full schema)
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Run all CREATE TABLE statements
--- Create indexes
--- Set up initial data
+-- Run the complete schema from sql/current_schema.sql
+-- This includes all tables, indexes, views, and functions
 ```
+
+See [Database Documentation](database/) for complete schema details.
 
 ### 4. Stripe Configuration
 
 1. Create products and prices:
    - CPU Hour ($0.10)
-   - GPU Hour ($2.00)
-   - Storage GB-Month ($0.15)
-   - API Calls ($0.01 per 1000)
    - Credits ($1.00)
 
 2. Set up webhook endpoint:
    - URL: `https://your-domain.vercel.app/api/webhooks/stripe`
-   - Events: `checkout.session.completed`, `invoice.payment_succeeded`
+   - Events: 
+     - `checkout.session.completed`
+     - `invoice.payment_succeeded`
+     - `customer.subscription.created`
+     - `customer.subscription.updated`
 
 ## Vercel Deployment
 
@@ -79,17 +77,17 @@ vercel --prod
 
 ### 3. Configure Cron Jobs
 
-Add to `vercel.json`:
+The cron jobs are already configured in `vercel.json`:
 ```json
 {
   "crons": [
     {
-      "path": "/api/cron/collect-k8s-metrics",
+      "path": "/api/usage/collect-k8s",
       "schedule": "*/15 * * * *"
     },
     {
-      "path": "/api/cron/charge-users",
-      "schedule": "0 0 1 * *"
+      "path": "/api/billing/sync-stripe",
+      "schedule": "0 3 * * *"
     }
   ]
 }
@@ -128,8 +126,9 @@ Set `ADMIN_EMAILS` environment variable with comma-separated admin emails.
 
 ### Billing
 - Monitor Stripe dashboard
-- Check `billing_history` table
-- Review failed payments
+- Check `usage_daily` table for usage records
+- Review failed payments in Stripe
+- Verify daily sync job is running
 
 ## Troubleshooting
 

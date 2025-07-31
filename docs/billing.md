@@ -2,25 +2,25 @@
 
 ## Overview
 
-The billing system tracks resource usage across Hopsworks clusters and charges users through Stripe based on actual consumption.
+The billing system tracks resource usage across Hopsworks clusters and charges users through Stripe based on actual consumption. Team member usage is aggregated to the account owner for billing.
 
 ## Billing Model
 
 ### Resource-Based Billing
-- **Owner Pays**: Project owners are billed for all resources used in their projects
-- **Shared Projects**: Resources are billed to the project owner, not individual users
+- **Account Owner Pays**: Account owners are billed for their own usage plus all team member usage
+- **Team Members**: Cannot access billing, their usage is billed to account owner
 - **Collection Interval**: Usage metrics collected every 15 minutes via Kubernetes
 
 ### Pricing Components
 1. **CPU Hours**: $0.10 per CPU core hour
-2. **GPU Hours**: $2.00 per GPU hour  
-3. **Storage**: $0.15 per GB-month
-4. **API Calls**: $0.01 per 1000 calls
-5. **Credits**: $1.00 per credit (prepaid option)
+2. **Credits**: $1.00 per credit (prepaid option)
+
+Note: GPU and storage billing are implemented in the system but not currently displayed in the UI.
 
 ### Billing Modes
 - **Postpaid** (default): Monthly charges based on usage
 - **Prepaid** (opt-in): Purchase credits upfront, deduct as used
+- **Hybrid**: System supports users with different billing modes simultaneously
 
 ## Implementation
 
@@ -28,11 +28,11 @@ The billing system tracks resource usage across Hopsworks clusters and charges u
 
 Metrics are collected directly from Kubernetes clusters every 15 minutes:
 
-```yaml
-# vercel.json
+```json
+// vercel.json
 {
   "crons": [{
-    "path": "/api/cron/collect-k8s-metrics",
+    "path": "/api/usage/collect-k8s",
     "schedule": "*/15 * * * *"
   }]
 }
@@ -50,20 +50,27 @@ Metrics are collected directly from Kubernetes clusters every 15 minutes:
 CREATE TABLE usage_daily (
   id UUID PRIMARY KEY,
   user_id TEXT REFERENCES users(id),
+  account_owner_id TEXT REFERENCES users(id),
   date DATE,
   cpu_hours DECIMAL,
   gpu_hours DECIMAL,
-  storage_gb_months DECIMAL,
+  storage_gb DECIMAL,
   api_calls INTEGER,
   total_cost DECIMAL,
   hopsworks_cluster_id UUID
 );
 
--- Credits tracking
+-- Credits tracking (with more fields)
 CREATE TABLE user_credits (
-  user_id TEXT PRIMARY KEY,
+  id UUID PRIMARY KEY,
+  user_id TEXT REFERENCES users(id),
   total_purchased DECIMAL DEFAULT 0,
-  total_used DECIMAL DEFAULT 0
+  total_used DECIMAL DEFAULT 0,
+  free_credits_granted DECIMAL DEFAULT 0,
+  free_credits_used DECIMAL DEFAULT 0,
+  cpu_hours_used DECIMAL DEFAULT 0,
+  gpu_hours_used DECIMAL DEFAULT 0,
+  storage_gb_months DECIMAL DEFAULT 0
 );
 ```
 
@@ -84,11 +91,16 @@ CREATE TABLE user_credits (
 
 3. Set environment variables (see [.env.example](../.env.example))
 
-#### Monthly Billing Process
-1. Aggregate usage from `usage_daily` table
-2. Create Stripe invoice items for each resource type
-3. Create and finalize invoice
-4. Stripe handles payment collection
+#### Daily Sync Process
+A daily cron job at 3 AM syncs usage to Stripe:
+```json
+{
+  "path": "/api/billing/sync-stripe",
+  "schedule": "0 3 * * *"
+}
+```
+
+This syncs postpaid usage to Stripe for monthly invoicing.
 
 ### 4. Admin Features
 
@@ -110,7 +122,7 @@ Access at `/admin47392`:
 1. Verify Stripe webhook is configured
 2. Check environment variables are set
 3. Review Stripe dashboard for failed payments
-4. Check `billing_history` table for records
+4. Check daily sync job is running
 
 ### Common SQL Queries
 

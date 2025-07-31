@@ -18,7 +18,7 @@ npm run dev
 ## Documentation
 
 - **[Architecture Overview](docs/architecture.md)** - System design and tech stack
-- **[Database Guide](docs/database.md)** - Schema, patterns, and queries
+- **[Database Documentation](docs/database/)** - Complete schema documentation
 - **[Billing System](docs/billing.md)** - Usage tracking and Stripe integration
 - **[API Reference](docs/api.md)** - Endpoints and integration patterns
 - **[Deployment Guide](docs/deployment.md)** - Production setup and configuration
