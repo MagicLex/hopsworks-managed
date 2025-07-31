@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
+import { getBillingRatesForUser } from '@/config/billing-rates';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const userId = session.user.sub;
+    const rates = getBillingRatesForUser(userId);
 
     // Get user billing info
     const { data: user } = await supabaseAdmin
@@ -90,8 +92,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cpuHours: totals.cpuHours.toFixed(2),
         storageGB: totals.storageGB.toFixed(2),
         currentMonth: {
-          cpuCost: totals.cpuHours * 0.10,
-          storageCost: totals.storageGB * 0.10,
+          cpuCost: totals.cpuHours * rates.cpuHourRate,
+          storageCost: totals.storageGB * rates.storageGbMonthRate,
           total: totals.totalCost
         }
       },

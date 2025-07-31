@@ -3,7 +3,7 @@ import { useUser } from '@auth0/nextjs-auth0/client';
 import { useRouter } from 'next/router';
 
 interface AuthContextType {
-  user: any;
+  user: any; // Auth0's UserProfile type has nullable sub
   loading: boolean;
   signIn: () => void;
   signOut: () => void;

@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { requireAdmin } from '../../../middleware/adminAuth';
 import { createClient } from '@supabase/supabase-js';
-import { testHopsworksConnection, ADMIN_API_BASE, HOPSWORKS_API_BASE } from '../../../lib/hopsworks-api';
+import { ADMIN_API_BASE, HOPSWORKS_API_BASE } from '../../../lib/hopsworks-api';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

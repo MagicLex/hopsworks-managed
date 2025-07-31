@@ -68,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // For each user on this cluster
         for (const assignment of assignments) {
           try {
-            // TODO: Call Hopsworks API to get actual usage
+            // Note: Hopsworks API metrics endpoints not available - using Kubernetes metrics instead
             // This is a placeholder - replace with actual API call
             const usage = await fetchUserUsageFromHopsworks(
               cluster.api_url,

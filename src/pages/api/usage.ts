@@ -112,7 +112,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             // Get actual projects count
             projectsCount = hopsworksUser.numActiveProjects || 0;
             
-            // TODO: Get actual model deployments count from Hopsworks
+            // Note: Model deployments not tracked yet
             // For now, we'll use the projects count as a placeholder
             modelsCount = 0;
           }

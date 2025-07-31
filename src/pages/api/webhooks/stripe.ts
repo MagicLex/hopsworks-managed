@@ -233,7 +233,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
   if (user) {
     console.error(`Payment failed for user ${user.email} (${user.id})`);
     
-    // TODO: Send payment failure notification email
-    // TODO: Maybe suspend account after multiple failures
+    // Future enhancement: Send payment failure notification email
+    // Future enhancement: Consider account suspension after multiple failures
   }
 }

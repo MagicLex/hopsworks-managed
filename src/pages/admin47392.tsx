@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Box, Flex, Title, Text, Button, Card, Input, Badge, Tabs, TabsContent, TabsList, TabsTrigger } from 'tailwind-quartz';
 import Navbar from '@/components/Navbar';
+import { HopsworksTestResult, UserMetricsResult, CollectionResult, KubernetesProject } from '@/types/api';
 
 interface User {
   id: string;
@@ -59,7 +60,7 @@ export default function AdminPage() {
   const [editingCluster, setEditingCluster] = useState<string | null>(null);
   const [kubeconfigModal, setKubeconfigModal] = useState<string | null>(null);
   const [collectingUsage, setCollectingUsage] = useState(false);
-  const [collectionResult, setCollectionResult] = useState<any>(null);
+  const [collectionResult, setCollectionResult] = useState<CollectionResult | null>(null);
 
   // New cluster form
   const [newCluster, setNewCluster] = useState({
@@ -345,7 +346,7 @@ export default function AdminPage() {
                   <Text className="text-sm mb-1">
                     Failed: {collectionResult.result?.results?.failed || 0} users
                   </Text>
-                  {collectionResult.result?.results?.errors?.length > 0 && (
+                  {collectionResult.result?.results?.errors && collectionResult.result.results.errors.length > 0 && (
                     <details className="mt-2">
                       <summary className="cursor-pointer text-sm text-gray">View Errors</summary>
                       <Box className="mt-2 p-2 bg-grayShade1 rounded">
@@ -494,7 +495,7 @@ export default function AdminPage() {
                                   <Text className="text-sm font-mono">{result.data.kubernetesMetrics.userMetrics.projects.length}</Text>
                                 </Flex>
                               </Box>
-                              {result.data.kubernetesMetrics.userMetrics.projects.map((project: any) => (
+                              {result.data.kubernetesMetrics.userMetrics.projects.map((project: KubernetesProject) => (
                                 <Card key={project.namespace} className="border border-grayShade2 p-2 mb-2">
                                   <Text className="font-semibold text-sm mb-1">{project.projectName} (ID: {project.projectId})</Text>
                                   <Flex gap={16} className="text-xs">
@@ -817,11 +818,7 @@ export default function AdminPage() {
           </Text>
           <textarea
             className="w-full h-64 p-2 border border-grayShade2 rounded font-mono text-sm"
-            placeholder="apiVersion: v1
-clusters:
-- cluster:
-    certificate-authority-data: ...
-    server: https://..."
+            placeholder=""
             onChange={(e) => {
               const elem = e.target as HTMLTextAreaElement;
               elem.dataset.kubeconfig = elem.value;
