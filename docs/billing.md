@@ -130,7 +130,16 @@ Returns current billing information:
 {
   "billingMode": "postpaid",
   "hasPaymentMethod": true,
-  "subscriptionStatus": "active",
+  "paymentMethodDetails": {
+    "type": "card",
+    "card": {
+      "brand": "visa",
+      "last4": "4242",
+      "expMonth": 12,
+      "expYear": 2025
+    }
+  },
+  "subscriptionStatus": null,
   "prepaidEnabled": false,
   "currentUsage": {
     "cpuHours": "123.45",
@@ -191,7 +200,6 @@ WHERE user_id = 'USER_ID';
 SELECT 
   billing_mode,
   stripe_customer_id,
-  stripe_subscription_status,
   feature_flags->>'prepaid_enabled' as prepaid_enabled
 FROM users
 WHERE id = 'USER_ID';
@@ -200,7 +208,8 @@ WHERE id = 'USER_ID';
 ## Implementation Notes
 
 ### Dashboard Integration
-- Billing tab shows payment status and recent invoices
+- Billing tab shows payment method details (card brand, last 4 digits, expiry)
+- "Manage Payment Methods" button opens Stripe portal for existing cards
 - No "Add Card" functionality - payment methods set up during registration only
 - Prepaid credit purchase only available to flagged users
 - Team members cannot access billing information

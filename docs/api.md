@@ -75,7 +75,16 @@ Get billing information (account owners only).
 {
   "billingMode": "postpaid",
   "hasPaymentMethod": true,
-  "subscriptionStatus": "active",
+  "paymentMethodDetails": {
+    "type": "card",
+    "card": {
+      "brand": "visa",
+      "last4": "4242",
+      "expMonth": 12,
+      "expYear": 2025
+    }
+  },
+  "subscriptionStatus": null,
   "prepaidEnabled": false,
   "currentUsage": {
     "cpuHours": "120.50",
