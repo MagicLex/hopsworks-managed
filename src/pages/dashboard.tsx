@@ -201,7 +201,11 @@ export default function Dashboard() {
                       <Button 
                         intent="primary"
                         className="uppercase flex-1"
-                        onClick={() => window.open(instance.endpoint, '_blank')}
+                        onClick={() => {
+                          // Redirect to auto-OAuth URL for automatic login with Auth0
+                          const autoOAuthUrl = `${instance.endpoint}/autoOAuth?providerName=Auth0`;
+                          window.open(autoOAuthUrl, '_blank');
+                        }}
                       >
                         <ExternalLink size={16} className="mr-2" />
                         Access Hopsworks
@@ -407,7 +411,27 @@ fg = fs.create_feature_group(
                   </Card>
                   
                   <Card className="p-6 mb-6">
-                    <Title as="h2" className="text-lg mb-4">Monthly Usage</Title>
+                    <Flex justify="between" align="center" className="mb-4">
+                      <Title as="h2" className="text-lg">Monthly Usage</Title>
+                      <Button
+                        intent="ghost"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/billing/setup-payment', {
+                              method: 'POST'
+                            });
+                            const data = await response.json();
+                            if (data.portalUrl) {
+                              window.open(data.portalUrl, '_blank');
+                            }
+                          } catch (error) {
+                            console.error('Failed to open billing portal:', error);
+                          }
+                        }}
+                      >
+                        Manage Billing
+                      </Button>
+                    </Flex>
                     <Flex gap={16} className="grid grid-cols-1 md:grid-cols-2">
                       <Box>
                         <Text className="text-sm text-gray-600 mb-1">CPU Hours</Text>
@@ -458,12 +482,30 @@ fg = fs.create_feature_group(
                 <Card className="p-6">
                   <Title as="h2" className="text-lg mb-4">Payment Required</Title>
                   <Text className="text-sm text-gray-600 mb-4">
-                    A payment method is required for pay-as-you-go billing.
+                    Add a payment method to start using Hopsworks.
                   </Text>
-                  <Text className="text-xs text-gray-500">
-                    Your subscription and payment method should have been set up during registration. 
-                    If you&apos;re seeing this message, please contact support.
-                  </Text>
+                  <Button 
+                    intent="primary"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/billing/setup-payment', {
+                          method: 'POST'
+                        });
+                        const data = await response.json();
+                        if (data.checkoutUrl || data.portalUrl) {
+                          window.location.href = data.checkoutUrl || data.portalUrl;
+                        } else {
+                          alert('Failed to open payment setup. Please try again.');
+                        }
+                      } catch (error) {
+                        console.error('Failed to setup payment:', error);
+                        alert('Failed to open payment setup. Please try again.');
+                      }
+                    }}
+                  >
+                    <CreditCard size={16} className="mr-2" />
+                    Add Payment Method
+                  </Button>
                 </Card>
               )}
             </TabsContent>
