@@ -1,0 +1,61 @@
+import { NextApiRequest, NextApiResponse } from 'next';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { token } = req.query;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'Invalid invite token' });
+    }
+
+    // Get invite details
+    const { data: invite, error: inviteError } = await supabase
+      .from('team_invites')
+      .select(`
+        *,
+        account_owner:users!account_owner_id (
+          id,
+          name,
+          email
+        )
+      `)
+      .eq('token', token)
+      .is('accepted_at', null)
+      .single();
+
+    if (inviteError || !invite) {
+      return res.status(404).json({ error: 'Invite not found or already used' });
+    }
+
+    // Check if invite is expired
+    if (new Date(invite.expires_at) < new Date()) {
+      return res.status(410).json({ error: 'Invite has expired' });
+    }
+
+    // Return invite details for display on acceptance page
+    return res.status(200).json({
+      email: invite.email,
+      invitedBy: invite.account_owner?.name || invite.account_owner?.email,
+      expiresAt: invite.expires_at,
+      // Construct Auth0 login URL with the invite email pre-filled
+      loginUrl: `/api/auth/login?` + new URLSearchParams({
+        returnTo: `/team/joining?token=${token}`,
+        login_hint: invite.email
+      }).toString()
+    });
+
+  } catch (error) {
+    console.error('Accept invite error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}

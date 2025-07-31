@@ -45,6 +45,12 @@ export function getStripeConfig(isTestMode: boolean = false): StripeConfig {
 
 export function createStripeClient(isTestMode: boolean = false): Stripe {
   const config = getStripeConfig(isTestMode);
+  
+  // Validate the secret key
+  if (!config.secretKey || config.secretKey.includes('\n') || config.secretKey.includes('\r')) {
+    throw new Error(`Invalid Stripe ${isTestMode ? 'test' : 'live'} secret key format`);
+  }
+  
   return new Stripe(config.secretKey, {
     apiVersion: '2025-06-30.basil'
   });

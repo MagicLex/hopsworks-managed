@@ -41,12 +41,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Check if user has prepaid enabled
     const { data: user, error: userError } = await supabaseAdmin
       .from('users')
-      .select('email, stripe_customer_id, billing_mode, feature_flags')
+      .select('email, stripe_customer_id, billing_mode, feature_flags, account_owner_id')
       .eq('id', userId)
       .single();
 
     if (userError || !user) {
       return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Team members cannot purchase credits
+    if (user.account_owner_id) {
+      return res.status(403).json({ error: 'Team members cannot purchase credits. Contact your account owner.' });
     }
 
     // Check feature flag

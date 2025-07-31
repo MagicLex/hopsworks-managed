@@ -31,9 +31,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get user billing info
     const { data: user } = await supabaseAdmin
       .from('users')
-      .select('billing_mode, stripe_customer_id, stripe_subscription_status, feature_flags')
+      .select('billing_mode, stripe_customer_id, stripe_subscription_status, feature_flags, account_owner_id')
       .eq('id', userId)
       .single();
+    
+    // Team members don't have access to billing
+    if (user?.account_owner_id) {
+      return res.status(403).json({ error: 'Team members cannot access billing information' });
+    }
 
     // Get current month usage
     const startOfMonth = new Date();

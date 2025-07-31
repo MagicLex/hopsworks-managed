@@ -42,17 +42,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (!existingUser) {
-      // Create Stripe customer
-      const stripeCustomer = await stripe.customers.create({
-        email,
-        name,
-        metadata: {
-          user_id,
-          auth0_id: user_id
-        }
-      });
+      // Check if there's a pending team invite for this email
+      const { data: invite } = await supabaseAdmin
+        .from('team_invites')
+        .select('*')
+        .eq('email', email)
+        .is('accepted_at', null)
+        .gte('expires_at', new Date().toISOString())
+        .single();
 
-      // Create new user with Stripe info
+      let accountOwnerId = null;
+      let stripeCustomerId = null;
+
+      if (invite) {
+        // This is a team member signup
+        accountOwnerId = invite.account_owner_id;
+        console.log(`Team member ${email} signing up under account ${accountOwnerId}`);
+        
+        // Mark invite as accepted
+        await supabaseAdmin
+          .from('team_invites')
+          .update({
+            accepted_at: new Date().toISOString(),
+            accepted_by_user_id: user_id
+          })
+          .eq('id', invite.id);
+      } else {
+        // This is a new account owner - create Stripe customer
+        const stripeCustomer = await stripe.customers.create({
+          email,
+          name,
+          metadata: {
+            user_id,
+            auth0_id: user_id
+          }
+        });
+        stripeCustomerId = stripeCustomer.id;
+      }
+
+      // Create new user
       const { error: userError } = await supabaseAdmin
         .from('users')
         .insert({
@@ -63,53 +91,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           created_at: created_at || new Date().toISOString(),
           login_count: logins_count || 0,
           status: 'active',
-          stripe_customer_id: stripeCustomer.id,
-          billing_mode: 'postpaid' // Default to postpaid
+          account_owner_id: accountOwnerId, // NULL for account owners, set for team members
+          stripe_customer_id: stripeCustomerId, // Only set for account owners
+          billing_mode: accountOwnerId ? null : 'postpaid' // Only account owners have billing mode
         });
 
       if (userError) throw userError;
 
-      // Create user credits record
-      const { error: creditsError } = await supabaseAdmin
-        .from('user_credits')
-        .insert({
-          user_id
-        });
-
-      if (creditsError) throw creditsError;
-
-      // Create Stripe subscription for postpaid users
-      try {
-        // Get the subscription product price IDs from database
-        const { data: stripeProducts } = await supabaseAdmin
-          .from('stripe_products')
-          .select('*')
-          .eq('active', true);
-
-        if (stripeProducts && stripeProducts.length > 0) {
-          // Create subscription with metered prices
-          const subscription = await stripe.subscriptions.create({
-            customer: stripeCustomer.id,
-            items: stripeProducts.map(product => ({
-              price: product.stripe_price_id
-            })),
-            metadata: {
-              user_id
-            }
+      // Only create user credits record for account owners
+      if (!accountOwnerId) {
+        const { error: creditsError } = await supabaseAdmin
+          .from('user_credits')
+          .insert({
+            user_id
           });
 
-          // Update user with subscription ID
-          await supabaseAdmin
-            .from('users')
-            .update({
-              stripe_subscription_id: subscription.id,
-              stripe_subscription_status: subscription.status
-            })
-            .eq('id', user_id);
+        if (creditsError) throw creditsError;
+
+        // Create Stripe subscription for postpaid account owners
+        if (stripeCustomerId) {
+          try {
+            // Get the subscription product price IDs from database
+            const { data: stripeProducts } = await supabaseAdmin
+              .from('stripe_products')
+              .select('*')
+              .eq('active', true);
+
+            if (stripeProducts && stripeProducts.length > 0) {
+              // Create subscription with metered prices
+              const subscription = await stripe.subscriptions.create({
+                customer: stripeCustomerId,
+                items: stripeProducts.map(product => ({
+                  price: product.stripe_price_id
+                })),
+                metadata: {
+                  user_id
+                }
+              });
+
+              // Update user with subscription ID
+              await supabaseAdmin
+                .from('users')
+                .update({
+                  stripe_subscription_id: subscription.id,
+                  stripe_subscription_status: subscription.status
+                })
+                .eq('id', user_id);
+            }
+          } catch (stripeError) {
+            console.error('Failed to create Stripe subscription:', stripeError);
+            // Don't fail user creation if Stripe fails
+          }
         }
-      } catch (stripeError) {
-        console.error('Failed to create Stripe subscription:', stripeError);
-        // Don't fail user creation if Stripe fails
       }
 
       // Do NOT auto-assign cluster - user needs to set up payment first

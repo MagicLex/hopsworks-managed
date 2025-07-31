@@ -17,6 +17,13 @@ const supabaseAdmin = createClient(
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { method } = req;
 
+  // Validate test configuration
+  if (!process.env.STRIPE_TEST_SECRET_KEY) {
+    return res.status(500).json({ 
+      error: 'Stripe test mode not configured. Please set STRIPE_TEST_SECRET_KEY environment variable.' 
+    });
+  }
+
   // Always use test mode for this endpoint
   const stripe = createStripeClient(true);
   const config = getStripeConfig(true);
@@ -155,12 +162,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             testMode: true
           });
         } else if (type === 'subscription') {
-          // Create test subscription session
+          // Create test subscription session with dynamic pricing
           const session = await stripe.checkout.sessions.create({
             customer: testCustomerId,
             payment_method_types: ['card'],
             line_items: [{
-              price: config.priceIds.cpuHour,
+              price_data: {
+                currency: 'usd',
+                product: process.env.STRIPE_TEST_PRODUCT_ID || 'prod_SlNvLSeuNU2pUj',
+                unit_amount: 1000, // $10/month for testing
+                recurring: {
+                  interval: 'month'
+                }
+              },
               quantity: 1
             }],
             mode: 'subscription',

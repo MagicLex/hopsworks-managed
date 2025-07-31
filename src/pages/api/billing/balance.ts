@@ -29,12 +29,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get user billing info
     const { data: user, error: userError } = await supabaseAdmin
       .from('users')
-      .select('billing_mode, feature_flags, stripe_subscription_status')
+      .select('billing_mode, feature_flags, stripe_subscription_status, account_owner_id')
       .eq('id', userId)
       .single();
 
     if (userError || !user) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Team members don't have access to billing
+    if (user.account_owner_id) {
+      return res.status(403).json({ error: 'Team members cannot access billing information' });
     }
 
     // For postpaid users, return subscription status

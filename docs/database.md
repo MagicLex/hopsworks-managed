@@ -1,22 +1,52 @@
 # Database Guide
 
+**Note**: This is a simplified overview. For comprehensive documentation, see the [`/docs/database/`](./database/) directory.
+
+## Quick Links
+
+- [Complete Database Documentation](./database/README.md)
+- [Core Tables Reference](./database/02-core-tables.md)
+- [Billing Tables Reference](./database/03-billing-tables.md)
+- [Migration History](./database/06-migrations.md)
+
 ## Connection
 
 Using Supabase PostgreSQL with two connection methods:
 
 ### Connection Pooler (Recommended)
 ```
-postgresql://postgres.[project-ref]:[password]@aws-0-us-west-1.pooler.supabase.com:6543/postgres
+postgresql://postgres.pahfsiosiuxdkiebepav:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 ```
 - Port: 6543
 - Use for serverless environments
+- Project ref: `pahfsiosiuxdkiebepav`
+- Region: `us-east-1`
 
 ### Direct Connection
 ```
-postgresql://postgres.[project-ref]:[password]@aws-0-us-west-1.pooler.supabase.com:5432/postgres
+postgresql://postgres.pahfsiosiuxdkiebepav:[password]@aws-0-us-east-1.pooler.supabase.com:5432/postgres
 ```
 - Port: 5432
 - Use for long-running connections
+
+### Using psql
+```bash
+# Connection pooler (recommended)
+PGPASSWORD='your-password' psql -h aws-0-us-east-1.pooler.supabase.com -p 6543 -U postgres.pahfsiosiuxdkiebepav -d postgres
+
+# Direct connection
+PGPASSWORD='your-password' psql -h aws-0-us-east-1.pooler.supabase.com -p 5432 -U postgres.pahfsiosiuxdkiebepav -d postgres
+```
+
+### Important Notes
+- **URL Encoding**: Only needed in connection strings, NOT when using psql with PGPASSWORD
+  - In URLs: `@` becomes `%40`
+  - With psql: Use password as-is
+- Password is in `.env.local` as `SUPABASE_DB_PASSWORD`
+
+### Common Connection Errors
+- `FATAL: Tenant or user not found` - Wrong project reference or region
+- `Wrong password` - Check if you're URL-encoding when you shouldn't be
 
 ## Schema
 

@@ -109,11 +109,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               );
             }
 
+            // Get user's account owner (if they're a team member)
+            const { data: userData } = await supabaseAdmin
+              .from('users')
+              .select('account_owner_id')
+              .eq('id', assignment.user_id)
+              .single();
+
+            const accountOwnerId = userData?.account_owner_id || assignment.user_id;
+
             // Store usage record
             const { data: usageRecord, error: usageError } = await supabaseAdmin
               .from('usage_daily')
               .insert({
                 user_id: assignment.user_id,
+                account_owner_id: accountOwnerId,
                 date: reportDate,
                 hopsworks_cluster_id: cluster.id,
                 cpu_hours: usage.cpuHours,

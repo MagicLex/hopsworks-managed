@@ -21,20 +21,71 @@ export async function assignUserToCluster(
       };
     }
 
-    // If not manual assignment, verify user has payment method
-    if (!isManualAssignment) {
-      const { data: user } = await supabaseAdmin
-        .from('users')
-        .select('stripe_customer_id')
-        .eq('id', userId)
+    // Get user details including account owner
+    const { data: user } = await supabaseAdmin
+      .from('users')
+      .select('stripe_customer_id, account_owner_id')
+      .eq('id', userId)
+      .single();
+
+    if (!user) {
+      return { 
+        success: false, 
+        error: 'User not found' 
+      };
+    }
+
+    // If user is a team member, assign to same cluster as account owner
+    if (user.account_owner_id) {
+      const { data: ownerAssignment } = await supabaseAdmin
+        .from('user_hopsworks_assignments')
+        .select('hopsworks_cluster_id')
+        .eq('user_id', user.account_owner_id)
         .single();
 
-      if (!user?.stripe_customer_id) {
+      if (!ownerAssignment) {
         return { 
           success: false, 
-          error: 'User must set up payment method before cluster assignment' 
+          error: 'Account owner must be assigned to a cluster first' 
         };
       }
+
+      // Assign team member to same cluster as owner
+      const { error: assignError } = await supabaseAdmin
+        .from('user_hopsworks_assignments')
+        .insert({
+          user_id: userId,
+          hopsworks_cluster_id: ownerAssignment.hopsworks_cluster_id,
+          assigned_at: new Date().toISOString(),
+          assigned_by: 'team_member_auto'
+        });
+
+      if (assignError) {
+        throw assignError;
+      }
+
+      // Increment cluster user count
+      const { error: rpcError } = await supabaseAdmin.rpc('increment_cluster_users', {
+        cluster_id: ownerAssignment.hopsworks_cluster_id
+      });
+
+      if (rpcError) {
+        throw rpcError;
+      }
+
+      console.log(`Successfully assigned team member ${userId} to same cluster as account owner`);
+      return { 
+        success: true, 
+        clusterId: ownerAssignment.hopsworks_cluster_id 
+      };
+    }
+
+    // For account owners, check payment method
+    if (!isManualAssignment && !user.stripe_customer_id) {
+      return { 
+        success: false, 
+        error: 'User must set up payment method before cluster assignment' 
+      };
     }
 
     // Find available cluster with capacity

@@ -14,6 +14,9 @@ export interface Database {
           login_count: number;
           status: 'active' | 'suspended' | 'deleted';
           metadata: Record<string, any>;
+          account_owner_id?: string | null;
+          hopsworks_project_id?: number | null;
+          stripe_test_customer_id?: string | null;
         };
         Insert: Omit<Database['public']['Tables']['users']['Row'], 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['users']['Insert']>;
@@ -37,6 +40,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
+          account_owner_id?: string | null;
           date: string;
           cpu_hours: number;
           gpu_hours: number;
@@ -118,6 +122,20 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['user_hopsworks_assignments']['Row'], 'id' | 'assigned_at'>;
         Update: Partial<Database['public']['Tables']['user_hopsworks_assignments']['Insert']>;
+      };
+      team_invites: {
+        Row: {
+          id: string;
+          account_owner_id: string;
+          email: string;
+          token: string;
+          expires_at: string;
+          accepted_at: string | null;
+          accepted_by_user_id: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['team_invites']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['team_invites']['Insert']>;
       };
     };
   };
