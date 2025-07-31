@@ -5,25 +5,25 @@ export function useApiData<T>(url: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const jsonData = await response.json();
-        setData(jsonData);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to fetch data'));
-      } finally {
-        setLoading(false);
+  const refetch = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
+      const jsonData = await response.json();
+      setData(jsonData);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to fetch data'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchData();
+  useEffect(() => {
+    refetch();
   }, [url]);
 
-  return { data, loading, error };
+  return { data, loading, error, refetch };
 }
