@@ -61,12 +61,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
       const hasSuccessfulSetup = setupIntents.data.some(si => si.status === 'succeeded');
       
-      console.log(`Payment method check in setup-payment for ${user.stripe_customer_id}:`, {
-        paymentMethodsCount: paymentMethods.data.length,
-        hasSuccessfulSetup,
-        paymentMethodIds: paymentMethods.data.map(pm => pm.id)
-      });
-      
       if (paymentMethods.data.length > 0 || hasSuccessfulSetup) {
         try {
           // Create billing portal session to manage existing payment methods
