@@ -90,8 +90,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       results.hopsworksData.userLookupError = 'No stored Hopsworks username found';
     }
 
-    // Skip Hopsworks API metrics endpoints since they're not working
-    results.hopsworksData.metricsNote = 'Hopsworks API metrics endpoints not available - using Kubernetes metrics instead';
+    // Note: Hopsworks API metrics endpoints not available - using Kubernetes metrics instead
 
     // Test Kubernetes metrics collection
     try {

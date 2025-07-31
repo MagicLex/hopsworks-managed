@@ -62,6 +62,13 @@ export default function AdminPage() {
   const [collectingUsage, setCollectingUsage] = useState(false);
   const [collectionResult, setCollectionResult] = useState<CollectionResult | null>(null);
 
+  // Test billing state
+  const [selectedTestUser, setSelectedTestUser] = useState('');
+  const [testAmount, setTestAmount] = useState('50');
+  const [testCheckoutUrl, setTestCheckoutUrl] = useState('');
+  const [loadingTestData, setLoadingTestData] = useState(false);
+  const [testUserData, setTestUserData] = useState<any>(null);
+
   // New cluster form
   const [newCluster, setNewCluster] = useState({
     name: '',
@@ -296,6 +303,55 @@ export default function AdminPage() {
     }
   };
 
+  const handleTestPurchase = async () => {
+    if (!selectedTestUser || !testAmount) return;
+
+    try {
+      const response = await fetch('/api/admin/billing-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: selectedTestUser,
+          amount: parseInt(testAmount),
+          type: 'credits'
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.checkoutUrl) {
+        setTestCheckoutUrl(data.checkoutUrl);
+      } else {
+        setError(data.error || 'Failed to create test checkout');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create test checkout');
+    }
+  };
+
+  // Load test user data when selected
+  useEffect(() => {
+    if (selectedTestUser) {
+      const loadTestData = async () => {
+        setLoadingTestData(true);
+        try {
+          const response = await fetch(`/api/admin/billing-test?userId=${selectedTestUser}`);
+          const data = await response.json();
+          if (response.ok) {
+            setTestUserData(data);
+          }
+        } catch (err) {
+          console.error('Failed to load test data:', err);
+        } finally {
+          setLoadingTestData(false);
+        }
+      };
+      loadTestData();
+    } else {
+      setTestUserData(null);
+    }
+  }, [selectedTestUser]);
+
   if (isLoading || loadingUsers || loadingClusters) {
     return (
       <Flex align="center" justify="center" className="min-h-screen">
@@ -321,6 +377,7 @@ export default function AdminPage() {
           <TabsList>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="clusters">Clusters</TabsTrigger>
+            <TabsTrigger value="test-billing">Test Billing</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
@@ -802,6 +859,110 @@ export default function AdminPage() {
                   Create Cluster
                 </Button>
               </Box>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="test-billing">
+            <Card className="p-6">
+              <Title as="h2" className="text-xl mb-4">Stripe Test Mode</Title>
+              <Text className="text-sm text-gray-600 mb-6">
+                Test Stripe integration without real charges. All transactions use Stripe test mode.
+              </Text>
+
+              <Flex direction="column" gap={16}>
+                <Card className="p-4 bg-yellow-50 border-yellow-200">
+                  <Text className="text-sm font-semibold text-yellow-800 mb-2">Test Mode Active</Text>
+                  <Text className="text-xs text-yellow-700">
+                    Using test keys. No real charges will occur.
+                  </Text>
+                  <Text className="text-xs text-gray-600 mt-2">
+                    Product ID: prod_SlNvLSeuNU2pUj (Unit Consumption)
+                  </Text>
+                </Card>
+
+                {/* Test Purchase for User */}
+                <Box>
+                  <Title as="h3" className="text-lg mb-4">Create Test Purchase</Title>
+                  <Flex gap={12} className="mb-4">
+                    <select
+                      className="flex-1 px-3 py-2 border rounded"
+                      value={selectedTestUser}
+                      onChange={(e) => setSelectedTestUser(e.target.value)}
+                    >
+                      <option value="">Select a user</option>
+                      {users.map(user => (
+                        <option key={user.id} value={user.id}>
+                          {user.email} ({user.name})
+                        </option>
+                      ))}
+                    </select>
+                    <Input
+                      type="number"
+                      placeholder="Amount ($)"
+                      value={testAmount}
+                      onChange={(e) => setTestAmount(e.target.value)}
+                      className="w-32"
+                    />
+                    <Button
+                      intent="primary"
+                      onClick={handleTestPurchase}
+                      disabled={!selectedTestUser || !testAmount}
+                    >
+                      Create Test Purchase
+                    </Button>
+                  </Flex>
+                  {testCheckoutUrl && (
+                    <Box className="mt-4 p-4 bg-green-50 rounded">
+                      <Text className="text-sm text-green-800 mb-2">Test checkout created!</Text>
+                      <a 
+                        href={testCheckoutUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline text-sm"
+                      >
+                        Open Test Checkout →
+                      </a>
+                    </Box>
+                  )}
+                </Box>
+
+                {/* Test Webhook Info */}
+                <Box>
+                  <Title as="h3" className="text-lg mb-4">Test Webhook Endpoint</Title>
+                  <Card className="p-4 bg-gray-50">
+                    <Text className="text-xs font-mono">https://hopsworks-managed.vercel.app/api/webhooks/stripe-test</Text>
+                    <Text className="text-xs text-gray-600 mt-2">
+                      Webhook Secret: ✓ Configured (whsec_...nGt6)
+                    </Text>
+                  </Card>
+                </Box>
+
+                {/* Test User Credits */}
+                {selectedTestUser && (
+                  <Box>
+                    <Title as="h3" className="text-lg mb-4">User Test Credits</Title>
+                    <Card className="p-4">
+                      {loadingTestData ? (
+                        <Text>Loading...</Text>
+                      ) : testUserData ? (
+                        <Flex direction="column" gap={8}>
+                          <Text className="text-sm">
+                            Total Credits: ${testUserData.credits?.total_purchased || 0}
+                          </Text>
+                          <Text className="text-sm">
+                            Used Credits: ${testUserData.credits?.total_used || 0}
+                          </Text>
+                          <Text className="text-sm text-gray-600">
+                            Stripe Customer: {testUserData.stripeCustomerId || 'Not created'}
+                          </Text>
+                        </Flex>
+                      ) : (
+                        <Text className="text-sm text-gray-600">Select a user to view test data</Text>
+                      )}
+                    </Card>
+                  </Box>
+                )}
+              </Flex>
             </Card>
           </TabsContent>
         </Tabs>
