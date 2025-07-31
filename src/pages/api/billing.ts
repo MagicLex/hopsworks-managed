@@ -3,6 +3,7 @@ import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import { getBillingRatesForUser } from '@/config/billing-rates';
 
+// Force redeploy: 2025-07-31-14:10
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
