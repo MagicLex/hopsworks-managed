@@ -5,6 +5,14 @@ import { getBillingRatesForUser } from '@/config/billing-rates';
 
 // Force redeploy: 2025-07-31-14:10
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Version check
+  if (req.query.version === 'check') {
+    return res.status(200).json({ 
+      version: '2025-07-31-14:22-FIXED',
+      message: 'This is the updated billing API with payment method fixes'
+    });
+  }
+  
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
