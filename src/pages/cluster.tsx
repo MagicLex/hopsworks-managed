@@ -7,6 +7,7 @@ import { Box, Flex, Title, Text, Button, Card, Badge } from 'tailwind-quartz';
 import { Server, Copy, ExternalLink, ArrowLeft, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import { defaultBillingRates } from '@/config/billing-rates';
 
 interface InstanceData {
   name: string;
@@ -139,10 +140,6 @@ export default function Cluster() {
                   <Text className="text-gray-600">CPU Credits</Text>
                   <Text className="font-semibold">{usageData.cpuHours.toFixed(0)} hours</Text>
                 </Box>
-                <Box>
-                  <Text className="text-gray-600">Storage Used</Text>
-                  <Text className="font-semibold">{usageData.storageGB.toFixed(1)} GB</Text>
-                </Box>
               </Flex>
             </Box>
 
@@ -154,10 +151,6 @@ export default function Cluster() {
               <Box>
                 <Text className="text-gray-600">Created</Text>
                 <Text>{instanceData.created ? new Date(instanceData.created).toLocaleDateString() : 'Not started'}</Text>
-              </Box>
-              <Box>
-                <Text className="text-gray-600">Storage</Text>
-                <Text>{usageData.storageGB.toFixed(1)} GB</Text>
               </Box>
             </Flex>
           </Card>
@@ -269,15 +262,7 @@ fg = fs.create_feature_group(
             <Flex direction="column" gap={12} className="text-sm">
               <Flex justify="between">
                 <Text className="text-gray-600">CPU Usage</Text>
-                <Text>$0.10 / hour</Text>
-              </Flex>
-              <Flex justify="between">
-                <Text className="text-gray-600">GPU Usage (T4)</Text>
-                <Text>$0.50 / hour</Text>
-              </Flex>
-              <Flex justify="between">
-                <Text className="text-gray-600">Storage</Text>
-                <Text>$0.02 / GB / month</Text>
+                <Text>${defaultBillingRates.cpuHourRate} / hour</Text>
               </Flex>
             </Flex>
 

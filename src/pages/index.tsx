@@ -8,6 +8,7 @@ import Navbar from '@/components/Navbar';
 import { DeployModal } from '@/components/DeployModal';
 import { Box, Title, Text, Flex } from 'tailwind-quartz';
 import { useAuth } from '@/contexts/AuthContext';
+import { defaultBillingRates } from '@/config/billing-rates';
 
 export default function Home() {
   const [isYearly, setIsYearly] = useState(false);
@@ -37,7 +38,7 @@ export default function Home() {
     <>
       <Head>
         <title>Hopsworks - Pay-As-You-Go ML Platform | Feature Store & MLOps</title>
-        <meta name="description" content="Start using Hopsworks instantly. Enterprise-grade feature store, ML pipelines, and model deployment. Pay only for what you use - $0.10/CPU hour. No upfront costs." />
+        <meta name="description" content={`Start using Hopsworks instantly. Enterprise-grade feature store, ML pipelines, and model deployment. Pay only for what you use - $${defaultBillingRates.cpuHourRate}/CPU hour. No upfront costs.`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         
         {/* Open Graph / Facebook */}
@@ -71,21 +72,9 @@ export default function Home() {
                 "priceSpecification": [
                   {
                     "@type": "UnitPriceSpecification",
-                    "price": "0.10",
+                    "price": String(defaultBillingRates.cpuHourRate),
                     "priceCurrency": "USD",
                     "unitText": "CPU hour"
-                  },
-                  {
-                    "@type": "UnitPriceSpecification",
-                    "price": "0.50",
-                    "priceCurrency": "USD",
-                    "unitText": "GPU hour (T4)"
-                  },
-                  {
-                    "@type": "UnitPriceSpecification",
-                    "price": "0.02",
-                    "priceCurrency": "USD",
-                    "unitText": "GB/month storage"
                   }
                 ]
               },

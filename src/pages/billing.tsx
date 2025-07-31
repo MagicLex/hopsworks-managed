@@ -7,6 +7,7 @@ import { Box, Flex, Title, Text, Button, Card, Badge, Input } from 'tailwind-qua
 import { CreditCard, Download, Calendar, ArrowLeft, Activity, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import { defaultBillingRates } from '@/config/billing-rates';
 
 interface BillingData {
   billingMode: 'prepaid' | 'postpaid';
@@ -137,18 +138,11 @@ export default function Billing() {
               </Flex>
               
               <Flex direction="column" gap={16}>
-                <Flex gap={16} className="grid grid-cols-1 md:grid-cols-2">
-                  <Box>
-                    <Text className="text-sm text-gray-600">CPU Hours</Text>
-                    <Text className="text-xl">{currentUsage.cpuHours || '0'}</Text>
-                    <Text className="text-sm text-gray-500">${currentUsage.currentMonth.cpuCost.toFixed(2)}</Text>
-                  </Box>
-                  <Box>
-                    <Text className="text-sm text-gray-600">Storage (GB)</Text>
-                    <Text className="text-xl">{currentUsage.storageGB || '0'}</Text>
-                    <Text className="text-sm text-gray-500">${currentUsage.currentMonth.storageCost.toFixed(2)}</Text>
-                  </Box>
-                </Flex>
+                <Box>
+                  <Text className="text-sm text-gray-600">CPU Hours</Text>
+                  <Text className="text-xl">{currentUsage.cpuHours || '0'}</Text>
+                  <Text className="text-sm text-gray-500">${currentUsage.currentMonth.cpuCost.toFixed(2)}</Text>
+                </Box>
 
                 <Box className="pt-4 border-t border-gray-200">
                   <Flex justify="between" align="center">
@@ -285,19 +279,7 @@ export default function Billing() {
                   <Flex direction="column" gap={8}>
                     <Flex justify="between">
                       <Text className="text-sm text-gray-600">CPU Usage</Text>
-                      <Text className="text-sm">$0.10 / hour</Text>
-                    </Flex>
-                    <Flex justify="between">
-                      <Text className="text-sm text-gray-600">GPU Usage (T4)</Text>
-                      <Text className="text-sm">$0.50 / hour</Text>
-                    </Flex>
-                    <Flex justify="between">
-                      <Text className="text-sm text-gray-600">GPU Usage (A100)</Text>
-                      <Text className="text-sm">$2.00 / hour</Text>
-                    </Flex>
-                    <Flex justify="between">
-                      <Text className="text-sm text-gray-600">Storage</Text>
-                      <Text className="text-sm">$0.02 / GB / month</Text>
+                      <Text className="text-sm">${defaultBillingRates.cpuHourRate} / hour</Text>
                     </Flex>
                   </Flex>
                 </Card>

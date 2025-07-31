@@ -5,6 +5,7 @@ import { Modal, Button, Box, Flex, Title, Text, Labeling, Card, Badge, Input } f
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthModal } from './AuthModal';
 import { useRouter } from 'next/router';
+import { defaultBillingRates } from '@/config/billing-rates';
 
 interface DeployModalProps {
   isOpen: boolean;
@@ -85,19 +86,11 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
           <Flex direction="column" gap={8}>
             <Flex justify="between">
               <Labeling className="font-mono">CPU Usage</Labeling>
-              <Text className="font-mono">$0.10/hour</Text>
-            </Flex>
-            <Flex justify="between">
-              <Labeling className="font-mono">GPU Usage (T4)</Labeling>
-              <Text className="font-mono">$0.50/hour</Text>
-            </Flex>
-            <Flex justify="between">
-              <Labeling className="font-mono">Storage</Labeling>
-              <Text className="font-mono">$0.02/GB/month</Text>
+              <Text className="font-mono">${defaultBillingRates.cpuHourRate}/hour</Text>
             </Flex>
             <Box className="pt-2 border-t border-grayShade2">
               <Text className="font-mono text-sm text-gray-600">
-                {user ? 'Add payment method to get started' : 'Sign up to get started - no credit card required'}
+                {user ? 'Add payment method to get started' : 'Sign up and add payment method to get started'}
               </Text>
             </Box>
           </Flex>
@@ -117,7 +110,7 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
           className="font-mono text-sm uppercase"
           onClick={handleStartNow}
         >
-          {user ? 'Add Payment Method' : 'Sign Up Free'}
+          {user ? 'Add Payment Method' : 'Sign Up'}
         </Button>
       </Flex>
 
