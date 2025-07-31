@@ -13,6 +13,77 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
   
+  // Debug mode
+  if (req.query.debug === 'true') {
+    const debugInfo: any = {
+      timestamp: new Date().toISOString(),
+      env: {
+        hasStripeKey: !!process.env.STRIPE_SECRET_KEY,
+        hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        hasSupabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+      }
+    };
+    
+    try {
+      const session = await getSession(req, res);
+      debugInfo.session = {
+        hasSession: !!session,
+        userId: session?.user?.sub
+      };
+      
+      if (session?.user) {
+        const supabaseAdmin = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          {
+            auth: {
+              autoRefreshToken: false,
+              persistSession: false
+            }
+          }
+        );
+        
+        const { data: user, error: userError } = await supabaseAdmin
+          .from('users')
+          .select('billing_mode, stripe_customer_id, stripe_subscription_status, feature_flags, account_owner_id')
+          .eq('id', session.user.sub)
+          .single();
+          
+        debugInfo.user = {
+          found: !!user,
+          error: userError,
+          stripe_customer_id: user?.stripe_customer_id,
+          billing_mode: user?.billing_mode
+        };
+        
+        if (user?.stripe_customer_id) {
+          try {
+            const Stripe = (await import('stripe')).default;
+            const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+              apiVersion: '2025-06-30.basil'
+            });
+            
+            const paymentMethods = await stripe.paymentMethods.list({
+              customer: user.stripe_customer_id,
+              type: 'card'
+            });
+            
+            debugInfo.stripe = {
+              paymentMethodsCount: paymentMethods.data.length,
+              paymentMethodIds: paymentMethods.data.map(pm => pm.id)
+            };
+          } catch (stripeError: any) {
+            debugInfo.stripeError = stripeError.message;
+          }
+        }
+      }
+    } catch (error: any) {
+      debugInfo.error = error.message;
+    }
+    
+    return res.status(200).json(debugInfo);
+  }
+  
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -114,6 +185,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Check if customer has payment methods
     let hasPaymentMethod = false;
+    console.log('Starting payment method check for user:', user?.stripe_customer_id);
+    
     if (user?.stripe_customer_id) {
       try {
         const Stripe = (await import('stripe')).default;
@@ -157,7 +230,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       } catch (error) {
         console.error('Error checking payment methods:', error);
+        // Still set hasPaymentMethod to false but log the error
+        hasPaymentMethod = false;
       }
+    } else {
+      console.log('No stripe_customer_id found for user');
     }
 
     // Prevent caching of billing data
