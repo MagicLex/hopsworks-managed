@@ -18,6 +18,9 @@
     },
     "src/pages/api/billing/sync-stripe.ts": {
       "maxDuration": 60
+    },
+    "src/pages/api/billing/setup-payment.ts": {
+      "maxDuration": 30
     }
   }
 }
