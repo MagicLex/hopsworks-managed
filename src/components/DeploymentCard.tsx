@@ -124,7 +124,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
               {deployment.name}
             </Title>
             <Box className="text-sm text-gray-600 mb-2">
-              {price === 0 ? (
+              {price === 0 && deployment.id === 'serverless' ? (
                 <Badge variant="primary" size="sm" className="font-mono font-semibold">FREE</Badge>
               ) : (
                 <Flex align="baseline" gap={4}>
@@ -186,33 +186,6 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
           </Box>
         </Flex>
       
-        <Box className="border-t border-grayShade2">
-          <Box className="p-3">
-            <Flex justify="between" align="center" className="mb-1.5">
-              <Labeling className="text-[10px] font-mono uppercase" gray>Cluster Health</Labeling>
-              <Badge variant="primary" size="sm" className="text-[10px] font-mono">OPERATIONAL</Badge>
-            </Flex>
-            <Flex gap={2}>
-              {[...Array(30)].map((_, i) => {
-                const isToday = i === 29;
-                const hasIssue = i === 15 || i === 16;
-                return (
-                  <Box 
-                    key={i} 
-                    className={`flex-1 h-4 ${
-                      hasIssue ? 'bg-orange-400' : 'bg-[#1eb182]'
-                    } ${isToday ? 'animate-pulse' : ''}`}
-                    title={`Day ${i + 1}`}
-                  />
-                );
-              })}
-            </Flex>
-            <Flex justify="between" className="mt-1">
-              <Labeling className="text-[9px] font-mono" gray>30d ago</Labeling>
-              <Labeling className="text-[9px] font-mono" gray>Today</Labeling>
-            </Flex>
-          </Box>
-        </Box>
       </Card>
     </Box>
   );

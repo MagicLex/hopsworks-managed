@@ -32,7 +32,7 @@ export const deploymentOptions: DeploymentOption[] = [
     yearlyPrice: 0,
     buttonStyle: 'primary',
     specs: {
-      compute: ['Spark/Flink/Pandas engines', 'Dynamic GPU allocation', 'Auto-scaling workers'],
+      compute: ['Spark/Flink/Pandas engines', 'Dynamic compute', 'Auto-scaling workers'],
       storage: ['RonDB sub-ms latency', 'Delta/Hudi/Iceberg', 'Version-controlled features'],
       capabilities: ['Airflow orchestration', 'JupyterLab + notebooks', 'KServe model serving', 'Feature transformations', 'Drift monitoring', 'JDBC/Cloud connectors'],
     },
