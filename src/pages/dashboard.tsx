@@ -54,24 +54,26 @@ interface TeamMember {
   addedAt: string;
 }
 
-interface PaymentMethod {
-  id: string;
-  brand: string;
-  last4: string;
-  isDefault: boolean;
-}
-
 interface BillingInfo {
+  billingMode: 'prepaid' | 'postpaid';
   hasPaymentMethod: boolean;
-  paymentMethods: PaymentMethod[];
-  currentBalance: number;
-  monthlyUsage: {
-    cpuHours: number;
-    gpuHours: number;
-    storageGB: number;
-    totalCost: number;
+  subscriptionStatus?: string;
+  prepaidEnabled: boolean;
+  currentUsage: {
+    cpuHours: string;
+    storageGB: string;
+    currentMonth: {
+      cpuCost: number;
+      storageCost: number;
+      total: number;
+    };
   };
-  invoices?: Array<{
+  creditBalance?: {
+    total: number;
+    purchased: number;
+    free: number;
+  };
+  invoices: Array<{
     id: string;
     invoice_number: string;
     amount: number;
@@ -87,7 +89,7 @@ export default function Dashboard() {
   const { data: hopsworksInfo, loading: hopsworksLoading } = useApiData<HopsworksInfo>('/api/user/hopsworks-info');
   const { data: instance, loading: instanceLoading } = useApiData<InstanceData>('/api/instance');
   const { data: teamMembers, loading: teamLoading } = useApiData<TeamMember[]>('/api/team/members');
-  const { data: billing, loading: billingLoading } = useApiData<BillingInfo>('/api/billing/info');
+  const { data: billing, loading: billingLoading } = useApiData<BillingInfo>('/api/billing');
   const [activeTab, setActiveTab] = useState('cluster');
   const [copied, setCopied] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -397,24 +399,8 @@ fg = fs.create_feature_group(
                       <Title as="h2" className="text-lg">Payment Methods</Title>
                     </Flex>
                     
-                    {billing.paymentMethods.length > 0 ? (
-                      <Box className="space-y-3">
-                        {billing.paymentMethods.map(method => (
-                          <Flex key={method.id} justify="between" align="center" className="py-3 border-b border-gray-100 last:border-0">
-                            <Flex align="center" gap={12}>
-                              <CreditCard size={16} className="text-gray-400" />
-                              <Box>
-                                <Text className="font-medium">
-                                  {method.brand} •••• {method.last4}
-                                </Text>
-                                {method.isDefault && (
-                                  <Badge variant="success" size="sm">Default</Badge>
-                                )}
-                              </Box>
-                            </Flex>
-                          </Flex>
-                        ))}
-                      </Box>
+                    {billing.hasPaymentMethod ? (
+                      <Text className="text-sm text-gray-600">Payment method on file</Text>
                     ) : (
                       <Text className="text-sm text-gray-600">No payment methods added yet.</Text>
                     )}
@@ -426,13 +412,13 @@ fg = fs.create_feature_group(
                       <Box>
                         <Text className="text-sm text-gray-600 mb-1">CPU Hours</Text>
                         <Text className="text-xl font-semibold">
-                          {billing.monthlyUsage.cpuHours.toFixed(0)}
+                          {billing.currentUsage.cpuHours}
                         </Text>
                       </Box>
                       <Box>
                         <Text className="text-sm text-gray-600 mb-1">Total Cost</Text>
                         <Text className="text-xl font-semibold">
-                          ${billing.monthlyUsage.totalCost.toFixed(2)}
+                          ${billing.currentUsage.currentMonth.total.toFixed(2)}
                         </Text>
                       </Box>
                     </Flex>
@@ -470,31 +456,14 @@ fg = fs.create_feature_group(
                 </>
               ) : (
                 <Card className="p-6">
-                  <Title as="h2" className="text-lg mb-4">Add Payment Method</Title>
+                  <Title as="h2" className="text-lg mb-4">Payment Required</Title>
                   <Text className="text-sm text-gray-600 mb-4">
-                    Add a payment method to start using Hopsworks.
+                    A payment method is required for pay-as-you-go billing.
                   </Text>
-                  <Button 
-                    intent="primary"
-                    onClick={async () => {
-                      try {
-                        const response = await fetch('/api/billing/purchase-credits', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ amount: 0 }) // Just to create checkout session
-                        });
-                        const data = await response.json();
-                        if (data.checkoutUrl) {
-                          window.location.href = data.checkoutUrl;
-                        }
-                      } catch (error) {
-                        console.error('Failed to open billing portal', error);
-                      }
-                    }}
-                  >
-                    <CreditCard size={16} className="mr-2" />
-                    Add Card
-                  </Button>
+                  <Text className="text-xs text-gray-500">
+                    Your subscription and payment method should have been set up during registration. 
+                    If you&apos;re seeing this message, please contact support.
+                  </Text>
                 </Card>
               )}
             </TabsContent>
