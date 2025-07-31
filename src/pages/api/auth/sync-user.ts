@@ -55,29 +55,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .from('user_credits')
         .insert({ user_id: userId });
 
-      // Auto-assign user to available Hopsworks cluster
-      const { data: clusters } = await supabaseAdmin
-        .from('hopsworks_clusters')
-        .select('id, current_users, max_users')
-        .eq('status', 'active')
-        .order('current_users', { ascending: true });
-      
-      // Find first cluster with available capacity
-      const availableCluster = clusters?.find(c => c.current_users < c.max_users);
+      // Check if user has payment method set up
+      const { data: userData } = await supabaseAdmin
+        .from('users')
+        .select('stripe_customer_id')
+        .eq('id', userId)
+        .single();
 
-      if (availableCluster) {
-        // Assign user to cluster
-        await supabaseAdmin
+      // Only assign cluster if user has payment method or is admin-assigned
+      if (userData?.stripe_customer_id) {
+        // User has payment method, check if they need cluster assignment
+        const { data: existingAssignment } = await supabaseAdmin
           .from('user_hopsworks_assignments')
-          .insert({
-            user_id: userId,
-            hopsworks_cluster_id: availableCluster.id
-          });
+          .select('id')
+          .eq('user_id', userId)
+          .single();
+
+        if (!existingAssignment) {
+          // Find and assign available cluster
+          const { data: clusters } = await supabaseAdmin
+            .from('hopsworks_clusters')
+            .select('id, current_users, max_users')
+            .eq('status', 'active')
+            .order('current_users', { ascending: true });
           
-        // Increment cluster user count
-        await supabaseAdmin.rpc('increment_cluster_users', { 
-          cluster_id: availableCluster.id 
-        });
+          const availableCluster = clusters?.find(c => c.current_users < c.max_users);
+
+          if (availableCluster) {
+            await supabaseAdmin
+              .from('user_hopsworks_assignments')
+              .insert({
+                user_id: userId,
+                hopsworks_cluster_id: availableCluster.id
+              });
+              
+            await supabaseAdmin.rpc('increment_cluster_users', { 
+              cluster_id: availableCluster.id 
+            });
+
+            console.log(`Assigned user ${userId} to cluster after payment setup`);
+          }
+        }
+      } else {
+        console.log(`User ${userId} has no payment method - skipping cluster assignment`);
       }
     } else {
       // Update last login

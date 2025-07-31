@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { requireAdmin } from '../../../middleware/adminAuth';
 import { createClient } from '@supabase/supabase-js';
+import { assignUserToCluster } from '../../../lib/cluster-assignment';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,23 +44,26 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: 'Internal server error' });
     }
   } else if (req.method === 'POST') {
-    // Handle user-cluster assignment
+    // Handle manual user-cluster assignment by admin
     const { userId, clusterId } = req.body;
     
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID required' });
+    }
+    
     try {
-      const { error } = await supabase
-        .from('user_hopsworks_assignments')
-        .upsert({ user_id: userId, hopsworks_cluster_id: clusterId });
-        
-      if (error) {
-        console.error('Error assigning user to cluster:', error);
-        return res.status(500).json({ error: 'Failed to assign user to cluster' });
+      // Use manual assignment flag to bypass payment check
+      const { success, error } = await assignUserToCluster(
+        supabase, 
+        userId, 
+        true // isManualAssignment = true
+      );
+      
+      if (!success) {
+        return res.status(400).json({ error: error || 'Failed to assign cluster' });
       }
       
-      // Update cluster current_users count
-      await supabase.rpc('increment_cluster_users', { cluster_id: clusterId });
-      
-      return res.status(200).json({ success: true });
+      return res.status(200).json({ success: true, message: `User assigned to cluster` });
     } catch (error) {
       console.error('Server error:', error);
       return res.status(500).json({ error: 'Internal server error' });

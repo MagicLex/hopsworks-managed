@@ -112,87 +112,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Don't fail user creation if Stripe fails
       }
 
-      // Assign user to a Hopsworks cluster
-      let availableCluster = null;
-      try {
-        // Find available cluster with capacity
-        const { data: cluster } = await supabaseAdmin
-          .from('hopsworks_clusters')
-          .select('*')
-          .eq('status', 'active')
-          .order('current_users', { ascending: true })
-          .limit(1)
-          .single();
-
-        if (cluster && cluster.current_users < cluster.max_users) {
-          availableCluster = cluster;
-          
-          // Assign user to cluster
-          await supabaseAdmin
-            .from('user_hopsworks_assignments')
-            .insert({
-              user_id,
-              hopsworks_cluster_id: availableCluster.id
-            });
-
-          // Increment cluster user count
-          await supabaseAdmin.rpc('increment_cluster_users', {
-            p_cluster_id: availableCluster.id
-          });
-
-          console.log(`Assigned user ${email} to cluster ${availableCluster.name}`);
-        } else {
-          console.warn(`No available clusters for user ${email}`);
-        }
-      } catch (clusterError) {
-        console.error('Failed to assign cluster:', clusterError);
-        // Don't fail user creation if cluster assignment fails
-      }
-
-      // Create Hopsworks user and project
-      if (availableCluster) {
-        try {
-          const credentials = {
-            apiUrl: availableCluster.api_url,
-            apiKey: availableCluster.api_key
-          };
-
-          // Create OAuth user in Hopsworks
-          const hopsworksUsername = await createHopsworksOAuthUser(
-            credentials,
-            email,
-            name?.split(' ')[0] || 'User',
-            name?.split(' ')[1] || '',
-            user_id
-          );
-
-          // Store Hopsworks username
-          await supabaseAdmin
-            .from('users')
-            .update({ 
-              hopsworks_username: hopsworksUsername
-            })
-            .eq('id', user_id);
-
-          // Update assignment with username
-          await supabaseAdmin
-            .from('user_hopsworks_assignments')
-            .update({
-              hopsworks_username: hopsworksUsername
-            })
-            .eq('user_id', user_id)
-            .eq('hopsworks_cluster_id', availableCluster.id);
-
-          // Create default project
-          const projectName = `${email.split('@')[0]}-project`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-          await createHopsworksProject(credentials, hopsworksUsername, projectName);
-
-          console.log(`Created Hopsworks user ${hopsworksUsername} and project ${projectName}`);
-        } catch (hopsworksError) {
-          console.error('Failed to create Hopsworks user/project:', hopsworksError);
-          // Don't fail Auth0 webhook
-        }
-      }
+      // Do NOT auto-assign cluster - user needs to set up payment first
+      console.log(`New user ${email} created. Cluster assignment pending payment setup.`);
+      
+      // Hopsworks user will be created after payment is set up and cluster is assigned
     } else {
       // Update existing user
       const { error: updateError } = await supabaseAdmin

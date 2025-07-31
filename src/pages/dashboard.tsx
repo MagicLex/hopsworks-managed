@@ -7,6 +7,7 @@ import { Box, Flex, Title, Text, Button, Card, Badge } from 'tailwind-quartz';
 import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, HardDrive } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import ClusterAccessStatus from '@/components/ClusterAccessStatus';
 
 interface UsageData {
   cpuHours: number;
@@ -75,6 +76,15 @@ export default function Dashboard() {
             <Text className="text-sm text-gray-600 mb-2">Logged in as</Text>
             <Text className="text-lg">{user.email}</Text>
           </Card>
+
+          {/* Cluster Access Status */}
+          <Box className="mb-6">
+            <ClusterAccessStatus 
+              hasCluster={hopsworksInfo?.hasCluster || false}
+              hasPaymentMethod={false} // TODO: Get this from billing API
+              clusterName={hopsworksInfo?.clusterName}
+            />
+          </Box>
 
           {/* Usage Metrics */}
           <Box className="mb-6">

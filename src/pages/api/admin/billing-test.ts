@@ -45,18 +45,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .eq('user_id', userId)
           .single();
 
-        // Get test subscriptions
+        // Get test customer ID from metadata
         const { data: userData } = await supabaseAdmin
           .from('users')
-          .select('stripe_customer_id')
+          .select('metadata')
           .eq('id', userId)
           .single();
 
+        const testCustomerId = userData?.metadata?.stripe_test_customer_id;
         let testSubscriptions = null;
-        if (userData?.stripe_customer_id) {
+        
+        if (testCustomerId) {
           try {
             const subscriptions = await stripe.subscriptions.list({
-              customer: userData.stripe_customer_id,
+              customer: testCustomerId,
               limit: 10
             });
             testSubscriptions = subscriptions.data;
@@ -69,7 +71,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           testMode: true,
           credits: userCredits,
           subscriptions: testSubscriptions,
-          stripeCustomerId: userData?.stripe_customer_id
+          stripeCustomerId: testCustomerId || null
         });
       } catch (error) {
         console.error('Error fetching test billing data:', error);
@@ -88,7 +90,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         // Get user data
         const { data: user } = await supabaseAdmin
           .from('users')
-          .select('email, stripe_customer_id')
+          .select('email, metadata')
           .eq('id', userId)
           .single();
 
@@ -96,9 +98,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           return res.status(404).json({ error: 'User not found' });
         }
 
-        // Ensure test customer exists
-        let customerId = user.stripe_customer_id;
-        if (!customerId) {
+        // Get or create test customer (stored separately from live customer)
+        let testCustomerId = user.metadata?.stripe_test_customer_id;
+        
+        if (!testCustomerId) {
           const customer = await stripe.customers.create({
             email: user.email,
             metadata: {
@@ -106,18 +109,24 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               test_mode: 'true'
             }
           });
-          customerId = customer.id;
+          testCustomerId = customer.id;
           
+          // Store test customer ID in metadata to keep it separate from live
           await supabaseAdmin
             .from('users')
-            .update({ stripe_customer_id: customerId })
+            .update({ 
+              metadata: {
+                ...(user.metadata || {}),
+                stripe_test_customer_id: testCustomerId
+              }
+            })
             .eq('id', userId);
         }
 
         if (type === 'credits') {
           // Create test credit purchase session
           const session = await stripe.checkout.sessions.create({
-            customer: customerId,
+            customer: testCustomerId,
             payment_method_types: ['card'],
             line_items: [{
               price_data: {
@@ -148,7 +157,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         } else if (type === 'subscription') {
           // Create test subscription session
           const session = await stripe.checkout.sessions.create({
-            customer: customerId,
+            customer: testCustomerId,
             payment_method_types: ['card'],
             line_items: [{
               price: config.priceIds.cpuHour,

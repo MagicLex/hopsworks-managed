@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { buffer } from 'micro';
+import { assignUserToCluster } from '../../../lib/cluster-assignment';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-06-30.basil'
@@ -166,6 +167,14 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
     .single();
 
   if (user) {
+    // Assign cluster now that payment is set up
+    const { success, error } = await assignUserToCluster(supabaseAdmin, user.id);
+    if (success) {
+      console.log(`Assigned cluster to user ${user.id} after subscription creation`);
+    } else {
+      console.error(`Failed to assign cluster: ${error}`);
+    }
+
     await supabaseAdmin
       .from('users')
       .update({
