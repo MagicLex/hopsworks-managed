@@ -56,6 +56,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (session.metadata?.credit_amount) {
           await handleCreditPurchase(session);
         }
+        
+        // Handle payment method setup
+        if (session.mode === 'setup' && session.customer) {
+          await handlePaymentMethodSetup(session);
+        }
         break;
       }
 
@@ -154,6 +159,36 @@ async function handleCreditPurchase(session: Stripe.Checkout.Session) {
     });
 
   console.log(`Successfully added $${creditAmount} credits for user ${userId}`);
+}
+
+async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {
+  const customerId = session.customer as string;
+  console.log(`Payment method setup completed for customer ${customerId}`);
+  
+  // Get user by Stripe customer ID
+  const { data: user } = await supabaseAdmin
+    .from('users')
+    .select('id, billing_mode')
+    .eq('stripe_customer_id', customerId)
+    .single();
+
+  if (user) {
+    // For postpaid users without a cluster, assign one now
+    const { data: assignment } = await supabaseAdmin
+      .from('user_hopsworks_assignments')
+      .select('cluster_id')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (!assignment) {
+      const { success, error } = await assignUserToCluster(supabaseAdmin, user.id);
+      if (success) {
+        console.log(`Assigned cluster to user ${user.id} after payment method setup`);
+      } else {
+        console.error(`Failed to assign cluster to user ${user.id}: ${error}`);
+      }
+    }
+  }
 }
 
 async function handleSubscriptionCreated(subscription: Stripe.Subscription) {

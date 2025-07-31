@@ -112,11 +112,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
           apiVersion: '2025-06-30.basil'
         });
+        
+        // Check for attached payment methods - try multiple approaches
         const paymentMethods = await stripe.paymentMethods.list({
           customer: user.stripe_customer_id,
           type: 'card'
         });
-        hasPaymentMethod = paymentMethods.data.length > 0;
+        
+        // Also check all payment method types
+        const allPaymentMethods = await stripe.paymentMethods.list({
+          customer: user.stripe_customer_id
+        });
+        
+        // Check customer's default payment method
+        const customer = await stripe.customers.retrieve(user.stripe_customer_id);
+        const hasDefaultPaymentMethod = !!(customer as any).invoice_settings?.default_payment_method || !!(customer as any).default_source;
+        
+        // Check if customer has any successful setup intents
+        const setupIntents = await stripe.setupIntents.list({
+          customer: user.stripe_customer_id,
+          limit: 1
+        });
+        const hasSuccessfulSetup = setupIntents.data.some(si => si.status === 'succeeded');
+        
+        hasPaymentMethod = paymentMethods.data.length > 0 || 
+                          allPaymentMethods.data.length > 0 || 
+                          hasDefaultPaymentMethod || 
+                          hasSuccessfulSetup;
+        
+        console.log(`Payment method check for ${user.stripe_customer_id}:`, {
+          cardPaymentMethodsCount: paymentMethods.data.length,
+          allPaymentMethodsCount: allPaymentMethods.data.length,
+          hasDefaultPaymentMethod,
+          hasSuccessfulSetup,
+          hasPaymentMethod
+        });
       } catch (error) {
         console.error('Error checking payment methods:', error);
       }
