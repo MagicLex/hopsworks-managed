@@ -4,7 +4,7 @@ import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApiData } from '@/hooks/useApiData';
 import { Box, Flex, Title, Text, Button, Card, Badge } from 'tailwind-quartz';
-import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, HardDrive } from 'lucide-react';
+import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, HardDrive, Users } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import ClusterAccessStatus from '@/components/ClusterAccessStatus';
@@ -175,6 +175,24 @@ export default function Dashboard() {
                 </Box>
               </Card>
             )}
+
+            <Card className="p-6">
+              <Flex align="center" gap={12} className="mb-4">
+                <Users size={20} className="text-[#1eb182]" />
+                <Title as="h2" className="text-lg">Team</Title>
+              </Flex>
+              <Text className="text-sm text-gray-600 mb-4">
+                Manage team members and invitations
+              </Text>
+              <Link href="/team">
+                <Button 
+                  intent="secondary"
+                  className="uppercase"
+                >
+                  Manage Team →
+                </Button>
+              </Link>
+            </Card>
 
             <Card className="p-6">
               <Flex align="center" gap={12} className="mb-4">
