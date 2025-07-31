@@ -51,7 +51,7 @@ export const UserProfile: React.FC = () => {
                 </Flex>
               </DropdownItem>
               
-              <DropdownItem onClick={() => handleNavigation('/billing')}>
+              <DropdownItem onClick={() => handleNavigation('/dashboard?tab=billing')}>
                 <Flex align="center" gap={8}>
                   <CreditCard size={14} />
                   <span>Billing</span>
