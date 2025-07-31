@@ -152,6 +152,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // Prevent caching of billing data
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     return res.status(200).json({
       billingMode: user?.billing_mode || 'postpaid',
       hasPaymentMethod,
