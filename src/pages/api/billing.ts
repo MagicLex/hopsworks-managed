@@ -103,8 +103,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Check if customer has payment methods
+    // Check if customer has payment methods and get details
     let hasPaymentMethod = false;
+    let paymentMethodDetails = null;
     if (user?.stripe_customer_id) {
       try {
         const Stripe = (await import('stripe')).default;
@@ -139,6 +140,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                           hasDefaultPaymentMethod || 
                           hasSuccessfulSetup;
         
+        // Get payment method details if available
+        if (paymentMethods.data.length > 0) {
+          const primaryCard = paymentMethods.data[0];
+          paymentMethodDetails = {
+            type: 'card',
+            card: {
+              brand: primaryCard.card?.brand || 'card',
+              last4: primaryCard.card?.last4 || '****',
+              expMonth: primaryCard.card?.exp_month,
+              expYear: primaryCard.card?.exp_year
+            }
+          };
+        } else if ((customer as any).invoice_settings?.default_payment_method) {
+          // Fetch the default payment method details
+          try {
+            const defaultPm = await stripe.paymentMethods.retrieve(
+              (customer as any).invoice_settings.default_payment_method
+            );
+            if (defaultPm.card) {
+              paymentMethodDetails = {
+                type: 'card',
+                card: {
+                  brand: defaultPm.card.brand,
+                  last4: defaultPm.card.last4,
+                  expMonth: defaultPm.card.exp_month,
+                  expYear: defaultPm.card.exp_year
+                }
+              };
+            }
+          } catch (e) {
+            // Ignore error fetching payment method details
+          }
+        }
+        
       } catch (error) {
         console.error('Error checking payment methods:', error);
         hasPaymentMethod = false;
@@ -153,6 +188,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({
       billingMode: user?.billing_mode || 'postpaid',
       hasPaymentMethod,
+      paymentMethodDetails,
       subscriptionStatus: null, // Column doesn't exist in DB
       prepaidEnabled: user?.feature_flags?.prepaid_enabled || false,
       currentUsage: {

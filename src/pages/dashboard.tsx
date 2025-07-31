@@ -57,6 +57,15 @@ interface TeamMember {
 interface BillingInfo {
   billingMode: 'prepaid' | 'postpaid';
   hasPaymentMethod: boolean;
+  paymentMethodDetails?: {
+    type: string;
+    card?: {
+      brand: string;
+      last4: string;
+      expMonth: number;
+      expYear: number;
+    };
+  };
   subscriptionStatus?: string;
   prepaidEnabled: boolean;
   currentUsage: {
@@ -404,7 +413,48 @@ fg = fs.create_feature_group(
                     </Flex>
                     
                     {billing.hasPaymentMethod ? (
-                      <Text className="text-sm text-gray-600">Payment method on file</Text>
+                      <Box className="space-y-3">
+                        {billing.paymentMethodDetails?.card && (
+                          <Card variant="readOnly" className="p-4">
+                            <Flex justify="between" align="center">
+                              <Flex align="center" gap={12}>
+                                <CreditCard size={18} className="text-gray-500" />
+                                <Box>
+                                  <Text className="text-sm font-medium capitalize">
+                                    {billing.paymentMethodDetails.card.brand} •••• {billing.paymentMethodDetails.card.last4}
+                                  </Text>
+                                  <Text className="text-xs text-gray-500">
+                                    Expires {String(billing.paymentMethodDetails.card.expMonth).padStart(2, '0')}/{billing.paymentMethodDetails.card.expYear}
+                                  </Text>
+                                </Box>
+                              </Flex>
+                              <Badge variant="success" size="sm">Active</Badge>
+                            </Flex>
+                          </Card>
+                        )}
+                        {!billing.paymentMethodDetails && (
+                          <Text className="text-sm text-gray-600">Payment method on file</Text>
+                        )}
+                        <Button
+                          intent="ghost"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const response = await fetch('/api/billing/setup-payment', {
+                                method: 'POST'
+                              });
+                              const data = await response.json();
+                              if (data.portalUrl) {
+                                window.open(data.portalUrl, '_blank');
+                              }
+                            } catch (error) {
+                              console.error('Failed to open billing portal:', error);
+                            }
+                          }}
+                        >
+                          Manage Payment Methods
+                        </Button>
+                      </Box>
                     ) : (
                       <Text className="text-sm text-gray-600">No payment methods added yet.</Text>
                     )}
@@ -413,24 +463,6 @@ fg = fs.create_feature_group(
                   <Card className="p-6 mb-6">
                     <Flex justify="between" align="center" className="mb-4">
                       <Title as="h2" className="text-lg">Monthly Usage</Title>
-                      <Button
-                        intent="ghost"
-                        onClick={async () => {
-                          try {
-                            const response = await fetch('/api/billing/setup-payment', {
-                              method: 'POST'
-                            });
-                            const data = await response.json();
-                            if (data.portalUrl) {
-                              window.open(data.portalUrl, '_blank');
-                            }
-                          } catch (error) {
-                            console.error('Failed to open billing portal:', error);
-                          }
-                        }}
-                      >
-                        Manage Billing
-                      </Button>
                     </Flex>
                     <Flex gap={16} className="grid grid-cols-1 md:grid-cols-2">
                       <Box>
