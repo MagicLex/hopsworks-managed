@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get user info
     const { data: user, error: userError } = await supabaseAdmin
       .from('users')
-      .select('email, stripe_customer_id, billing_mode, stripe_subscription_id, account_owner_id')
+      .select('email, stripe_customer_id, billing_mode, account_owner_id')
       .eq('id', userId)
       .single();
 
@@ -48,14 +48,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Check if already has payment method
-    if (user.stripe_subscription_id) {
-      // Create billing portal session to manage existing subscription
-      const portalSession = await stripe.billingPortal.sessions.create({
-        customer: user.stripe_customer_id!,
-        return_url: `${process.env.AUTH0_BASE_URL}/dashboard?tab=billing`,
+    if (user.stripe_customer_id) {
+      // Check if customer has payment methods
+      const paymentMethods = await stripe.paymentMethods.list({
+        customer: user.stripe_customer_id,
+        type: 'card'
       });
       
-      return res.status(200).json({ portalUrl: portalSession.url });
+      if (paymentMethods.data.length > 0) {
+        // Create billing portal session to manage existing payment methods
+        const portalSession = await stripe.billingPortal.sessions.create({
+          customer: user.stripe_customer_id,
+          return_url: `${process.env.AUTH0_BASE_URL}/dashboard?tab=billing`,
+        });
+        
+        return res.status(200).json({ portalUrl: portalSession.url });
+      }
     }
 
     // Create customer if needed
