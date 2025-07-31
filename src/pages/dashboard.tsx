@@ -206,6 +206,81 @@ export default function Dashboard() {
                       </Button>
                     </Flex>
                   </Card>
+                  
+                  {/* Quick Start Code */}
+                  <Card className="p-6 mb-6">
+                    <Title as="h3" className="text-lg mb-4">Quick Start</Title>
+                    
+                    <Text className="text-sm text-gray-600 mb-4">
+                      Connect to your instance using the Hopsworks Python client:
+                    </Text>
+
+                    <Card variant="readOnly" className="relative">
+                      <Button
+                        intent="ghost"
+                        className="absolute top-2 right-2 text-xs p-1"
+                        onClick={() => {
+                          const code = `import hopsworks
+
+# Login via browser (SSO)
+connection = hopsworks.login(
+    host="${instance?.endpoint || 'your-hopsworks-instance.com'}"
+)
+
+# Get the feature store
+fs = connection.get_feature_store()
+
+# Create a new feature group
+fg = fs.create_feature_group(
+    name="sales_features",
+    version=1
+)`;
+                          navigator.clipboard.writeText(code);
+                          setCopied('quickstart');
+                          setTimeout(() => setCopied(''), 2000);
+                        }}
+                      >
+                        {copied === 'quickstart' ? (
+                          <Flex align="center" gap={4}>
+                            <CheckCircle size={12} />
+                            <Text className="text-xs">Copied!</Text>
+                          </Flex>
+                        ) : (
+                          <Flex align="center" gap={4}>
+                            <Copy size={12} />
+                            <Text className="text-xs">Copy</Text>
+                          </Flex>
+                        )}
+                      </Button>
+                      <pre className="overflow-x-auto p-4 text-sm bg-gray-900 text-gray-300 rounded">
+                        <code>
+                          <span className="text-purple-400">import</span> <span className="text-green-400">hopsworks</span>
+                          {'\n\n'}
+                          <span className="text-gray-500"># Login via browser (SSO)</span>
+                          {'\n'}
+                          <span className="text-blue-300">connection</span> = <span className="text-green-400">hopsworks</span>.<span className="text-yellow-300">login</span>(
+                          {'\n    '}
+                          <span className="text-orange-300">host</span>=<span className="text-green-300">&quot;{instance?.endpoint || 'your-hopsworks-instance.com'}&quot;</span>
+                          {'\n'}
+                          )
+                          {'\n\n'}
+                          <span className="text-gray-500"># Get the feature store</span>
+                          {'\n'}
+                          <span className="text-blue-300">fs</span> = <span className="text-blue-300">connection</span>.<span className="text-yellow-300">get_feature_store</span>()
+                          {'\n\n'}
+                          <span className="text-gray-500"># Create a new feature group</span>
+                          {'\n'}
+                          <span className="text-blue-300">fg</span> = <span className="text-blue-300">fs</span>.<span className="text-yellow-300">create_feature_group</span>(
+                          {'\n    '}
+                          <span className="text-orange-300">name</span>=<span className="text-green-300">&quot;sales_features&quot;</span>,
+                          {'\n    '}
+                          <span className="text-orange-300">version</span>=<span className="text-purple-300">1</span>
+                          {'\n'}
+                          )
+                        </code>
+                      </pre>
+                    </Card>
+                  </Card>
 
                   {/* Usage Metrics */}
                   <Box className="mb-6">
@@ -399,7 +474,24 @@ export default function Dashboard() {
                   <Text className="text-sm text-gray-600 mb-4">
                     Add a payment method to start using Hopsworks.
                   </Text>
-                  <Button intent="primary">
+                  <Button 
+                    intent="primary"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/billing/purchase-credits', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ amount: 0 }) // Just to create checkout session
+                        });
+                        const data = await response.json();
+                        if (data.checkoutUrl) {
+                          window.location.href = data.checkoutUrl;
+                        }
+                      } catch (error) {
+                        console.error('Failed to open billing portal', error);
+                      }
+                    }}
+                  >
                     <CreditCard size={16} className="mr-2" />
                     Add Card
                   </Button>
@@ -408,25 +500,37 @@ export default function Dashboard() {
             </TabsContent>
 
             <TabsContent value="settings">
-              <Card className="p-6">
+              <Card className="p-6 mb-6">
                 <Flex align="center" gap={12} className="mb-4">
                   <Trash2 size={20} className="text-red-500" />
-                  <Title as="h2" className="text-lg">Account Settings</Title>
+                  <Title as="h2" className="text-lg">Danger Zone</Title>
                 </Flex>
                 <Text className="text-sm text-gray-600 mb-4">
-                  Manage your account and data
+                  Permanently delete your account and all associated data. This action cannot be undone.
                 </Text>
-                <Link href="/account">
-                  <Button 
-                    intent="secondary"
-                    className="uppercase"
-                  >
-                    Account Settings →
-                  </Button>
-                </Link>
+                <Button 
+                  intent="secondary"
+                  className="bg-red-500 hover:bg-red-600 text-white"
+                  onClick={async () => {
+                    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                      try {
+                        const response = await fetch('/api/account/delete', { method: 'DELETE' });
+                        if (response.ok) {
+                          await signOut();
+                        } else {
+                          alert('Failed to delete account. Please try again.');
+                        }
+                      } catch (error) {
+                        alert('Failed to delete account. Please try again.');
+                      }
+                    }
+                  }}
+                >
+                  Delete Account
+                </Button>
               </Card>
 
-              <Flex justify="center" className="mt-8">
+              <Flex justify="center">
                 <Button 
                   intent="ghost" 
                   className="text-sm"
