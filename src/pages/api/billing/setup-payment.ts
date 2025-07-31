@@ -78,33 +78,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // For postpaid users - create checkout session to add payment method and start subscription
     if (user.billing_mode === 'postpaid') {
-      // Get the subscription product price IDs from database
-      const { data: stripeProducts } = await supabaseAdmin
-        .from('stripe_products')
-        .select('*')
-        .eq('active', true);
-
-      if (!stripeProducts || stripeProducts.length === 0) {
-        return res.status(500).json({ error: 'No active billing products configured' });
-      }
-
-      const checkoutSession = await stripe.checkout.sessions.create({
+      // Postpaid users need a subscription with usage-based billing
+      // For now, just set up payment method without subscription
+      const setupSession = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
         payment_method_types: ['card'],
-        mode: 'subscription',
-        line_items: stripeProducts.map(product => ({
-          price: product.stripe_price_id
-        })),
-        subscription_data: {
-          metadata: {
-            user_id: userId
-          }
+        mode: 'setup',
+        metadata: {
+          user_id: userId,
+          billing_mode: 'postpaid'
         },
         success_url: `${process.env.AUTH0_BASE_URL}/dashboard?payment=success&tab=billing`,
         cancel_url: `${process.env.AUTH0_BASE_URL}/dashboard?payment=cancelled&tab=billing`,
       });
 
-      return res.status(200).json({ checkoutUrl: checkoutSession.url });
+      return res.status(200).json({ checkoutUrl: setupSession.url });
     }
 
     // For prepaid users - just add payment method via setup session
