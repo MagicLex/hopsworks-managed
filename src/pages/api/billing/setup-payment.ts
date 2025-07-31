@@ -92,11 +92,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         customer: stripeCustomerId,
         payment_method_types: ['card'],
         mode: 'subscription',
-        line_items: stripeProducts
-          .filter(product => product.unit !== 'one_time')
-          .map(product => ({
-            price: product.stripe_price_id
-          })),
+        line_items: stripeProducts.map(product => ({
+          price: product.stripe_price_id
+        })),
         subscription_data: {
           metadata: {
             user_id: userId
