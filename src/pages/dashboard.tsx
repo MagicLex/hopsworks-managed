@@ -55,8 +55,13 @@ interface TeamMember {
 }
 
 interface BillingInfo {
-  billingMode: 'prepaid' | 'postpaid';
+  billingMode: 'prepaid' | 'postpaid' | 'team';
   hasPaymentMethod: boolean;
+  isTeamMember?: boolean;
+  accountOwner?: {
+    email: string;
+    name?: string;
+  };
   paymentMethodDetails?: {
     type: string;
     card?: {
@@ -138,6 +143,20 @@ export default function Dashboard() {
       <Navbar />
       <Box className="min-h-screen py-10 px-5">
         <Box className="max-w-6xl mx-auto">
+          {/* Team Member Banner */}
+          {billing?.isTeamMember && (
+            <Card className="p-4 mb-6 border-blue-200 bg-blue-50">
+              <Flex align="center" gap={12}>
+                <Users size={20} className="text-blue-600" />
+                <Box className="flex-1">
+                  <Text className="text-sm text-blue-800">
+                    You are part of <strong>{billing.accountOwner?.name || billing.accountOwner?.email}</strong>&apos;s team. 
+                    Your usage is billed to the account owner.
+                  </Text>
+                </Box>
+              </Flex>
+            </Card>
+          )}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="mb-6">

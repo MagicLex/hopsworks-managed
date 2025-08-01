@@ -34,9 +34,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('id', userId)
       .single();
     
-    // Team members don't have access to billing
+    // Team members get simplified billing info
     if (user?.account_owner_id) {
-      return res.status(403).json({ error: 'Team members cannot access billing information' });
+      // Get account owner info
+      const { data: owner } = await supabaseAdmin
+        .from('users')
+        .select('email, name')
+        .eq('id', user.account_owner_id)
+        .single();
+      
+      return res.status(200).json({
+        isTeamMember: true,
+        accountOwner: {
+          email: owner?.email,
+          name: owner?.name
+        },
+        billingMode: 'team',
+        hasPaymentMethod: true, // Team members don't need payment
+        currentUsage: {
+          cpuHours: 0,
+          currentMonth: { total: 0 }
+        }
+      });
     }
 
     // Get current month usage

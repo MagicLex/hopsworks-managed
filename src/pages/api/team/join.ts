@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
+import { assignUserToCluster } from '@/lib/cluster-assignment';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -110,9 +111,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Don't fail the whole operation
     }
 
+    // Assign team member to cluster (same as account owner)
+    const clusterAssignment = await assignUserToCluster(supabase, userId);
+    
+    if (!clusterAssignment.success) {
+      console.log('Failed to assign team member to cluster:', clusterAssignment.error);
+      // Don't fail the join operation, they can be assigned later
+    }
+
     return res.status(200).json({ 
       message: 'Successfully joined team',
-      account_owner_id: invite.account_owner_id
+      account_owner_id: invite.account_owner_id,
+      cluster_assigned: clusterAssignment.success
     });
 
   } catch (error) {
