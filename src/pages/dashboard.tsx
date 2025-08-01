@@ -4,7 +4,7 @@ import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApiData } from '@/hooks/useApiData';
 import { Box, Flex, Title, Text, Button, Card, Badge, Tabs, TabsContent, TabsList, TabsTrigger, Modal, Input } from 'tailwind-quartz';
-import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle, UserPlus, Mail, Download } from 'lucide-react';
+import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle, UserPlus, Mail, Download, Calendar, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import ClusterAccessStatus from '@/components/ClusterAccessStatus';
@@ -46,12 +46,23 @@ interface InstanceData {
   created: string | null;
 }
 
-interface TeamMember {
-  id: string;
-  email: string;
-  role: string;
-  status: string;
-  addedAt: string;
+interface TeamData {
+  account_owner: {
+    id: string;
+    email: string;
+    name: string;
+  };
+  team_members: Array<{
+    id: string;
+    email: string;
+    name: string;
+    created_at: string;
+    last_login_at: string;
+    hopsworks_username: string;
+    hopsworks_project_id: number;
+    status: string;
+  }>;
+  is_owner: boolean;
 }
 
 interface BillingInfo {
@@ -102,7 +113,7 @@ export default function Dashboard() {
   const { data: usage, loading: usageLoading } = useApiData<UsageData>('/api/usage');
   const { data: hopsworksInfo, loading: hopsworksLoading } = useApiData<HopsworksInfo>('/api/user/hopsworks-info');
   const { data: instance, loading: instanceLoading } = useApiData<InstanceData>('/api/instance');
-  const { data: teamMembers, loading: teamLoading } = useApiData<TeamMember[]>('/api/team/members');
+  const { data: teamData, loading: teamLoading } = useApiData<TeamData>('/api/team/members');
   const { data: billing, loading: billingLoading } = useApiData<BillingInfo>('/api/billing');
   const [activeTab, setActiveTab] = useState('cluster');
   const [copied, setCopied] = useState('');
@@ -116,7 +127,8 @@ export default function Dashboard() {
       router.push('/');
     }
   }, [user, authLoading, router]);
-  
+
+  // Handle tab query parameter
   useEffect(() => {
     if (router.query.tab && typeof router.query.tab === 'string') {
       setActiveTab(router.query.tab);
@@ -400,181 +412,355 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
             </TabsContent>
 
             <TabsContent value="team">
-              <Card className="p-6">
-                <Flex align="center" gap={12} className="mb-4">
-                  <Users size={20} className="text-[#1eb182]" />
-                  <Title as="h2" className="text-lg">Team Members</Title>
-                </Flex>
-                
-                {teamLoading ? (
-                  <Text className="text-sm text-gray-600">Loading team members...</Text>
-                ) : teamMembers && teamMembers.length > 0 ? (
-                  <Box className="space-y-3">
-                    {teamMembers.map(member => (
-                      <Flex key={member.id} justify="between" align="center" className="py-3 border-b border-gray-100 last:border-0">
-                        <Box>
-                          <Text className="font-medium">{member.email}</Text>
-                          <Text className="text-xs text-gray-500">
-                            {member.role} • Added {new Date(member.addedAt).toLocaleDateString()}
-                          </Text>
-                        </Box>
-                        <Badge variant={member.status === 'active' ? 'success' : 'default'} size="sm">
-                          {member.status}
-                        </Badge>
-                      </Flex>
-                    ))}
-                  </Box>
-                ) : (
-                  <Text className="text-sm text-gray-600">No team members yet.</Text>
-                )}
-                
-                <Flex gap={12} className="mt-6">
-                  <Button
-                    intent="primary"
-                    onClick={() => setShowInviteModal(true)}
-                  >
-                    <UserPlus size={16} className="mr-2" />
-                    Invite Member
-                  </Button>
-                </Flex>
-              </Card>
+              {teamData?.is_owner ? (
+                // Account owner view
+                <Card className="p-6">
+                  <Flex align="center" gap={12} className="mb-4">
+                    <Users size={20} className="text-[#1eb182]" />
+                    <Title as="h2" className="text-lg">Team Members</Title>
+                    <Badge variant="default">{(teamData.team_members?.length || 0) + 1}</Badge>
+                  </Flex>
+                  
+                  {teamLoading ? (
+                    <Text className="text-sm text-gray-600">Loading team members...</Text>
+                  ) : (
+                    <Box className="space-y-3">
+                      {/* Account Owner */}
+                      <Card variant="readOnly" className="p-4">
+                        <Flex justify="between" align="center">
+                          <Box>
+                            <Flex align="center" gap={8}>
+                              <Text className="font-medium">{teamData.account_owner.name || teamData.account_owner.email}</Text>
+                              <Badge variant="primary" size="sm">Owner</Badge>
+                            </Flex>
+                            <Text className="text-sm text-gray-600">{teamData.account_owner.email}</Text>
+                          </Box>
+                        </Flex>
+                      </Card>
+
+                      {/* Team Members */}
+                      {teamData.team_members && teamData.team_members.length > 0 ? (
+                        teamData.team_members.map(member => (
+                          <Card key={member.id} variant="readOnly" className="p-4">
+                            <Flex justify="between" align="center">
+                              <Box>
+                                <Text className="font-medium">{member.name || member.email}</Text>
+                                <Text className="text-sm text-gray-600">{member.email}</Text>
+                                {member.hopsworks_username && (
+                                  <Text className="text-xs text-gray-500">
+                                    Hopsworks: {member.hopsworks_username}
+                                  </Text>
+                                )}
+                              </Box>
+                              <Flex align="center" gap={12}>
+                                {member.last_login_at && (
+                                  <Text className="text-xs text-gray-500">
+                                    Last login: {new Date(member.last_login_at).toLocaleDateString()}
+                                  </Text>
+                                )}
+                                <Badge variant={member.status === 'active' ? 'success' : 'default'} size="sm">
+                                  {member.status}
+                                </Badge>
+                              </Flex>
+                            </Flex>
+                          </Card>
+                        ))
+                      ) : (
+                        <Text className="text-sm text-gray-600 mt-4">No team members yet.</Text>
+                      )}
+                    </Box>
+                  )}
+                  
+                  <Flex gap={12} className="mt-6">
+                    <Button
+                      intent="primary"
+                      onClick={() => setShowInviteModal(true)}
+                    >
+                      <UserPlus size={16} className="mr-2" />
+                      Invite Member
+                    </Button>
+                    <Link href="/team">
+                      <Button intent="secondary">
+                        Manage Team
+                      </Button>
+                    </Link>
+                  </Flex>
+                </Card>
+              ) : (
+                // Team member view
+                <Card className="p-6">
+                  <Flex align="center" gap={12} className="mb-4">
+                    <Users size={20} className="text-[#1eb182]" />
+                    <Title as="h2" className="text-lg">Team Information</Title>
+                  </Flex>
+                  
+                  <Card className="p-4 border-blue-200 bg-blue-50">
+                    <Text className="text-sm text-blue-800">
+                      You are part of <strong>{teamData?.account_owner.name || teamData?.account_owner.email}</strong>&apos;s team.
+                    </Text>
+                    <Text className="text-xs text-blue-700 mt-2">
+                      Your usage is billed to the account owner. Contact them for billing or team management.
+                    </Text>
+                  </Card>
+
+                  {/* Show other team members */}
+                  {teamData?.team_members && teamData.team_members.length > 1 && (
+                    <Box className="mt-6">
+                      <Text className="text-sm font-medium mb-3">Other Team Members</Text>
+                      <Box className="space-y-2">
+                        {teamData.team_members.filter(m => m.id !== user?.sub).map(member => (
+                          <Card key={member.id} variant="readOnly" className="p-3">
+                            <Box>
+                              <Text className="text-sm font-medium">{member.name || member.email}</Text>
+                              <Text className="text-xs text-gray-600">{member.email}</Text>
+                            </Box>
+                          </Card>
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="billing">
               {billing && (
                 <>
-                  <Card className="p-6 mb-6">
-                    <Flex align="center" gap={12} className="mb-4">
-                      <CreditCard size={20} className="text-[#1eb182]" />
-                      <Title as="h2" className="text-lg">Payment Methods</Title>
-                    </Flex>
-                    
-                    {billing.hasPaymentMethod ? (
-                      <Box className="space-y-3">
-                        {billing.paymentMethodDetails?.card && (
-                          <Card variant="readOnly" className="p-4">
-                            <Flex justify="between" align="center">
-                              <Flex align="center" gap={12}>
-                                <CreditCard size={18} className="text-gray-500" />
-                                <Box>
-                                  <Text className="text-sm font-medium capitalize">
-                                    {billing.paymentMethodDetails.card.brand} •••• {billing.paymentMethodDetails.card.last4}
-                                  </Text>
-                                  <Text className="text-xs text-gray-500">
-                                    Expires {String(billing.paymentMethodDetails.card.expMonth).padStart(2, '0')}/{billing.paymentMethodDetails.card.expYear}
-                                  </Text>
-                                </Box>
-                              </Flex>
-                              <Badge variant="success" size="sm">Active</Badge>
-                            </Flex>
-                          </Card>
-                        )}
-                        {!billing.paymentMethodDetails && (
-                          <Text className="text-sm text-gray-600">Payment method on file</Text>
-                        )}
-                        <Button
-                          intent="ghost"
-                          onClick={async () => {
-                            try {
-                              const response = await fetch('/api/billing/setup-payment', {
-                                method: 'POST'
-                              });
-                              const data = await response.json();
-                              if (data.portalUrl) {
-                                window.open(data.portalUrl, '_blank');
-                              }
-                            } catch (error) {
-                              console.error('Failed to open billing portal:', error);
-                            }
-                          }}
-                        >
-                          Manage Payment Methods
-                        </Button>
-                      </Box>
-                    ) : (
-                      <Text className="text-sm text-gray-600">No payment methods added yet.</Text>
-                    )}
-                  </Card>
-                  
-                  <Card className="p-6 mb-6">
-                    <Flex justify="between" align="center" className="mb-4">
-                      <Title as="h2" className="text-lg">Monthly Usage</Title>
-                    </Flex>
-                    <Flex gap={16} className="grid grid-cols-1 md:grid-cols-2">
-                      <Box>
-                        <Text className="text-sm text-gray-600 mb-1">CPU Hours</Text>
-                        <Text className="text-xl font-semibold">
-                          {billing.currentUsage.cpuHours}
-                        </Text>
-                      </Box>
-                      <Box>
-                        <Text className="text-sm text-gray-600 mb-1">Total Cost</Text>
-                        <Text className="text-xl font-semibold">
-                          ${billing.currentUsage.currentMonth.total.toFixed(2)}
-                        </Text>
-                      </Box>
-                    </Flex>
-                  </Card>
-                </>
-              )}
-              
-              {billing?.hasPaymentMethod ? (
-                <>
-                  <Card className="p-6">
-                    <Title as="h2" className="text-lg mb-4">Invoices</Title>
-                    {billing.invoices && billing.invoices.length > 0 ? (
-                      <Box className="space-y-2">
-                        {billing.invoices.slice(0, 5).map(invoice => (
-                          <Flex key={invoice.id} justify="between" align="center" className="py-2 border-b border-gray-100 last:border-0">
+                  {/* Team member billing notice */}
+                  {billing.isTeamMember ? (
+                    <Card className="p-6 border-blue-200 bg-blue-50">
+                      <Flex align="center" gap={12}>
+                        <Users size={20} className="text-blue-600" />
+                        <Box className="flex-1">
+                          <Text className="text-sm text-blue-800">
+                            Your usage is billed to <strong>{billing.accountOwner?.name || billing.accountOwner?.email}</strong>. 
+                            Contact your account owner for billing information.
+                          </Text>
+                        </Box>
+                      </Flex>
+                    </Card>
+                  ) : (
+                    <>
+                      {/* Low balance warnings */}
+                      {!billing.hasPaymentMethod && billing.billingMode === 'postpaid' && (
+                        <Card className="p-6 mb-6 border-yellow-500 bg-yellow-50">
+                          <Flex align="center" gap={12}>
+                            <AlertTriangle size={20} className="text-yellow-600" />
                             <Box>
-                              <Text className="font-medium">{invoice.invoice_number}</Text>
-                              <Text className="text-xs text-gray-500">
-                                {new Date(invoice.created_at).toLocaleDateString()}
+                              <Title as="h3" className="text-sm">Add Payment Method Required</Title>
+                              <Text className="text-xs text-gray-600">
+                                Add a credit card to start using Hopsworks resources
                               </Text>
                             </Box>
-                            <Flex align="center" gap={12}>
-                              <Text className="font-medium">${invoice.amount.toFixed(2)}</Text>
-                              <Badge variant={invoice.status === 'paid' ? 'success' : 'default'} size="sm">
-                                {invoice.status}
-                              </Badge>
-                            </Flex>
                           </Flex>
-                        ))}
-                      </Box>
-                    ) : (
-                      <Text className="text-sm text-gray-600">No invoices yet.</Text>
-                    )}
-                  </Card>
+                        </Card>
+                      )}
+                      
+                      {billing.billingMode === 'prepaid' && billing.creditBalance && billing.creditBalance.total < 10 && (
+                        <Card className="p-6 mb-6 border-yellow-500 bg-yellow-50">
+                          <Flex align="center" gap={12}>
+                            <AlertTriangle size={20} className="text-yellow-600" />
+                            <Box>
+                              <Title as="h3" className="text-sm">Low Credit Balance</Title>
+                              <Text className="text-xs text-gray-600">
+                                Your credit balance is running low. Purchase more credits to avoid service interruption.
+                              </Text>
+                            </Box>
+                          </Flex>
+                        </Card>
+                      )}
+
+                      {/* Current Month Usage */}
+                      <Card className="p-6 mb-6">
+                        <Flex align="center" gap={12} className="mb-4">
+                          <Activity size={20} className="text-[#1eb182]" />
+                          <Title as="h2" className="text-lg">Current Month Usage</Title>
+                        </Flex>
+                        
+                        <Flex gap={16} className="grid grid-cols-1 md:grid-cols-3 mb-4">
+                          <Box>
+                            <Text className="text-sm text-gray-600">CPU Hours</Text>
+                            <Text className="text-xl font-semibold">
+                              {billing.currentUsage.cpuHours || '0'}
+                            </Text>
+                            <Text className="text-sm text-gray-500">
+                              ${(parseFloat(billing.currentUsage.cpuHours || '0') * 1).toFixed(2)}
+                            </Text>
+                          </Box>
+                          <Box>
+                            <Text className="text-sm text-gray-600">Storage GB</Text>
+                            <Text className="text-xl font-semibold">
+                              {billing.currentUsage.storageGB || '0'}
+                            </Text>
+                            <Text className="text-sm text-gray-500">
+                              ${(parseFloat(billing.currentUsage.storageGB || '0') * 0.03).toFixed(2)}
+                            </Text>
+                          </Box>
+                          <Box>
+                            <Text className="text-sm text-gray-600">Total</Text>
+                            <Text className="text-xl font-semibold">
+                              ${billing.currentUsage.currentMonth.total.toFixed(2)}
+                            </Text>
+                            <Text className="text-sm text-gray-500">
+                              {billing.billingMode === 'prepaid' ? 'This month' : 'Estimated'}
+                            </Text>
+                          </Box>
+                        </Flex>
+                      </Card>
+
+                      {/* Credit Balance for Prepaid Users */}
+                      {billing.billingMode === 'prepaid' && billing.prepaidEnabled && billing.creditBalance && (
+                        <Card className="p-6 mb-6">
+                          <Flex align="center" gap={12} className="mb-4">
+                            <CreditCard size={20} className="text-[#1eb182]" />
+                            <Title as="h2" className="text-lg">Credit Balance</Title>
+                          </Flex>
+                          
+                          <Flex gap={16} className="grid grid-cols-1 md:grid-cols-3 mb-4">
+                            <Box>
+                              <Text className="text-sm text-gray-600">Total Balance</Text>
+                              <Text className="text-xl font-semibold">${billing.creditBalance.total.toFixed(2)}</Text>
+                            </Box>
+                            <Box>
+                              <Text className="text-sm text-gray-600">Purchased Credits</Text>
+                              <Text className="text-xl font-semibold">${billing.creditBalance.purchased.toFixed(2)}</Text>
+                            </Box>
+                            <Box>
+                              <Text className="text-sm text-gray-600">Free Credits</Text>
+                              <Text className="text-xl font-semibold">${billing.creditBalance.free.toFixed(2)}</Text>
+                            </Box>
+                          </Flex>
+                          
+                          <Button 
+                            intent="primary"
+                            onClick={async () => {
+                              const response = await fetch('/api/billing/purchase-credits', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ amount: 50 })
+                              });
+                              const data = await response.json();
+                              if (data.checkoutUrl) {
+                                window.location.href = data.checkoutUrl;
+                              }
+                            }}
+                          >
+                            Purchase More Credits
+                          </Button>
+                        </Card>
+                      )}
+
+                      {/* Payment Method */}
+                      <Card className="p-6 mb-6">
+                        <Flex align="center" gap={12} className="mb-4">
+                          <CreditCard size={20} className="text-[#1eb182]" />
+                          <Title as="h2" className="text-lg">Payment Method</Title>
+                        </Flex>
+                        
+                        {billing.hasPaymentMethod ? (
+                          <Box className="space-y-3">
+                            {billing.paymentMethodDetails?.card && (
+                              <Card variant="readOnly" className="p-4">
+                                <Flex justify="between" align="center">
+                                  <Flex align="center" gap={12}>
+                                    <CreditCard size={18} className="text-gray-500" />
+                                    <Box>
+                                      <Text className="text-sm font-medium capitalize">
+                                        {billing.paymentMethodDetails.card.brand} •••• {billing.paymentMethodDetails.card.last4}
+                                      </Text>
+                                      <Text className="text-xs text-gray-500">
+                                        Expires {String(billing.paymentMethodDetails.card.expMonth).padStart(2, '0')}/{billing.paymentMethodDetails.card.expYear}
+                                      </Text>
+                                    </Box>
+                                  </Flex>
+                                  <Badge variant="success" size="sm">Active</Badge>
+                                </Flex>
+                              </Card>
+                            )}
+                            {!billing.paymentMethodDetails && (
+                              <Text className="text-sm text-gray-600">Payment method on file</Text>
+                            )}
+                            <Button
+                              intent="ghost"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch('/api/billing/setup-payment', {
+                                    method: 'POST'
+                                  });
+                                  const data = await response.json();
+                                  if (data.portalUrl) {
+                                    window.open(data.portalUrl, '_blank');
+                                  }
+                                } catch (error) {
+                                  console.error('Failed to open billing portal:', error);
+                                }
+                              }}
+                            >
+                              Manage Payment Methods
+                            </Button>
+                          </Box>
+                        ) : (
+                          <Text className="text-sm text-gray-600">No payment methods added yet.</Text>
+                        )}
+                      </Card>
+
+                      {/* Invoices */}
+                      {billing.hasPaymentMethod && (
+                        <Card className="p-6 mb-6">
+                          <Flex align="center" gap={12} className="mb-4">
+                            <Calendar size={20} className="text-[#1eb182]" />
+                            <Title as="h2" className="text-lg">Recent Invoices</Title>
+                          </Flex>
+                          
+                          {billing.invoices && billing.invoices.length > 0 ? (
+                            <Box className="space-y-2">
+                              {billing.invoices.slice(0, 5).map(invoice => (
+                                <Flex key={invoice.id} justify="between" align="center" className="py-2 border-b border-gray-100 last:border-0">
+                                  <Box>
+                                    <Text className="text-sm font-medium">{invoice.invoice_number}</Text>
+                                    <Text className="text-xs text-gray-500">
+                                      {new Date(invoice.created_at).toLocaleDateString()}
+                                    </Text>
+                                  </Box>
+                                  <Flex align="center" gap={12}>
+                                    <Text className="text-sm font-medium">${invoice.amount.toFixed(2)}</Text>
+                                    <Badge variant="success" size="sm">{invoice.status}</Badge>
+                                  </Flex>
+                                </Flex>
+                              ))}
+                            </Box>
+                          ) : (
+                            <Text className="text-sm text-gray-500">No invoices yet</Text>
+                          )}
+                        </Card>
+                      )}
+
+                      {/* Pricing Info */}
+                      <Card className="p-6">
+                        <Title as="h2" className="text-lg mb-4">Pay-As-You-Go Pricing</Title>
+                        
+                        <Box className="space-y-3">
+                          <Card variant="readOnly" className="p-4">
+                            <Flex justify="between">
+                              <Text className="text-sm text-gray-600">CPU Usage</Text>
+                              <Text className="text-sm font-medium">$1.00 / hour</Text>
+                            </Flex>
+                          </Card>
+                          <Card variant="readOnly" className="p-4">
+                            <Flex justify="between">
+                              <Text className="text-sm text-gray-600">Storage</Text>
+                              <Text className="text-sm font-medium">$0.03 / GB / month</Text>
+                            </Flex>
+                          </Card>
+                          
+                          <Text className="text-xs text-gray-500 mt-2">
+                            Usage is calculated hourly and billed monthly. No minimum commitment.
+                          </Text>
+                        </Box>
+                      </Card>
+                    </>
+                  )}
                 </>
-              ) : (
-                <Card className="p-6">
-                  <Title as="h2" className="text-lg mb-4">Payment Required</Title>
-                  <Text className="text-sm text-gray-600 mb-4">
-                    Add a payment method to start using Hopsworks.
-                  </Text>
-                  <Button 
-                    intent="primary"
-                    onClick={async () => {
-                      try {
-                        const response = await fetch('/api/billing/setup-payment', {
-                          method: 'POST'
-                        });
-                        const data = await response.json();
-                        if (data.checkoutUrl || data.portalUrl) {
-                          window.location.href = data.checkoutUrl || data.portalUrl;
-                        } else {
-                          alert('Failed to open payment setup. Please try again.');
-                        }
-                      } catch (error) {
-                        console.error('Failed to setup payment:', error);
-                        alert('Failed to open payment setup. Please try again.');
-                      }
-                    }}
-                  >
-                    <CreditCard size={16} className="mr-2" />
-                    Add Payment Method
-                  </Button>
-                </Card>
               )}
             </TabsContent>
 
