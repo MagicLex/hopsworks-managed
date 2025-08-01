@@ -551,6 +551,21 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                     </Card>
                   ) : (
                     <>
+                      {/* 30-Day Total Summary */}
+                      {billing.historicalUsage && billing.historicalUsage.length > 0 && (
+                        <Card className="p-6 mb-6 border-[#1eb182] border-2">
+                          <Flex justify="between" align="center">
+                            <Box>
+                              <Title as="h2" className="text-2xl">Total (30d)</Title>
+                              <Text className="text-sm text-gray-600">Rolling 30-day usage cost</Text>
+                            </Box>
+                            <Text className="text-3xl font-bold text-[#1eb182]">
+                              ${billing.historicalUsage.reduce((sum, day) => sum + day.total_cost, 0).toFixed(2)}
+                            </Text>
+                          </Flex>
+                        </Card>
+                      )}
+
                       {/* Low balance warnings */}
                       {!billing.hasPaymentMethod && billing.billingMode === 'postpaid' && (
                         <Card className="p-6 mb-6 border-yellow-500 bg-yellow-50">
@@ -622,7 +637,7 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                           <Box className="mt-3 pt-3 border-t border-gray-100">
                             <Flex justify="between" align="center">
                               <Text className="text-sm text-gray-600">
-                                Base cluster fee (${(billing.currentUsage.currentMonth.baseCost / (new Date().getDate())).toFixed(2)}/day)
+                                Infrastructure cost (${(billing.currentUsage.currentMonth.baseCost / (new Date().getDate())).toFixed(2)}/day)
                               </Text>
                               <Text className="text-sm font-medium">
                                 ${billing.currentUsage.currentMonth.baseCost.toFixed(2)}
@@ -701,70 +716,10 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                               <Box className="w-3 h-3 bg-[#1eb182] rounded-full" />
                               <Text className="text-xs text-gray-600">Daily Cost</Text>
                             </Flex>
-                            <Text className="text-xs text-gray-500">
-                              Total (30d): ${billing.historicalUsage.reduce((sum, day) => sum + day.total_cost, 0).toFixed(2)}
-                            </Text>
                           </Flex>
                         </Card>
                       )}
 
-                      {/* Usage Details */}
-                      <Card className="p-6 mb-6">
-                        <Flex align="center" gap={12} className="mb-4">
-                          <Activity size={20} className="text-[#1eb182]" />
-                          <Title as="h2" className="text-lg">What We Monitor</Title>
-                        </Flex>
-                        
-                        <Box className="space-y-3">
-                          <Box>
-                            <Text className="text-sm font-medium mb-1">Compute Resources</Text>
-                            <Text className="text-xs text-gray-600">
-                              • CPU cores used by Jupyter notebooks, Spark jobs, and ML pipelines
-                            </Text>
-                            <Text className="text-xs text-gray-600">
-                              • Memory allocation for running workloads
-                            </Text>
-                            <Text className="text-xs text-gray-600">
-                              • GPU hours for deep learning (if applicable)
-                            </Text>
-                          </Box>
-                          
-                          <Box>
-                            <Text className="text-sm font-medium mb-1">Storage</Text>
-                            <Text className="text-xs text-gray-600">
-                              • Feature store data volumes
-                            </Text>
-                            <Text className="text-xs text-gray-600">
-                              • Model registry storage
-                            </Text>
-                            <Text className="text-xs text-gray-600">
-                              • Dataset and file storage
-                            </Text>
-                          </Box>
-                          
-                          <Box>
-                            <Text className="text-sm font-medium mb-1">Base Infrastructure</Text>
-                            <Text className="text-xs text-gray-600">
-                              • Kubernetes control plane and system services
-                            </Text>
-                            <Text className="text-xs text-gray-600">
-                              • Network ingress/egress
-                            </Text>
-                            <Text className="text-xs text-gray-600">
-                              • Monitoring and logging infrastructure
-                            </Text>
-                          </Box>
-                          
-                          <Card variant="readOnly" className="p-3 bg-gray-50">
-                            <Text className="text-xs text-gray-600">
-                              <strong>Collection Schedule:</strong> Every 15 minutes via Kubernetes metrics API
-                            </Text>
-                            <Text className="text-xs text-gray-600 mt-1">
-                              <strong>Billing Cycle:</strong> Monthly, based on actual usage
-                            </Text>
-                          </Card>
-                        </Box>
-                      </Card>
 
                       {/* Credit Balance for Prepaid Users */}
                       {billing.billingMode === 'prepaid' && billing.prepaidEnabled && billing.creditBalance && (
