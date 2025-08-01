@@ -44,10 +44,10 @@ export const UserProfile: React.FC = () => {
             </Box>
 
             <Box className="p-2">
-              <DropdownItem onClick={() => handleNavigation('/cluster')}>
+              <DropdownItem onClick={() => handleNavigation('/dashboard')}>
                 <Flex align="center" gap={8}>
                   <Activity size={14} />
-                  <span>Cluster Status</span>
+                  <span>Dashboard</span>
                 </Flex>
               </DropdownItem>
               
@@ -58,7 +58,7 @@ export const UserProfile: React.FC = () => {
                 </Flex>
               </DropdownItem>
               
-              <DropdownItem onClick={() => handleNavigation('/account')}>
+              <DropdownItem onClick={() => handleNavigation('/dashboard?tab=settings')}>
                 <Flex align="center" gap={8}>
                   <Settings size={14} />
                   <span>Account Settings</span>

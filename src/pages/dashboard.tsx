@@ -111,6 +111,12 @@ export default function Dashboard() {
       router.push('/');
     }
   }, [user, authLoading, router]);
+  
+  useEffect(() => {
+    if (router.query.tab && typeof router.query.tab === 'string') {
+      setActiveTab(router.query.tab);
+    }
+  }, [router.query.tab]);
 
   if (authLoading) {
     return (
@@ -554,6 +560,20 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
             </TabsContent>
 
             <TabsContent value="settings">
+              <Card className="p-6 mb-6">
+                <Title as="h2" className="text-lg mb-4">Account Information</Title>
+                <Flex direction="column" gap={12}>
+                  <Box>
+                    <Text className="text-sm text-gray-600">Email</Text>
+                    <Text className="font-medium">{user.email}</Text>
+                  </Box>
+                  <Box>
+                    <Text className="text-sm text-gray-600">User ID</Text>
+                    <Text className="text-xs font-mono">{user.sub}</Text>
+                  </Box>
+                </Flex>
+              </Card>
+              
               <Card className="p-6 mb-6">
                 <Flex align="center" gap={12} className="mb-4">
                   <Trash2 size={20} className="text-red-500" />
