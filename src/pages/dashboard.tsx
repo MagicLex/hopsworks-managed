@@ -92,6 +92,7 @@ interface BillingInfo {
     currentMonth: {
       cpuCost: number;
       storageCost: number;
+      baseCost: number;
       total: number;
     };
   };
@@ -590,23 +591,23 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                           <Box>
                             <Text className="text-sm text-gray-600">CPU Hours</Text>
                             <Text className="text-xl font-semibold">
-                              {billing.currentUsage.cpuHours || '0'}
+                              {billing.currentUsage.cpuHours || '0.00'}
                             </Text>
                             <Text className="text-sm text-gray-500">
-                              ${(parseFloat(billing.currentUsage.cpuHours || '0') * defaultBillingRates.cpuHourRate).toFixed(2)}
+                              ${billing.currentUsage.currentMonth.cpuCost.toFixed(2)}
                             </Text>
                           </Box>
                           <Box>
                             <Text className="text-sm text-gray-600">Storage GB</Text>
                             <Text className="text-xl font-semibold">
-                              {billing.currentUsage.storageGB || '0'}
+                              {billing.currentUsage.storageGB || '0.00'}
                             </Text>
                             <Text className="text-sm text-gray-500">
-                              ${(parseFloat(billing.currentUsage.storageGB || '0') * defaultBillingRates.storageGbMonthRate).toFixed(2)}
+                              ${billing.currentUsage.currentMonth.storageCost.toFixed(2)}
                             </Text>
                           </Box>
                           <Box>
-                            <Text className="text-sm text-gray-600">Total</Text>
+                            <Text className="text-sm text-gray-600">Month Total</Text>
                             <Text className="text-xl font-semibold">
                               ${billing.currentUsage.currentMonth.total.toFixed(2)}
                             </Text>
@@ -615,6 +616,27 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                             </Text>
                           </Box>
                         </Flex>
+                        
+                        {/* Show base cost if it exists */}
+                        {billing.currentUsage.currentMonth.baseCost > 0 && (
+                          <Box className="mt-3 pt-3 border-t border-gray-100">
+                            <Flex justify="between" align="center">
+                              <Text className="text-sm text-gray-600">
+                                Base cluster fee (${(billing.currentUsage.currentMonth.baseCost / (new Date().getDate())).toFixed(2)}/day)
+                              </Text>
+                              <Text className="text-sm font-medium">
+                                ${billing.currentUsage.currentMonth.baseCost.toFixed(2)}
+                              </Text>
+                            </Flex>
+                          </Box>
+                        )}
+                        
+                        {/* Usage collection info */}
+                        <Box className="mt-3 pt-3 border-t border-gray-100">
+                          <Text className="text-xs text-gray-500">
+                            Usage collected every 15 minutes from Kubernetes clusters • Last update: {new Date().toLocaleTimeString()}
+                          </Text>
+                        </Box>
                       </Card>
 
                       {/* Usage Trend Chart */}
@@ -685,6 +707,64 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                           </Flex>
                         </Card>
                       )}
+
+                      {/* Usage Details */}
+                      <Card className="p-6 mb-6">
+                        <Flex align="center" gap={12} className="mb-4">
+                          <Activity size={20} className="text-[#1eb182]" />
+                          <Title as="h2" className="text-lg">What We Monitor</Title>
+                        </Flex>
+                        
+                        <Box className="space-y-3">
+                          <Box>
+                            <Text className="text-sm font-medium mb-1">Compute Resources</Text>
+                            <Text className="text-xs text-gray-600">
+                              • CPU cores used by Jupyter notebooks, Spark jobs, and ML pipelines
+                            </Text>
+                            <Text className="text-xs text-gray-600">
+                              • Memory allocation for running workloads
+                            </Text>
+                            <Text className="text-xs text-gray-600">
+                              • GPU hours for deep learning (if applicable)
+                            </Text>
+                          </Box>
+                          
+                          <Box>
+                            <Text className="text-sm font-medium mb-1">Storage</Text>
+                            <Text className="text-xs text-gray-600">
+                              • Feature store data volumes
+                            </Text>
+                            <Text className="text-xs text-gray-600">
+                              • Model registry storage
+                            </Text>
+                            <Text className="text-xs text-gray-600">
+                              • Dataset and file storage
+                            </Text>
+                          </Box>
+                          
+                          <Box>
+                            <Text className="text-sm font-medium mb-1">Base Infrastructure</Text>
+                            <Text className="text-xs text-gray-600">
+                              • Kubernetes control plane and system services
+                            </Text>
+                            <Text className="text-xs text-gray-600">
+                              • Network ingress/egress
+                            </Text>
+                            <Text className="text-xs text-gray-600">
+                              • Monitoring and logging infrastructure
+                            </Text>
+                          </Box>
+                          
+                          <Card variant="readOnly" className="p-3 bg-gray-50">
+                            <Text className="text-xs text-gray-600">
+                              <strong>Collection Schedule:</strong> Every 15 minutes via Kubernetes metrics API
+                            </Text>
+                            <Text className="text-xs text-gray-600 mt-1">
+                              <strong>Billing Cycle:</strong> Monthly, based on actual usage
+                            </Text>
+                          </Card>
+                        </Box>
+                      </Card>
 
                       {/* Credit Balance for Prepaid Users */}
                       {billing.billingMode === 'prepaid' && billing.prepaidEnabled && billing.creditBalance && (

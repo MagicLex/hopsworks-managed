@@ -77,6 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }), { cpuHours: 0, storageGB: 0, totalCost: 0 }) || 
     { cpuHours: 0, storageGB: 0, totalCost: 0 };
 
+
     // Get last 30 days of usage for chart
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -227,6 +228,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         currentMonth: {
           cpuCost: currentMonthTotals.cpuHours * rates.cpuHourRate,
           storageCost: currentMonthTotals.storageGB * rates.storageGbMonthRate,
+          baseCost: currentMonthTotals.totalCost - (currentMonthTotals.cpuHours * rates.cpuHourRate) - (currentMonthTotals.storageGB * rates.storageGbMonthRate),
           total: currentMonthTotals.totalCost
         }
       },

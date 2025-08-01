@@ -37,13 +37,15 @@ export class KubernetesMetricsClient {
   private metricsClient: Metrics;
   private config: KubeConfig;
 
-  constructor(kubeconfigPathOrString: string, isPath: boolean = true) {
+  constructor(kubeconfigContent: string) {
     this.config = new KubeConfig();
     
-    if (isPath) {
-      this.config.loadFromFile(kubeconfigPathOrString);
-    } else {
-      this.config.loadFromString(kubeconfigPathOrString);
+    try {
+      // Always load from string since we store kubeconfig content in DB
+      this.config.loadFromString(kubeconfigContent);
+    } catch (error) {
+      console.error('Failed to parse kubeconfig:', error);
+      throw new Error('Invalid kubeconfig format');
     }
     
     this.k8sApi = this.config.makeApiClient(CoreV1Api);

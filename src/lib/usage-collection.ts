@@ -41,7 +41,7 @@ export async function collectK8sMetrics() {
   for (const cluster of clusters || []) {
     try {
       // Initialize K8s client
-      const k8sClient = new KubernetesMetricsClient(cluster.kubeconfig, false);
+      const k8sClient = new KubernetesMetricsClient(cluster.kubeconfig);
 
       // Get all users assigned to this cluster
       const { data: assignments } = await supabaseAdmin

@@ -52,8 +52,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: 'User has no Hopsworks username' });
     }
 
-    // Initialize K8s client with debug mode to capture requests
-    const k8sClient = new KubernetesMetricsClient(cluster.kubeconfig, true);
+    // Initialize K8s client
+    const k8sClient = new KubernetesMetricsClient(cluster.kubeconfig);
     
     // Capture the raw Kubernetes API calls
     const k8sRequests: any[] = [];
