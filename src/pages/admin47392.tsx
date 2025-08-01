@@ -179,18 +179,18 @@ export default function AdminPage() {
     }
   };
 
-  const testHopsworksConnection = async (userId: string) => {
+  const fetchK8sMetrics = async (userId: string) => {
     const userCluster = users.find(u => u.id === userId)?.user_hopsworks_assignments?.[0];
     if (!userCluster) {
       setError('User has no cluster assignment');
       return;
     }
 
-    const testKey = `hopsworks-${userId}`;
+    const testKey = `k8s-${userId}`;
     setTestingHopsworks({ ...testingHopsworks, [testKey]: true });
 
     try {
-      const response = await fetch('/api/admin/test-hopsworks', {
+      const response = await fetch('/api/admin/k8s-metrics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -213,7 +213,7 @@ export default function AdminPage() {
       setHopsworksTestResults({
         ...hopsworksTestResults,
         [testKey]: {
-          error: err instanceof Error ? err.message : 'Failed to test',
+          error: err instanceof Error ? err.message : 'Failed to fetch K8s metrics',
           timestamp: new Date().toISOString()
         }
       });
@@ -493,11 +493,11 @@ export default function AdminPage() {
                           {user.user_hopsworks_assignments?.[0] ? (
                             <Flex gap={8}>
                               <Button
-                                onClick={() => testHopsworksConnection(user.id)}
-                                disabled={testingHopsworks[`hopsworks-${user.id}`]}
+                                onClick={() => fetchK8sMetrics(user.id)}
+                                disabled={testingHopsworks[`k8s-${user.id}`]}
                                 className="text-sm px-3 py-1"
                               >
-                                {testingHopsworks[`hopsworks-${user.id}`] ? 'Testing...' : 'Test API'}
+                                {testingHopsworks[`k8s-${user.id}`] ? 'Loading...' : 'Get K8s Metrics'}
                               </Button>
                               <Button
                                 onClick={() => fetchUserMetrics(user.id)}
@@ -505,7 +505,7 @@ export default function AdminPage() {
                                 className="text-sm px-3 py-1"
                                 intent="secondary"
                               >
-                                {fetchingMetrics[`metrics-${user.id}`] ? 'Loading...' : 'Get Metrics'}
+                                {fetchingMetrics[`metrics-${user.id}`] ? 'Loading...' : 'Get Usage'}
                               </Button>
                             </Flex>
                           ) : (
@@ -519,10 +519,10 @@ export default function AdminPage() {
               </Box>
             </Card>
 
-            {/* Hopsworks Test Results */}
+            {/* Kubernetes Metrics Results */}
             {Object.keys(hopsworksTestResults).length > 0 && (
               <Card withShadow className="mt-4">
-                <Title as="h3" className="text-lg mb-4">Hopsworks API Test Results</Title>
+                <Title as="h3" className="text-lg mb-4">Kubernetes Metrics Results</Title>
                 <Box className="space-y-4">
                   {Object.entries(hopsworksTestResults).map(([key, result]) => (
                     <Card key={key} className="border border-grayShade2 p-4">
@@ -565,9 +565,41 @@ export default function AdminPage() {
                             </Box>
                           )}
                           
+                          {/* Show Kubernetes API Requests */}
+                          {result.data?.kubernetesRequests && result.data.kubernetesRequests.length > 0 && (
+                            <Box className="mb-4">
+                              <Text className="font-semibold mb-2">Kubernetes API Requests</Text>
+                              {result.data.kubernetesRequests.map((req: any, idx: number) => (
+                                <Card key={idx} className="border border-grayShade2 p-3 mb-2">
+                                  <Box className="mb-2">
+                                    <Text className="text-xs text-gray">Request:</Text>
+                                    <Text className="text-sm font-mono font-semibold">{req.method} {req.url}</Text>
+                                    <Text className="text-xs text-gray mt-1">Headers: {JSON.stringify(req.headers, null, 2)}</Text>
+                                  </Box>
+                                  {req.response && (
+                                    <Box>
+                                      <Text className="text-xs text-gray">Response:</Text>
+                                      <Text className={`text-sm font-mono ${req.response.status === 200 ? 'text-successDefault' : 'text-errorDefault'}`}>
+                                        {req.response.status} {req.response.statusText}
+                                      </Text>
+                                      <details className="mt-1">
+                                        <summary className="cursor-pointer text-xs text-gray hover:text-primaryDefault">Response Data</summary>
+                                        <Box className="bg-grayShade1 p-2 rounded overflow-x-auto mt-1">
+                                          <pre className="text-xs">
+                                            {JSON.stringify(req.response.data, null, 2)}
+                                          </pre>
+                                        </Box>
+                                      </details>
+                                    </Box>
+                                  )}
+                                </Card>
+                              ))}
+                            </Box>
+                          )}
+                          
                           {/* Show raw data in collapsible */}
                           <details className="mt-2">
-                            <summary className="cursor-pointer text-sm text-gray hover:text-primaryDefault">View Raw Data</summary>
+                            <summary className="cursor-pointer text-sm text-gray hover:text-primaryDefault">View Full Response</summary>
                             <Box className="bg-grayShade1 p-2 rounded overflow-x-auto mt-2">
                               <pre className="text-xs">
                                 {JSON.stringify(result.data, null, 2)}

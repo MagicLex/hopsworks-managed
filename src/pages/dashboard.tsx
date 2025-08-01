@@ -4,10 +4,12 @@ import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApiData } from '@/hooks/useApiData';
 import { Box, Flex, Title, Text, Button, Card, Badge, Tabs, TabsContent, TabsList, TabsTrigger, Modal, Input } from 'tailwind-quartz';
-import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle, UserPlus, Mail, Download, Calendar, AlertTriangle } from 'lucide-react';
+import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle, UserPlus, Mail, Download, Calendar, AlertTriangle, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import ClusterAccessStatus from '@/components/ClusterAccessStatus';
+import { defaultBillingRates } from '@/config/billing-rates';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface UsageData {
   cpuHours: number;
@@ -104,6 +106,13 @@ interface BillingInfo {
     amount: number;
     status: string;
     created_at: string;
+  }>;
+  historicalUsage?: Array<{
+    date: string;
+    cpu_hours: number;
+    gpu_hours: number;
+    storage_gb: number;
+    total_cost: number;
   }>;
 }
 
@@ -584,7 +593,7 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                               {billing.currentUsage.cpuHours || '0'}
                             </Text>
                             <Text className="text-sm text-gray-500">
-                              ${(parseFloat(billing.currentUsage.cpuHours || '0') * 1).toFixed(2)}
+                              ${(parseFloat(billing.currentUsage.cpuHours || '0') * defaultBillingRates.cpuHourRate).toFixed(2)}
                             </Text>
                           </Box>
                           <Box>
@@ -593,7 +602,7 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                               {billing.currentUsage.storageGB || '0'}
                             </Text>
                             <Text className="text-sm text-gray-500">
-                              ${(parseFloat(billing.currentUsage.storageGB || '0') * 0.03).toFixed(2)}
+                              ${(parseFloat(billing.currentUsage.storageGB || '0') * defaultBillingRates.storageGbMonthRate).toFixed(2)}
                             </Text>
                           </Box>
                           <Box>
@@ -607,6 +616,75 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                           </Box>
                         </Flex>
                       </Card>
+
+                      {/* Usage Trend Chart */}
+                      {billing.historicalUsage && billing.historicalUsage.length > 0 && (
+                        <Card className="p-6 mb-6">
+                          <Flex align="center" gap={12} className="mb-4">
+                            <TrendingUp size={20} className="text-[#1eb182]" />
+                            <Title as="h2" className="text-lg">Usage Trend (30 Days)</Title>
+                          </Flex>
+                          
+                          <Box className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart 
+                                data={billing.historicalUsage.map(day => ({
+                                  date: new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                                  cost: day.total_cost,
+                                  cpu: day.cpu_hours,
+                                  storage: day.storage_gb
+                                }))}
+                                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                              >
+                                <defs>
+                                  <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#1eb182" stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor="#1eb182" stopOpacity={0.1}/>
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis 
+                                  dataKey="date" 
+                                  tick={{ fontSize: 12 }}
+                                  stroke="#6b7280"
+                                />
+                                <YAxis 
+                                  tick={{ fontSize: 12 }}
+                                  stroke="#6b7280"
+                                  tickFormatter={(value) => `$${value}`}
+                                />
+                                <Tooltip 
+                                  contentStyle={{ 
+                                    backgroundColor: 'white',
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '8px',
+                                    fontSize: '12px'
+                                  }}
+                                  formatter={(value: number) => [`$${value.toFixed(2)}`, 'Daily Cost']}
+                                />
+                                <Area 
+                                  type="monotone" 
+                                  dataKey="cost" 
+                                  stroke="#1eb182" 
+                                  fillOpacity={1} 
+                                  fill="url(#colorCost)" 
+                                  strokeWidth={2}
+                                />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </Box>
+                          
+                          <Flex gap={16} className="mt-4">
+                            <Flex align="center" gap={8}>
+                              <Box className="w-3 h-3 bg-[#1eb182] rounded-full" />
+                              <Text className="text-xs text-gray-600">Daily Cost</Text>
+                            </Flex>
+                            <Text className="text-xs text-gray-500">
+                              Total (30d): ${billing.historicalUsage.reduce((sum, day) => sum + day.total_cost, 0).toFixed(2)}
+                            </Text>
+                          </Flex>
+                        </Card>
+                      )}
 
                       {/* Credit Balance for Prepaid Users */}
                       {billing.billingMode === 'prepaid' && billing.prepaidEnabled && billing.creditBalance && (
@@ -743,13 +821,13 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                           <Card variant="readOnly" className="p-4">
                             <Flex justify="between">
                               <Text className="text-sm text-gray-600">CPU Usage</Text>
-                              <Text className="text-sm font-medium">$1.00 / hour</Text>
+                              <Text className="text-sm font-medium">${defaultBillingRates.cpuHourRate.toFixed(2)} / hour</Text>
                             </Flex>
                           </Card>
                           <Card variant="readOnly" className="p-4">
                             <Flex justify="between">
                               <Text className="text-sm text-gray-600">Storage</Text>
-                              <Text className="text-sm font-medium">$0.03 / GB / month</Text>
+                              <Text className="text-sm font-medium">${defaultBillingRates.storageGbMonthRate.toFixed(2)} / GB / month</Text>
                             </Flex>
                           </Card>
                           

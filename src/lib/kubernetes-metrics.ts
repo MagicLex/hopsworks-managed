@@ -229,4 +229,38 @@ export class KubernetesMetricsClient {
     if (podName.includes('git-command')) return 'git-operation';
     return 'other';
   }
+
+  async getNamespacesForUser(username: string): Promise<any[]> {
+    try {
+      const namespacesResponse = await this.k8sApi.listNamespace();
+      const userNamespaces = namespacesResponse.body.items.filter(ns => {
+        // Filter namespaces that belong to the user
+        const labels = ns.metadata?.labels || {};
+        const annotations = ns.metadata?.annotations || {};
+        return labels['owner'] === username || 
+               annotations['hopsworks/owner'] === username ||
+               ns.metadata?.name?.includes(username);
+      });
+      
+      return userNamespaces.map(ns => ({
+        name: ns.metadata?.name,
+        labels: ns.metadata?.labels,
+        annotations: ns.metadata?.annotations,
+        status: ns.status?.phase
+      }));
+    } catch (error) {
+      console.error('Failed to get namespaces for user:', error);
+      throw error;
+    }
+  }
+
+  async getPodsInNamespace(namespace: string): Promise<any[]> {
+    try {
+      const podsResponse = await this.k8sApi.listNamespacedPod(namespace);
+      return podsResponse.body.items;
+    } catch (error) {
+      console.error(`Failed to get pods in namespace ${namespace}:`, error);
+      throw error;
+    }
+  }
 }

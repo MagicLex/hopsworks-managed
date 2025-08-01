@@ -63,19 +63,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const { data: usageData } = await supabaseAdmin
+    const { data: currentMonthData } = await supabaseAdmin
       .from('usage_daily')
       .select('cpu_hours, gpu_hours, storage_gb, total_cost')
       .eq('user_id', userId)
       .gte('date', startOfMonth.toISOString().split('T')[0]);
 
-    // Calculate totals
-    const totals = usageData?.reduce((acc, day) => ({
+    // Calculate current month totals
+    const currentMonthTotals = currentMonthData?.reduce((acc, day) => ({
       cpuHours: acc.cpuHours + (day.cpu_hours || 0),
       storageGB: Math.max(acc.storageGB, day.storage_gb || 0),
       totalCost: acc.totalCost + (day.total_cost || 0)
     }), { cpuHours: 0, storageGB: 0, totalCost: 0 }) || 
     { cpuHours: 0, storageGB: 0, totalCost: 0 };
+
+    // Get last 30 days of usage for chart
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const { data: historicalData } = await supabaseAdmin
+      .from('usage_daily')
+      .select('date, cpu_hours, gpu_hours, storage_gb, total_cost')
+      .eq('user_id', userId)
+      .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
+      .order('date', { ascending: true });
 
     // For prepaid users, get credit balance
     let creditBalance = null;
@@ -211,12 +222,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       subscriptionStatus: null, // Column doesn't exist in DB
       prepaidEnabled: user?.feature_flags?.prepaid_enabled || false,
       currentUsage: {
-        cpuHours: totals.cpuHours.toFixed(2),
-        storageGB: totals.storageGB.toFixed(2),
+        cpuHours: currentMonthTotals.cpuHours.toFixed(2),
+        storageGB: currentMonthTotals.storageGB.toFixed(2),
         currentMonth: {
-          cpuCost: totals.cpuHours * rates.cpuHourRate,
-          storageCost: totals.storageGB * rates.storageGbMonthRate,
-          total: totals.totalCost
+          cpuCost: currentMonthTotals.cpuHours * rates.cpuHourRate,
+          storageCost: currentMonthTotals.storageGB * rates.storageGbMonthRate,
+          total: currentMonthTotals.totalCost
         }
       },
       creditBalance,
@@ -226,7 +237,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         amount: bill.amount,
         status: bill.status,
         created_at: bill.created_at
-      })) || []
+      })) || [],
+      historicalUsage: historicalData || []
     });
   } catch (error) {
     console.error('Error fetching billing:', error);
