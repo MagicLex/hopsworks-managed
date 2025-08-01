@@ -2,11 +2,14 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
+import { Resend } from 'resend';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getSession(req, res);
@@ -84,8 +87,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Failed to create invite' });
       }
 
-      // TODO: Send email with invite link
+      // Send email with invite link
       const inviteUrl = `${process.env.AUTH0_BASE_URL}/team/accept-invite?token=${token}`;
+
+      // Get inviter's details
+      const { data: inviter } = await supabase
+        .from('users')
+        .select('email, name')
+        .eq('id', userId)
+        .single();
+
+      const inviterName = inviter?.name || inviter?.email || 'Your colleague';
+
+      try {
+        await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || 'Hopsworks <no-reply@hopsworks.com>',
+          to: email,
+          subject: `${inviterName} invited you to join their Hopsworks team`,
+          html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #333;">You've been invited to join a Hopsworks team</h2>
+              
+              <p style="color: #666; line-height: 1.6;">
+                ${inviterName} has invited you to join their team on Hopsworks. 
+                As a team member, you'll have access to Hopsworks and your usage will be billed to the team account.
+              </p>
+
+              <div style="margin: 30px 0;">
+                <a href="${inviteUrl}" 
+                   style="background-color: #1eb182; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                  Accept Invitation
+                </a>
+              </div>
+
+              <p style="color: #999; font-size: 14px;">
+                This invitation will expire in 7 days. If you didn't expect this invitation, you can safely ignore this email.
+              </p>
+
+              <p style="color: #999; font-size: 14px; margin-top: 30px;">
+                Or copy and paste this link: <br>
+                <a href="${inviteUrl}" style="color: #1eb182;">${inviteUrl}</a>
+              </p>
+            </div>
+          `,
+        });
+      } catch (emailError) {
+        console.error('Failed to send invite email:', emailError);
+        // Don't fail the whole operation if email fails
+      }
 
       return res.status(200).json({ 
         message: 'Invite sent successfully',
