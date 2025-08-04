@@ -12,7 +12,7 @@
 
 ### User Signup
 1. Auth0 authentication
-2. Auth0 webhook → Creates user in database only
+2. Auth0 webhook → Creates user in database and Stripe subscription for account owners
 3. User must add payment method before cluster assignment
 4. After payment method added → Auto-assigns to available Hopsworks cluster
 5. Creates OAuth user in Hopsworks & stores username
