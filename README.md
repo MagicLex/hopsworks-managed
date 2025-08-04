@@ -38,12 +38,8 @@ See [.env.example](.env.example) for required configuration.
 # Run with type checking
 npm run dev
 
-# Lint and format
+# Lint
 npm run lint
-npm run format
-
-# Type check
-npm run type-check
 ```
 
 ## Deployment

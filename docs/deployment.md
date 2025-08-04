@@ -20,6 +20,29 @@
    ```
 3. Enable Google OAuth2 social connection
 4. Note down credentials for environment variables
+5. **CRITICAL**: Set up Post Login Action:
+   - Go to Auth0 Dashboard > Actions > Flows > Login
+   - Create new Action with this code:
+   ```javascript
+   exports.onExecutePostLogin = async (event, api) => {
+     const axios = require('axios');
+     
+     await axios.post('https://your-domain.vercel.app/api/webhooks/auth0', {
+       user_id: event.user.user_id,
+       email: event.user.email,
+       name: event.user.name,
+       ip: event.request.ip,
+       created_at: event.user.created_at,
+       logins_count: event.stats.logins_count
+     }, {
+       headers: {
+         'x-auth0-secret': event.secrets.WEBHOOK_SECRET
+       }
+     });
+   };
+   ```
+   - Add secret `WEBHOOK_SECRET` with the value from `AUTH0_WEBHOOK_SECRET`
+   - Deploy the Action and add it to the Login flow
 
 ### 2. Hopsworks Identity Provider
 

@@ -245,7 +245,8 @@ Sync Hopsworks username for a user.
 Handles Auth0 post-login actions:
 - Creates user in database if not exists
 - Updates login count and last login time
-- Does NOT create Stripe subscription (user must add payment method first)
+- Creates Stripe subscription for new account owners (team members excluded)
+- Requires `x-auth0-secret` header matching `AUTH0_WEBHOOK_SECRET`
 
 ### POST /api/webhooks/stripe
 Handles Stripe webhook events:
