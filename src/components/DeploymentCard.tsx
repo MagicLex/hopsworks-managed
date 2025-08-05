@@ -65,7 +65,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
             </Flex>
             <Flex align="center" gap={4} className="text-xs text-gray-500">
               <Globe size={10} />
-              <Labeling className="font-mono">US-EAST • EU-WEST • AP-SE</Labeling>
+              <Labeling className="font-mono">US-EAST</Labeling>
             </Flex>
           </Box>
           <Button 
@@ -140,7 +140,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
             </Box>
             <Flex align="center" gap={4} className="text-[10px] text-gray-500">
               <Globe size={10} />
-              <Labeling className="font-mono">3 ZONES</Labeling>
+              <Labeling className="font-mono">US-EAST</Labeling>
             </Flex>
           </Box>
       
