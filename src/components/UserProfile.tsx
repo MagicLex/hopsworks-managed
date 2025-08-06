@@ -28,11 +28,11 @@ export const UserProfile: React.FC = () => {
     <Box className="relative">
       <Button
         intent="ghost"
+        size="md"
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
         className="flex items-center gap-2"
       >
-        <User size={16} />
-        <span className="text-sm">{user.email}</span>
+        {user.email}
       </Button>
 
       {isDropdownOpen && (

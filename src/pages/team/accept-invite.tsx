@@ -62,7 +62,7 @@ export default function AcceptInvitePage() {
             <Title as="h2" className="text-2xl mb-2">Invalid Invite</Title>
             <Text className="text-gray-600 mb-6">{error}</Text>
             <Link href="/">
-              <Button intent="ghost">Go to homepage</Button>
+              <Button intent="ghost" size="md">Go to homepage</Button>
             </Link>
           </Box>
         </Card>
@@ -108,12 +108,12 @@ export default function AcceptInvitePage() {
 
         <Box className="space-y-3">
           <a href={invite.loginUrl} className="block">
-            <Button intent="primary" className="w-full text-lg">
+            <Button intent="primary" size="md" className="w-full">
               Accept Invitation
             </Button>
           </a>
           <Link href="/" className="block">
-            <Button intent="ghost" className="w-full">
+            <Button intent="ghost" size="md" className="w-full">
               Cancel
             </Button>
           </Link>

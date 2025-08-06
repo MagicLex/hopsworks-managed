@@ -101,13 +101,15 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
         <Button 
           onClick={onClose}
           intent="secondary"
-          className="font-mono text-sm uppercase"
+          size="md"
+          className="font-mono uppercase"
         >
           Cancel
         </Button>
         <Button 
           intent="primary"
-          className="font-mono text-sm uppercase"
+          size="md"
+          className="font-mono uppercase"
           onClick={handleStartNow}
         >
           {user ? 'Add Payment Method' : 'Sign Up'}

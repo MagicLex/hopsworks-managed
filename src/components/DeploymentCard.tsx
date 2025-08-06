@@ -71,7 +71,8 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
           <Button 
             onClick={() => onDeploy(deployment)}
             intent="secondary"
-            className="font-mono text-xs uppercase"
+            size="md"
+            className="font-mono uppercase tracking-wide"
           >
             Join Free
           </Button>
@@ -82,16 +83,21 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
 
   if (deployment.buttonStyle === 'enterprise') {
     return (
-      <Card className="p-8 text-center bg-gray-50 border-gray-200">
-        <Title as="h3" className="text-lg mb-2">{deployment.name}</Title>
-        <Text className="text-sm text-gray-600 mb-4">Contact us for bespoke deployment solutions tailored to your needs</Text>
-        <Button 
-          onClick={() => onDeploy(deployment)}
-          intent="primary"
-          className="font-mono text-sm uppercase bg-black hover:bg-black/90 border-black"
-        >
-          Contact Sales
-        </Button>
+      <Card className="p-6 bg-gray-50 border-gray-200">
+        <Flex justify="between" align="center">
+          <Box>
+            <Title as="h3" className="text-base mb-1">{deployment.name}</Title>
+            <Text className="text-sm text-gray-600">Contact us for bespoke deployment solutions tailored to your needs</Text>
+          </Box>
+          <Button 
+            onClick={() => onDeploy(deployment)}
+            intent="secondary"
+            size="md"
+            className="font-mono uppercase tracking-wide"
+          >
+            Contact Sales
+          </Button>
+        </Flex>
       </Card>
     );
   }
@@ -177,16 +183,16 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
             })}
           </Flex>
       
-          <Box className="flex-none w-36 p-5 border-l border-grayShade2">
+          <Box className="flex-none w-36 p-5 border-l border-grayShade2 flex items-center">
             <Button
               onClick={() => onDeploy(deployment)}
-              intent={getButtonIntent() as 'primary' | 'secondary'}
-              className="w-full text-xs font-mono uppercase tracking-wide"
+              intent={deployment.id === 'payg' || deployment.isRecommended ? 'primary' : 'secondary'}
+              size="md"
+              icon="BoltIcon"
+              iconPosition="left"
+              className="w-full font-mono uppercase tracking-wide"
             >
-              <Flex justify="between" align="center" className="w-full">
-                <span>{getButtonText()}</span>
-                <Zap size={12} />
-              </Flex>
+              {getButtonText()}
             </Button>
           </Box>
         </Flex>

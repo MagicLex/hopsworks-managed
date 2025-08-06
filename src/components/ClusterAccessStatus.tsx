@@ -43,8 +43,10 @@ export default function ClusterAccessStatus({
                 Set up a payment method to get access to Hopsworks clusters.
               </Text>
               <Link href="/billing">
-                <Button intent="primary">
-                  <CreditCard size={16} className="mr-2" />
+                <Button 
+                  intent="primary"
+                  size="md"
+                >
                   Set Up Payment
                 </Button>
               </Link>

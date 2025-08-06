@@ -175,8 +175,7 @@ export default function Team() {
       <Box className="min-h-screen py-10 px-5">
         <Box className="max-w-4xl mx-auto">
           <Link href="/dashboard">
-            <Button intent="ghost" className="text-sm mb-6">
-              <ArrowLeft size={16} className="mr-2" />
+            <Button intent="ghost" size="md" className="mb-6">
               Back to Dashboard
             </Button>
           </Link>
@@ -186,9 +185,9 @@ export default function Team() {
             {isOwner && (
               <Button 
                 intent="primary" 
+                size="md"
                 onClick={() => setShowInviteModal(true)}
               >
-                <UserPlus size={16} className="mr-2" />
                 Invite Member
               </Button>
             )}
@@ -247,7 +246,7 @@ export default function Team() {
                       {isOwner && (
                         <Button
                           intent="ghost"
-                          className="text-sm"
+                          size="md"
                           onClick={() => handleRemoveMember(member.id)}
                         >
                           <Trash2 size={16} className="text-red-500" />
@@ -289,7 +288,7 @@ export default function Team() {
                         <Flex align="center" gap={8}>
                           <Button
                             intent="ghost"
-                            className="text-sm"
+                            size="md"
                             onClick={() => copyInviteLink(invite.token)}
                             disabled={isExpired}
                           >
@@ -297,7 +296,7 @@ export default function Team() {
                           </Button>
                           <Button
                             intent="ghost"
-                            className="text-sm"
+                            size="md"
                             onClick={() => handleCancelInvite(invite.id)}
                           >
                             <Trash2 size={16} className="text-red-500" />
@@ -352,12 +351,14 @@ export default function Team() {
                 setInviteError('');
               }}
               intent="secondary"
+              size="md"
               disabled={inviteLoading}
             >
               Cancel
             </Button>
             <Button 
               intent="primary"
+              size="md"
               onClick={handleInvite}
               disabled={!inviteEmail || inviteLoading}
             >

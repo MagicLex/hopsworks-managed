@@ -43,6 +43,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         <Flex direction="column" gap={16}>
           <Button
             intent="primary"
+            size="md"
             onClick={handleSignIn}
             className="w-full"
           >
@@ -55,6 +56,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               : "Already have an account? "}
             <Button
               intent="ghost"
+              size="md"
               onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')}
               className="text-[#1eb182] hover:underline p-0 h-auto"
             >
@@ -64,6 +66,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           
           <Button
             intent="ghost"
+            size="md"
             onClick={onClose}
             className="w-full"
           >

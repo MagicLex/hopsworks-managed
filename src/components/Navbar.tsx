@@ -30,15 +30,15 @@ const Navbar: React.FC = () => {
               <Flex gap={12}>
                 <Button
                   intent="ghost"
+                  size="md"
                   onClick={() => signIn()}
-                  className="text-sm"
                 >
                   Log In
                 </Button>
                 <Button
                   intent="primary"
+                  size="md"
                   onClick={() => setShowAuthModal(true)}
-                  className="text-sm"
                 >
                   Sign Up
                 </Button>

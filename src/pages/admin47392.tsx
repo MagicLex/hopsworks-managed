@@ -388,6 +388,7 @@ export default function AdminPage() {
                   onClick={triggerUsageCollection}
                   disabled={collectingUsage}
                   intent="primary"
+                  size="md"
                 >
                   {collectingUsage ? 'Collecting...' : 'Force Consumption Collection'}
                 </Button>
@@ -450,7 +451,7 @@ export default function AdminPage() {
                               <Button
                                 onClick={() => syncUsername(user.id)}
                                 disabled={testingHopsworks[`sync-${user.id}`]}
-                                className="text-xs px-2 py-1"
+                                size="md"
                                 intent="secondary"
                               >
                                 {testingHopsworks[`sync-${user.id}`] ? '...' : 'Sync'}
@@ -495,14 +496,14 @@ export default function AdminPage() {
                               <Button
                                 onClick={() => fetchK8sMetrics(user.id)}
                                 disabled={testingHopsworks[`k8s-${user.id}`]}
-                                className="text-sm px-3 py-1"
+                                size="md"
                               >
                                 {testingHopsworks[`k8s-${user.id}`] ? 'Loading...' : 'Get K8s Metrics'}
                               </Button>
                               <Button
                                 onClick={() => fetchUserMetrics(user.id)}
                                 disabled={fetchingMetrics[`metrics-${user.id}`]}
-                                className="text-sm px-3 py-1"
+                                size="md"
                                 intent="secondary"
                               >
                                 {fetchingMetrics[`metrics-${user.id}`] ? 'Loading...' : 'Get Usage'}
@@ -788,6 +789,7 @@ export default function AdminPage() {
                             <Flex gap={8}>
                               <Button
                                 intent="primary"
+                                size="md"
                                 onClick={() => {
                                   const editedCluster = clusters.find(c => c.id === cluster.id)!;
                                   handleUpdateCluster(cluster.id, editedCluster);
@@ -800,6 +802,7 @@ export default function AdminPage() {
                                   setEditingCluster(null);
                                   fetchClusters();
                                 }}
+                                size="md"
                               >
                                 Cancel
                               </Button>
@@ -838,11 +841,13 @@ export default function AdminPage() {
                             <Flex gap={8}>
                               <Button
                                 onClick={() => setEditingCluster(cluster.id)}
+                                size="md"
                               >
                                 Edit
                               </Button>
                               <Button
                                 onClick={() => setKubeconfigModal(cluster.id)}
+                                size="md"
                               >
                                 {cluster.kubeconfig ? 'Update' : 'Upload'} Kubeconfig
                               </Button>
@@ -885,6 +890,7 @@ export default function AdminPage() {
                 <Button 
                   onClick={handleCreateCluster}
                   intent="primary"
+                  size="md"
                   className="mt-4"
                   disabled={!newCluster.name || !newCluster.api_url}
                 >
@@ -937,6 +943,7 @@ export default function AdminPage() {
                     />
                     <Button
                       intent="primary"
+                      size="md"
                       onClick={handleTestPurchase}
                       disabled={!selectedTestUser || !testAmount}
                     >
@@ -1020,6 +1027,7 @@ export default function AdminPage() {
           <Flex gap={8} className="mt-4">
             <Button
               intent="primary"
+              size="md"
               onClick={() => {
                 const textarea = document.querySelector('textarea[placeholder*="apiVersion"]') as HTMLTextAreaElement;
                 if (textarea?.dataset.kubeconfig) {
@@ -1029,7 +1037,7 @@ export default function AdminPage() {
             >
               Upload
             </Button>
-            <Button onClick={() => setKubeconfigModal(null)}>
+            <Button onClick={() => setKubeconfigModal(null)} size="md">
               Cancel
             </Button>
           </Flex>

@@ -239,6 +239,7 @@ export default function Dashboard() {
                             </Text>
                             <Button
                               intent="ghost"
+                              size="md"
                               className="p-1"
                               onClick={() => {
                                 navigator.clipboard.writeText(instance.endpoint);
@@ -256,6 +257,7 @@ export default function Dashboard() {
                     <Flex gap={12} className="mt-6">
                       <Button 
                         intent="primary"
+                        size="md"
                         className="uppercase flex-1"
                         onClick={() => {
                           // Redirect to auto-OAuth URL for automatic login with Auth0
@@ -263,7 +265,6 @@ export default function Dashboard() {
                           window.open(autoOAuthUrl, '_blank');
                         }}
                       >
-                        <ExternalLink size={16} className="mr-2" />
                         Access Hopsworks
                       </Button>
                     </Flex>
@@ -280,7 +281,8 @@ export default function Dashboard() {
                     <Card variant="readOnly" className="relative">
                       <Button
                         intent="ghost"
-                        className="absolute top-2 right-2 text-xs p-1"
+                        size="md"
+                        className="absolute top-2 right-2 p-1"
                         onClick={() => {
                           const code = `# Feature Pipeline (Hopsworks)
 import hopsworks
@@ -306,17 +308,7 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                           setTimeout(() => setCopied(''), 2000);
                         }}
                       >
-                        {copied === 'quickstart' ? (
-                          <Flex align="center" gap={4}>
-                            <CheckCircle size={12} />
-                            <Text className="text-xs">Copied!</Text>
-                          </Flex>
-                        ) : (
-                          <Flex align="center" gap={4}>
-                            <Copy size={12} />
-                            <Text className="text-xs">Copy</Text>
-                          </Flex>
-                        )}
+                        {copied === 'quickstart' ? <><CheckCircle size={12} /> Copied!</> : <><Copy size={12} /> Copy</>}
                       </Button>
                       <pre className="overflow-x-auto p-4 text-sm bg-gray-900 text-gray-300 rounded">
                         <code>
@@ -413,6 +405,7 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                   </Text>
                   <Button
                     intent="primary"
+                    size="md"
                     onClick={() => setActiveTab('billing')}
                   >
                     Add Payment Method
@@ -484,13 +477,13 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                   <Flex gap={12} className="mt-6">
                     <Button
                       intent="primary"
+                      size="md"
                       onClick={() => setShowInviteModal(true)}
                     >
-                      <UserPlus size={16} className="mr-2" />
                       Invite Member
                     </Button>
                     <Link href="/team">
-                      <Button intent="secondary">
+                      <Button intent="secondary" size="md">
                         Manage Team
                       </Button>
                     </Link>
@@ -746,6 +739,7 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                           
                           <Button 
                             intent="primary"
+                            size="md"
                             onClick={async () => {
                               const response = await fetch('/api/billing/purchase-credits', {
                                 method: 'POST',
@@ -795,6 +789,7 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                             )}
                             <Button
                               intent="ghost"
+                              size="md"
                               onClick={async () => {
                                 try {
                                   const response = await fetch('/api/billing/setup-payment', {
@@ -902,6 +897,7 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                 </Text>
                 <Button 
                   intent="secondary"
+                  size="md"
                   className="bg-red-500 hover:bg-red-600 text-white"
                   onClick={async () => {
                     if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
@@ -925,10 +921,9 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
               <Flex justify="center">
                 <Button 
                   intent="ghost" 
-                  className="text-sm"
+                  size="md"
                   onClick={() => signOut()}
                 >
-                  <LogOut size={16} className="mr-2" />
                   Sign Out
                 </Button>
               </Flex>
@@ -957,6 +952,7 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
           <Flex gap={12} justify="end">
             <Button
               intent="ghost"
+              size="md"
               onClick={() => {
                 setShowInviteModal(false);
                 setInviteEmail('');
@@ -967,6 +963,7 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
             </Button>
             <Button
               intent="primary"
+              size="md"
               disabled={!inviteEmail || inviteLoading}
               onClick={async () => {
                 setInviteError('');
