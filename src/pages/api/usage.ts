@@ -34,33 +34,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: monthlyUsage, error: usageError } = await supabaseAdmin
       .from('usage_daily')
-      .select('opencost_cpu_hours, opencost_gpu_hours, online_storage_gb, offline_storage_gb')
+      .select('opencost_cpu_hours, opencost_gpu_hours, opencost_ram_gb_hours, online_storage_gb, offline_storage_gb, project_breakdown, updated_at, date')
       .eq('user_id', userId)
       .gte('date', startOfMonth.toISOString().split('T')[0])
-      .lte('date', currentDate);
+      .lte('date', currentDate)
+      .order('updated_at', { ascending: false });
 
     if (usageError) {
       console.error('Usage error:', usageError);
     }
 
+    // Get the latest update time
+    const lastUpdate = monthlyUsage?.[0]?.updated_at || null;
+    
+    // Get project breakdown from today's data
+    const todayUsage = monthlyUsage?.find(d => d.date === currentDate);
+    const projectBreakdown = todayUsage?.project_breakdown || {};
+    
     // Sum up the usage
     const totalUsage = monthlyUsage?.reduce((acc, day) => ({
       cpuHours: acc.cpuHours + (day.opencost_cpu_hours || 0),
       gpuHours: acc.gpuHours + (day.opencost_gpu_hours || 0),
+      ramGbHours: acc.ramGbHours + (day.opencost_ram_gb_hours || 0),
       storageGB: Math.max(acc.storageGB, (day.online_storage_gb || 0) + (day.offline_storage_gb || 0)), // Use max for storage
       apiCalls: 0, // Not tracked in current schema
       featureStoreApiCalls: 0,
       modelInferenceCalls: 0
     }), { 
       cpuHours: 0, 
-      gpuHours: 0, 
+      gpuHours: 0,
+      ramGbHours: 0, 
       storageGB: 0,
       apiCalls: 0,
       featureStoreApiCalls: 0,
       modelInferenceCalls: 0
     }) || { 
       cpuHours: 0, 
-      gpuHours: 0, 
+      gpuHours: 0,
+      ramGbHours: 0,
       storageGB: 0,
       apiCalls: 0,
       featureStoreApiCalls: 0,
@@ -130,13 +141,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({
       cpuHours: totalUsage.cpuHours,
       gpuHours: totalUsage.gpuHours,
+      ramGbHours: totalUsage.ramGbHours,
       storageGB: totalUsage.storageGB,
       featureGroups: projectsCount || 0,
       modelDeployments: modelsCount || 0,
       apiCalls: totalUsage.apiCalls,
       featureStoreApiCalls: totalUsage.featureStoreApiCalls,
       modelInferenceCalls: totalUsage.modelInferenceCalls,
-      currentMonth: startOfMonth.toISOString().substring(0, 7) // YYYY-MM format
+      currentMonth: startOfMonth.toISOString().substring(0, 7), // YYYY-MM format
+      lastUpdate,
+      projectBreakdown
     });
   } catch (error) {
     console.error('Error fetching usage:', error);

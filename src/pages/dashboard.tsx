@@ -14,9 +14,16 @@ import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
 interface UsageData {
   cpuHours: number;
   gpuHours: number;
+  ramGbHours?: number;
   storageGB: number;
   featureGroups: number;
   modelDeployments: number;
+  lastUpdate?: string;
+  projectBreakdown?: Record<string, {
+    cpuHours: number;
+    gpuHours: number;
+    ramGBHours: number;
+  }>;
 }
 
 interface HopsworksInfo {
@@ -384,15 +391,30 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                         <Title as="h2" className="text-lg">Your Projects</Title>
                       </Flex>
                       <Box className="space-y-2">
-                        {hopsworksInfo.projects.map(project => (
-                          <Flex key={project.id} justify="between" align="center" className="py-2 border-b border-gray-100 last:border-0">
-                            <Box>
-                              <Text className="font-medium">{project.name}</Text>
-                              <Text className="text-xs text-gray-500">Created {new Date(project.created).toLocaleDateString()}</Text>
-                            </Box>
-                            <Badge variant="default" size="sm">ID: {project.id}</Badge>
-                          </Flex>
-                        ))}
+                        {hopsworksInfo.projects.map(project => {
+                          const projectData = usage?.projectBreakdown?.[project.name.replace(/_/g, '-')] || 
+                                             usage?.projectBreakdown?.[project.name];
+                          const dailyCost = projectData ? 
+                            (projectData.cpuHours * DEFAULT_RATES.CPU_HOUR + 
+                             projectData.gpuHours * DEFAULT_RATES.GPU_HOUR + 
+                             projectData.ramGBHours * DEFAULT_RATES.RAM_GB_HOUR) : 0;
+                          
+                          return (
+                            <Flex key={project.id} justify="between" align="center" className="py-2 border-b border-gray-100 last:border-0">
+                              <Box>
+                                <Text className="font-medium">{project.name}</Text>
+                                <Text className="text-xs text-gray-500">Created {new Date(project.created).toLocaleDateString()}</Text>
+                              </Box>
+                              <Box className="text-right">
+                                {dailyCost > 0 ? (
+                                  <Text className="font-mono text-sm font-medium">${dailyCost.toFixed(4)}</Text>
+                                ) : (
+                                  <Badge variant="default" size="sm">ID: {project.id}</Badge>
+                                )}
+                              </Box>
+                            </Flex>
+                          );
+                        })}
                       </Box>
                     </Card>
                   )}
@@ -642,7 +664,7 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                         {/* Usage collection info */}
                         <Box className="mt-3 pt-3 border-t border-gray-100">
                           <Text className="text-xs text-gray-500">
-                            Usage collected every 15 minutes from Kubernetes clusters • Last update: {new Date().toLocaleTimeString()}
+                            Usage collected hourly from Kubernetes clusters • Last update: {usage?.lastUpdate ? new Date(usage.lastUpdate).toLocaleTimeString() : 'Never'}
                           </Text>
                         </Box>
                       </Card>
@@ -851,18 +873,30 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                           <Card variant="readOnly" className="p-4">
                             <Flex justify="between">
                               <Text className="text-sm text-gray-600">CPU Usage</Text>
-                              <Text className="text-sm font-medium">${DEFAULT_RATES.CPU_HOUR.toFixed(2)} / hour</Text>
+                              <Text className="text-sm font-medium">${DEFAULT_RATES.CPU_HOUR.toFixed(3)} / CPU hour</Text>
+                            </Flex>
+                          </Card>
+                          <Card variant="readOnly" className="p-4">
+                            <Flex justify="between">
+                              <Text className="text-sm text-gray-600">GPU Usage</Text>
+                              <Text className="text-sm font-medium">${DEFAULT_RATES.GPU_HOUR.toFixed(2)} / GPU hour</Text>
+                            </Flex>
+                          </Card>
+                          <Card variant="readOnly" className="p-4">
+                            <Flex justify="between">
+                              <Text className="text-sm text-gray-600">Memory (RAM)</Text>
+                              <Text className="text-sm font-medium">${DEFAULT_RATES.RAM_GB_HOUR.toFixed(4)} / GB hour</Text>
                             </Flex>
                           </Card>
                           <Card variant="readOnly" className="p-4">
                             <Flex justify="between">
                               <Text className="text-sm text-gray-600">Storage</Text>
-                              <Text className="text-sm font-medium">${DEFAULT_RATES.STORAGE_ONLINE_GB.toFixed(2)} / GB / month</Text>
+                              <Text className="text-sm font-medium">${DEFAULT_RATES.STORAGE_ONLINE_GB.toFixed(2)} / GB month</Text>
                             </Flex>
                           </Card>
                           
                           <Text className="text-xs text-gray-500 mt-2">
-                            Usage is calculated hourly and billed monthly. No minimum commitment.
+                            Usage calculated hourly, billed monthly
                           </Text>
                         </Box>
                       </Card>
