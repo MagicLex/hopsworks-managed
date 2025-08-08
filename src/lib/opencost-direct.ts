@@ -1,17 +1,12 @@
 import * as k8s from '@kubernetes/client-node';
-import * as net from 'net';
-import * as http from 'http';
+import https from 'https';
 
 export class OpenCostDirect {
   private kc: k8s.KubeConfig;
-  private k8sApi: k8s.CoreV1Api;
-  private portForward: k8s.PortForward;
-
+  
   constructor(kubeconfigContent: string) {
     this.kc = new k8s.KubeConfig();
     this.kc.loadFromString(kubeconfigContent);
-    this.k8sApi = this.kc.makeApiClient(k8s.CoreV1Api);
-    this.portForward = new k8s.PortForward(this.kc);
   }
 
   async cleanup() {
@@ -20,68 +15,53 @@ export class OpenCostDirect {
 
   async getOpenCostData(window: string = '1h'): Promise<any> {
     try {
-      // Get the OpenCost service to find the right port
-      const service = await this.k8sApi.readNamespacedService('opencost', 'opencost');
-      const targetPort = service.body.spec?.ports?.find(p => p.name === 'http' || p.port === 9003)?.targetPort || 9003;
+      // Use service proxy through the Kubernetes API server
+      // This is secure as it uses the kubeconfig authentication
+      const path = `/api/v1/namespaces/opencost/services/opencost:9003/proxy/allocation/compute?window=${window}&aggregate=namespace`;
       
-      // Get the OpenCost deployment pods
-      const pods = await this.k8sApi.listNamespacedPod(
-        'opencost',
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        'app.kubernetes.io/name=opencost'
-      );
-
-      if (!pods.body.items.length) {
-        throw new Error('No OpenCost pods found');
+      const cluster = this.kc.getCurrentCluster();
+      if (!cluster) {
+        throw new Error('No current cluster in kubeconfig');
       }
 
-      const podName = pods.body.items[0].metadata!.name!;
+      // Create HTTPS options with auth from kubeconfig
+      const opts: https.RequestOptions = {
+        method: 'GET',
+        headers: {}
+      };
       
-      // Create a port forward
-      const server = net.createServer();
-      await new Promise<void>((resolve) => {
-        server.listen(0, '127.0.0.1', () => resolve());
-      });
+      await this.kc.applyToHTTPSOptions(opts);
       
-      const localPort = (server.address() as net.AddressInfo).port;
-      server.close();
-      
-      // Set up port forward
-      const forward = await this.portForward.portForward(
-        'opencost',
-        podName,
-        [localPort],
-        [Number(targetPort)],
-        null,
-        null
-      );
-      
-      try {
-        // Make HTTP request to OpenCost through port forward
-        const response = await new Promise<string>((resolve, reject) => {
-          const req = http.get(
-            `http://127.0.0.1:${localPort}/allocation/compute?window=${window}&aggregate=namespace`,
-            (res) => {
-              let data = '';
-              res.on('data', (chunk) => data += chunk);
-              res.on('end', () => resolve(data));
+      // Parse the server URL
+      const serverUrl = new URL(cluster.server);
+      opts.hostname = serverUrl.hostname;
+      opts.port = serverUrl.port || 443;
+      opts.path = path;
+
+      // Make the HTTPS request
+      const data = await new Promise<any>((resolve, reject) => {
+        const req = https.request(opts, (res) => {
+          let body = '';
+          res.on('data', (chunk) => body += chunk);
+          res.on('end', () => {
+            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+              try {
+                resolve(JSON.parse(body));
+              } catch (e) {
+                reject(new Error(`Invalid JSON response: ${body}`));
+              }
+            } else {
+              reject(new Error(`HTTP ${res.statusCode}: ${body}`));
             }
-          );
-          req.on('error', reject);
-          req.setTimeout(10000);
+          });
         });
         
-        const data = JSON.parse(response);
-        return data;
-      } finally {
-        // Clean up port forward
-        if (forward && forward.close) {
-          forward.close();
-        }
-      }
+        req.on('error', reject);
+        req.setTimeout(30000);
+        req.end();
+      });
+
+      return data;
     } catch (error) {
       console.error('Failed to get OpenCost data:', error);
       console.error('Error details:', {
