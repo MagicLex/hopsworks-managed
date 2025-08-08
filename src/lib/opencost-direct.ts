@@ -42,23 +42,40 @@ export class OpenCostDirect {
       ];
 
       let output = '';
+      let errorOutput = '';
+      
       const stdout = new Writable({
         write(chunk, encoding, callback) {
           output += chunk.toString();
           callback();
         }
       });
+      
+      const stderr = new Writable({
+        write(chunk, encoding, callback) {
+          errorOutput += chunk.toString();
+          callback();
+        }
+      });
 
       await this.exec.exec(
-        'opencost',
-        podName,
-        'opencost',
-        command,
-        stdout,
-        null,
-        null,
-        false
+        'opencost',  // namespace
+        podName,     // pod name
+        'opencost',  // container name
+        command,     // command array
+        stdout,      // stdout stream
+        stderr,      // stderr stream  
+        null,        // stdin
+        false        // tty
       );
+      
+      if (errorOutput) {
+        console.error('OpenCost exec stderr:', errorOutput);
+      }
+      
+      if (!output) {
+        throw new Error(`No output from OpenCost exec. stderr: ${errorOutput}`);
+      }
 
       const data = JSON.parse(output);
       return data;
