@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Box, Flex, Title, Text, Button, Card, Badge } from 'tailwind-quartz';
 import Navbar from '@/components/Navbar';
-import { CollectionResult } from '@/types/api';
 
 interface User {
   id: string;
@@ -50,8 +49,10 @@ export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [collectingUsage, setCollectingUsage] = useState(false);
-  const [collectionResult, setCollectionResult] = useState<CollectionResult | null>(null);
+  const [checkingOpenCost, setCheckingOpenCost] = useState(false);
+  const [checkingDatabase, setCheckingDatabase] = useState(false);
+  const [openCostData, setOpenCostData] = useState<any | null>(null);
+  const [databaseData, setDatabaseData] = useState<any | null>(null);
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -83,30 +84,45 @@ export default function AdminPage() {
     }
   };
 
-  const triggerUsageCollection = async () => {
-    setCollectingUsage(true);
-    setCollectionResult(null);
+  const checkOpenCost = async () => {
+    setCheckingOpenCost(true);
+    setOpenCostData(null);
     setError(null);
 
     try {
-      const response = await fetch('/api/admin/usage/collect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
+      const response = await fetch('/api/admin/usage/check-opencost');
       const data = await response.json();
       
       if (response.ok) {
-        setCollectionResult(data);
-        // Refresh users after collection
-        setTimeout(fetchUsers, 2000);
+        setOpenCostData(data);
       } else {
-        setError(data.error || 'Failed to trigger collection');
+        setError(data.error || 'Failed to check OpenCost');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to trigger usage collection');
+      setError(err instanceof Error ? err.message : 'Failed to check OpenCost');
     } finally {
-      setCollectingUsage(false);
+      setCheckingOpenCost(false);
+    }
+  };
+
+  const checkDatabase = async () => {
+    setCheckingDatabase(true);
+    setDatabaseData(null);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/admin/usage/check-database');
+      const data = await response.json();
+      
+      if (response.ok) {
+        setDatabaseData(data);
+      } else {
+        setError(data.error || 'Failed to check database');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to check database');
+    } finally {
+      setCheckingDatabase(false);
     }
   };
 
@@ -158,36 +174,58 @@ export default function AdminPage() {
           <Card withShadow>
             <Flex justify="between" align="center" className="mb-6">
               <Title as="h2" className="text-lg">User Billing Overview</Title>
-              <Button
-                onClick={triggerUsageCollection}
-                disabled={collectingUsage}
-                intent="primary"
-                size="md"
-              >
-                {collectingUsage ? 'Collecting...' : 'Update Usage Data'}
-              </Button>
+              <Flex gap={8}>
+                <Button
+                  onClick={checkOpenCost}
+                  disabled={checkingOpenCost}
+                  intent="secondary"
+                  size="md"
+                >
+                  {checkingOpenCost ? 'Checking...' : 'Check OpenCost'}
+                </Button>
+                <Button
+                  onClick={checkDatabase}
+                  disabled={checkingDatabase}
+                  intent="secondary"
+                  size="md"
+                >
+                  {checkingDatabase ? 'Checking...' : 'Check Database'}
+                </Button>
+              </Flex>
             </Flex>
             
-            {/* Collection Result */}
-            {collectionResult && (
-              <Card className="mb-4 border border-successDefault bg-successShade1">
-                <Text className="text-successDefault font-semibold mb-2">Collection Completed</Text>
+            {/* OpenCost Check Result */}
+            {openCostData && (
+              <Card className="mb-4 border border-infoDefault bg-infoShade1">
+                <Text className="text-infoDefault font-semibold mb-2">OpenCost Data (Last Hour)</Text>
                 <Text className="text-sm mb-1">
-                  Successful: {collectionResult.result?.results?.successful || 0} users
+                  Namespaces: {openCostData.totalNamespaces} | Total Cost: ${openCostData.totalCost?.toFixed(4)}
                 </Text>
-                <Text className="text-sm mb-1">
-                  Failed: {collectionResult.result?.results?.failed || 0} users
-                </Text>
-                {collectionResult.result?.results?.errors && collectionResult.result.results.errors.length > 0 && (
+                {openCostData.namespaces?.length > 0 && (
                   <details className="mt-2">
-                    <summary className="cursor-pointer text-sm text-gray">View Errors</summary>
-                    <Box className="mt-2 p-2 bg-grayShade1 rounded">
-                      {collectionResult.result.results.errors.map((err: string, i: number) => (
-                        <Text key={i} className="text-xs text-errorDefault">{err}</Text>
+                    <summary className="cursor-pointer text-sm text-gray">View Details</summary>
+                    <Box className="mt-2 p-2 bg-grayShade1 rounded space-y-1">
+                      {openCostData.namespaces.slice(0, 10).map((ns: any, i: number) => (
+                        <Text key={i} className="text-xs font-mono">
+                          {ns.namespace}: ${ns.totalCost.toFixed(4)} ({ns.cpuHours.toFixed(2)} CPU hrs)
+                        </Text>
                       ))}
                     </Box>
                   </details>
                 )}
+              </Card>
+            )}
+
+            {/* Database Check Result */}
+            {databaseData && (
+              <Card className="mb-4 border border-infoDefault bg-infoShade1">
+                <Text className="text-infoDefault font-semibold mb-2">Database Status (Today)</Text>
+                <Text className="text-sm mb-1">
+                  Users: {databaseData.totalUsers} | Total Cost: ${databaseData.totalCost?.toFixed(2)}
+                </Text>
+                <Text className="text-xs text-gray">
+                  Last collection: {databaseData.lastCollectionTime ? new Date(databaseData.lastCollectionTime).toLocaleString() : 'Never'}
+                </Text>
               </Card>
             )}
             
