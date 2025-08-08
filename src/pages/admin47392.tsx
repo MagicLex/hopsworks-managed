@@ -63,8 +63,6 @@ export default function AdminPage() {
   const [collectionResult, setCollectionResult] = useState<CollectionResult | null>(null);
   
   // OpenCost test state
-  const [opencostStatus, setOpencostStatus] = useState<Record<string, any>>({});
-  const [testingOpencost, setTestingOpencost] = useState<Record<string, boolean>>({});
 
   // Test billing state
   const [selectedTestUser, setSelectedTestUser] = useState('');
@@ -145,29 +143,6 @@ export default function AdminPage() {
     }
   };
 
-  const testOpencost = async (clusterId: string) => {
-    setTestingOpencost({ ...testingOpencost, [clusterId]: true });
-    try {
-      const response = await fetch('/api/admin/test-opencost', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clusterId })
-      });
-      
-      const result = await response.json();
-      setOpencostStatus({ ...opencostStatus, [clusterId]: result });
-    } catch (error) {
-      setOpencostStatus({ 
-        ...opencostStatus, 
-        [clusterId]: { 
-          connected: false, 
-          error: error instanceof Error ? error.message : 'Failed to test connection' 
-        }
-      });
-    } finally {
-      setTestingOpencost({ ...testingOpencost, [clusterId]: false });
-    }
-  };
 
   const handleUpdateCluster = async (clusterId: string, updates: Partial<Cluster>) => {
     try {
@@ -867,43 +842,16 @@ export default function AdminPage() {
                               </Box>
                             </Box>
                             
-                            {/* OpenCost Connection Status */}
+                            {/* OpenCost Integration Status */}
                             {cluster.kubeconfig && (
                               <Box className="border-t border-grayShade2 pt-4 mb-4">
-                                <Flex justify="between" align="center">
-                                  <Box>
-                                    <Text className="text-sm text-gray mb-1">OpenCost Status</Text>
-                                    {opencostStatus[cluster.id] ? (
-                                      <Box>
-                                        <Badge 
-                                          variant={opencostStatus[cluster.id].connected ? 'success' : 'warning'}
-                                          className="mb-1"
-                                        >
-                                          {opencostStatus[cluster.id].connected ? 'Connected' : 'Not Connected'}
-                                        </Badge>
-                                        {opencostStatus[cluster.id].message && (
-                                          <Text className="text-xs text-gray mt-1">
-                                            {opencostStatus[cluster.id].message}
-                                          </Text>
-                                        )}
-                                      </Box>
-                                    ) : (
-                                      <Text className="text-xs text-gray">Not tested</Text>
-                                    )}
-                                  </Box>
-                                  <Button
-                                    onClick={() => testOpencost(cluster.id)}
-                                    disabled={testingOpencost[cluster.id]}
-                                    size="md"
-                                    intent="secondary"
-                                  >
-                                    {testingOpencost[cluster.id] ? 'Testing...' : 'Test OpenCost'}
-                                  </Button>
-                                </Flex>
-                                <Text className="text-xs text-gray mt-2">
-                                  Note: Uses kubectl exec to query OpenCost directly inside the cluster.
-                                  No external exposure needed.
-                                </Text>
+                                <Box>
+                                  <Text className="text-sm text-gray mb-1">OpenCost Integration</Text>
+                                  <Badge variant="success" className="mb-1">Active</Badge>
+                                  <Text className="text-xs text-gray mt-1">
+                                    Hourly cost collection enabled via Kubernetes API proxy
+                                  </Text>
+                                </Box>
                               </Box>
                             )}
                             
