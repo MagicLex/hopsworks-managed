@@ -29,7 +29,36 @@ This directory contains comprehensive documentation for the Hopsworks Managed Se
 
 ## Database Connection
 
-See [Overview](./01-overview.md) for connection details.
+### Direct psql Connection
+```bash
+# Set password in environment first
+export PGPASSWORD='[password-from-env]'
+
+# Connect to Supabase
+psql -h aws-0-us-east-1.pooler.supabase.com -p 5432 -d postgres -U postgres.pahfsiosiuxdkiebepav
+
+# Alternative connection strings:
+# Via pooler (recommended for applications):
+postgresql://postgres.pahfsiosiuxdkiebepav:[password]@aws-0-us-east-1.pooler.supabase.com:5432/postgres
+
+# Direct connection (for migrations):
+postgresql://postgres:[password]@db.pahfsiosiuxdkiebepav.supabase.co:5432/postgres
+```
+
+### Common Commands
+```sql
+-- List all tables
+\dt
+
+-- Describe table structure
+\d usage_daily
+
+-- Show indexes
+\di
+
+-- List foreign keys
+\d+ table_name
+```
 
 ## ER Diagram
 

@@ -84,30 +84,37 @@ CREATE TABLE usage_daily (
   account_owner_id TEXT REFERENCES users(id),
   date DATE NOT NULL,
   
-  -- Legacy fields (being phased out)
-  cpu_hours DECIMAL(10,2) DEFAULT 0,
-  gpu_hours DECIMAL(10,2) DEFAULT 0,
-  storage_gb DECIMAL(10,2) DEFAULT 0,
-  api_calls INTEGER DEFAULT 0,
-  feature_store_api_calls INTEGER DEFAULT 0,
-  model_inference_calls INTEGER DEFAULT 0,
-  instance_type TEXT,
-  instance_hours DECIMAL(10,2),
-  
-  -- OpenCost fields (source of truth)
+  -- OpenCost compute fields (source of truth)
   opencost_cpu_cost DECIMAL(10,4) DEFAULT 0,
+  opencost_gpu_cost DECIMAL(10,4) DEFAULT 0,
   opencost_ram_cost DECIMAL(10,4) DEFAULT 0,
-  opencost_storage_cost DECIMAL(10,4) DEFAULT 0,
+  opencost_storage_cost DECIMAL(10,4) DEFAULT 0,  -- PV storage from K8s
   opencost_total_cost DECIMAL(10,4) DEFAULT 0,
+  
+  -- Resource consumption metrics
   opencost_cpu_hours DECIMAL(10,4) DEFAULT 0,
+  opencost_gpu_hours DECIMAL(10,4) DEFAULT 0,
   opencost_ram_gb_hours DECIMAL(10,4) DEFAULT 0,
-  project_breakdown JSONB,  -- Per-project cost details
   
-  total_cost DECIMAL(10,2) DEFAULT 0,  -- Daily total from OpenCost
-  reported_to_stripe BOOLEAN DEFAULT false,
+  -- Storage breakdown
+  online_storage_gb DECIMAL(10,4) DEFAULT 0,      -- MySQL, PostgreSQL
+  offline_storage_gb DECIMAL(10,4) DEFAULT 0,     -- HDFS, S3, object storage
+  online_storage_cost DECIMAL(10,4) DEFAULT 0,
+  offline_storage_cost DECIMAL(10,4) DEFAULT 0,
+  
+  -- Network costs
+  network_egress_gb DECIMAL(10,4) DEFAULT 0,
+  network_egress_cost DECIMAL(10,4) DEFAULT 0,
+  
+  -- Metadata
+  instance_types JSONB DEFAULT '{}',              -- Instance type breakdown
+  resource_efficiency JSONB DEFAULT '{}',         -- CPU/RAM/GPU utilization
+  project_breakdown JSONB,                        -- Per-project cost details
+  
+  total_cost DECIMAL(10,2) DEFAULT 0,            -- Daily total
   hopsworks_cluster_id UUID REFERENCES hopsworks_clusters(id),
-  
   created_at TIMESTAMPTZ DEFAULT NOW(),
+  
   UNIQUE(user_id, date)
 );
 ```
