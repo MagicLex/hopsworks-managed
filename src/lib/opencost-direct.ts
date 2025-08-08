@@ -1,15 +1,17 @@
 import * as k8s from '@kubernetes/client-node';
-import { Writable } from 'stream';
+import * as net from 'net';
+import * as http from 'http';
 
 export class OpenCostDirect {
+  private kc: k8s.KubeConfig;
   private k8sApi: k8s.CoreV1Api;
-  private exec: k8s.Exec;
+  private portForward: k8s.PortForward;
 
   constructor(kubeconfigContent: string) {
-    const kc = new k8s.KubeConfig();
-    kc.loadFromString(kubeconfigContent);
-    this.k8sApi = kc.makeApiClient(k8s.CoreV1Api);
-    this.exec = new k8s.Exec(kc);
+    this.kc = new k8s.KubeConfig();
+    this.kc.loadFromString(kubeconfigContent);
+    this.k8sApi = this.kc.makeApiClient(k8s.CoreV1Api);
+    this.portForward = new k8s.PortForward(this.kc);
   }
 
   async cleanup() {
@@ -18,6 +20,10 @@ export class OpenCostDirect {
 
   async getOpenCostData(window: string = '1h'): Promise<any> {
     try {
+      // Get the OpenCost service to find the right port
+      const service = await this.k8sApi.readNamespacedService('opencost', 'opencost');
+      const targetPort = service.body.spec?.ports?.find(p => p.name === 'http' || p.port === 9003)?.targetPort || 9003;
+      
       // Get the OpenCost deployment pods
       const pods = await this.k8sApi.listNamespacedPod(
         'opencost',
@@ -34,51 +40,48 @@ export class OpenCostDirect {
 
       const podName = pods.body.items[0].metadata!.name!;
       
-      // Execute wget command inside the pod (OpenCost doesn't have curl)
-      const command = [
-        'wget',
-        '-qO-',
-        `http://localhost:9003/allocation/compute?window=${window}&aggregate=namespace`
-      ];
-
-      let output = '';
-      let errorOutput = '';
-      
-      const stdout = new Writable({
-        write(chunk, encoding, callback) {
-          output += chunk.toString();
-          callback();
-        }
+      // Create a port forward
+      const server = net.createServer();
+      await new Promise<void>((resolve) => {
+        server.listen(0, '127.0.0.1', () => resolve());
       });
       
-      const stderr = new Writable({
-        write(chunk, encoding, callback) {
-          errorOutput += chunk.toString();
-          callback();
-        }
-      });
-
-      await this.exec.exec(
-        'opencost',  // namespace
-        podName,     // pod name
-        'opencost',  // container name
-        command,     // command array
-        stdout,      // stdout stream
-        stderr,      // stderr stream  
-        null,        // stdin
-        false        // tty
+      const localPort = (server.address() as net.AddressInfo).port;
+      server.close();
+      
+      // Set up port forward
+      const forward = await this.portForward.portForward(
+        'opencost',
+        podName,
+        [localPort],
+        [Number(targetPort)],
+        null,
+        null
       );
       
-      if (errorOutput) {
-        console.error('OpenCost exec stderr:', errorOutput);
+      try {
+        // Make HTTP request to OpenCost through port forward
+        const response = await new Promise<string>((resolve, reject) => {
+          const req = http.get(
+            `http://127.0.0.1:${localPort}/allocation/compute?window=${window}&aggregate=namespace`,
+            (res) => {
+              let data = '';
+              res.on('data', (chunk) => data += chunk);
+              res.on('end', () => resolve(data));
+            }
+          );
+          req.on('error', reject);
+          req.setTimeout(10000);
+        });
+        
+        const data = JSON.parse(response);
+        return data;
+      } finally {
+        // Clean up port forward
+        if (forward && forward.close) {
+          forward.close();
+        }
       }
-      
-      if (!output) {
-        throw new Error(`No output from OpenCost exec. stderr: ${errorOutput}`);
-      }
-
-      const data = JSON.parse(output);
-      return data;
     } catch (error) {
       console.error('Failed to get OpenCost data:', error);
       console.error('Error details:', {
