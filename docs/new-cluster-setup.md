@@ -1,5 +1,5 @@
-## General informations
-Each users are alocated to a cluster in the database. In the  ``hopswokrs_cluster`` table, each cluster has an admin API, a kubeconfig attached, and an ID. This ID is used to map individual users to their clusters in the  ```user_hopsworks_assigment ``` table. 
+## General Information
+Each user is allocated to a cluster in the database. In the `hopsworks_clusters` table, each cluster has an admin API, a kubeconfig attached, and an ID. This ID is used to map individual users to their clusters in the `user_hopsworks_assignments` table. 
 
 ## New Cluster
 When setting up a new cluster, for it to be configured to work with the saas service you need to do the following actions in each of the platforms;
@@ -31,5 +31,5 @@ __NotaBene: if you used an installer to deploy Hopsworks, remember to change the
 ### In Auth0
 
 ### In Supabase
-Add or replace a new entry in the `hopsworks_cluster` table. If you choose to replace an existing entry; users that are assigned to that entry will be assigned to the new cluster. 
+Add or replace a new entry in the `hopsworks_clusters` table. If you choose to replace an existing entry; users that are assigned to that entry will be assigned to the new cluster. 
 

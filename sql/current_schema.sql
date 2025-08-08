@@ -58,6 +58,20 @@ CREATE TABLE IF NOT EXISTS team_invites (
 -- BILLING TABLES
 -- =====================================================
 
+-- User projects mapping (OpenCost namespace to user)
+CREATE TABLE IF NOT EXISTS user_projects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+  project_id INTEGER NOT NULL,
+  project_name TEXT NOT NULL,
+  namespace TEXT NOT NULL UNIQUE,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  last_seen_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, project_id)
+);
+
 -- User credits for prepaid billing
 CREATE TABLE IF NOT EXISTS user_credits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -170,8 +184,15 @@ CREATE INDEX IF NOT EXISTS idx_team_invites_token ON team_invites(token) WHERE a
 CREATE INDEX IF NOT EXISTS idx_team_invites_email ON team_invites(email) WHERE accepted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_team_invites_owner ON team_invites(account_owner_id);
 
+CREATE INDEX IF NOT EXISTS idx_user_projects_namespace ON user_projects(namespace) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_user_projects_user_id ON user_projects(user_id) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_user_projects_last_seen ON user_projects(last_seen_at);
+
 CREATE INDEX IF NOT EXISTS idx_usage_daily_user_date ON usage_daily(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_usage_daily_account_owner ON usage_daily(account_owner_id, date) WHERE account_owner_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_usage_daily_cluster ON usage_daily(hopsworks_cluster_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_usage_daily_gpu ON usage_daily(opencost_gpu_hours) WHERE opencost_gpu_hours > 0;
+CREATE INDEX IF NOT EXISTS idx_usage_daily_storage ON usage_daily(online_storage_gb, offline_storage_gb);
 
 -- =====================================================
 -- VIEWS
@@ -267,6 +288,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION update_user_projects_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- =====================================================
 -- TRIGGERS
 -- =====================================================
@@ -278,6 +307,10 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_user_credits_updated_at 
 BEFORE UPDATE ON user_credits
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_user_projects_updated_at
+BEFORE UPDATE ON user_projects
+FOR EACH ROW EXECUTE FUNCTION update_user_projects_updated_at();
 
 -- =====================================================
 -- RLS POLICIES (Currently disabled)

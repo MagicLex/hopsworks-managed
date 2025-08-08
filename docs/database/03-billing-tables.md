@@ -208,7 +208,6 @@ GROUP BY account_owner_id;
 1. OpenCost costs accumulated in `usage_daily`
 2. Monthly invoice generated from `opencost_total_cost`
 3. Stripe charges customer
-4. `reported_to_stripe` flag updated
 
 ### Team Member Flow
 1. Team member's projects tracked via `user_projects`

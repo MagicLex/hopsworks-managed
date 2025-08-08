@@ -21,12 +21,29 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['users']['Row'], 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['users']['Insert']>;
       };
+      user_projects: {
+        Row: {
+          id: string;
+          user_id: string;
+          project_id: number;
+          project_name: string;
+          namespace: string;
+          status: 'active' | 'inactive';
+          last_seen_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['user_projects']['Row'], 'id' | 'created_at' | 'updated_at' | 'last_seen_at'>;
+        Update: Partial<Database['public']['Tables']['user_projects']['Insert']>;
+      };
       user_credits: {
         Row: {
           id: string;
           user_id: string;
           total_purchased: number;
           total_used: number;
+          free_credits_granted: number;
+          free_credits_used: number;
           cpu_hours_used: number;
           gpu_hours_used: number;
           storage_gb_months: number;

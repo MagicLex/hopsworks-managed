@@ -13,11 +13,12 @@ This directory contains comprehensive documentation for the Hopsworks Managed Se
 
 ## Quick Reference
 
-### Current Tables (7 total)
+### Current Tables (8 total)
 - `users` - User accounts and team relationships
 - `team_invites` - Pending team invitations
+- `user_projects` - Maps Kubernetes namespaces to users for cost allocation
 - `user_credits` - Credit balances for prepaid billing
-- `usage_daily` - Daily usage metrics and costs
+- `usage_daily` - Daily usage metrics from OpenCost
 - `hopsworks_clusters` - Available Hopsworks clusters
 - `user_hopsworks_assignments` - User-to-cluster mappings
 - `stripe_products` - (DEPRECATED) Product pricing info

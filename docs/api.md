@@ -53,42 +53,25 @@ Get current user's Hopsworks information.
 ```
 
 ### GET /api/usage
-Get user's current usage from OpenCost.
+Get user's current month usage totals.
 
 **Response:**
 ```json
 {
-  "currentMonth": {
-    "opencostTotalCost": 45.67,
-    "opencostCpuCost": 30.45,
-    "opencostRamCost": 12.22,
-    "opencostStorageCost": 3.00,
-    "projects": [
-      {
-        "namespace": "mlproject",
-        "name": "ML Training",
-        "totalCost": 25.50,
-        "cpuHours": 120.5,
-        "ramGBHours": 2048.0
-      }
-    ]
-  },
-  "dailyCosts": [
-    {
-      "date": "2024-01-08",
-      "opencost_total_cost": 1.78,
-      "project_breakdown": {
-        "mlproject": {
-          "totalCost": 1.78
-        }
-      }
-    }
-  ]
+  "cpuHours": 120.5,
+  "gpuHours": 0,
+  "storageGB": 50.25,
+  "featureGroups": 2,
+  "modelDeployments": 0,
+  "apiCalls": 0,
+  "featureStoreApiCalls": 0,
+  "modelInferenceCalls": 0,
+  "currentMonth": "2025-01"
 }
 ```
 
 ### GET /api/billing
-Get billing information (account owners only).
+Get billing information and usage summary.
 
 **Response:**
 ```json
@@ -108,15 +91,33 @@ Get billing information (account owners only).
   "prepaidEnabled": false,
   "currentUsage": {
     "cpuHours": "120.50",
-    "storageGB": "0.00",
+    "storageGB": "50.25",
     "currentMonth": {
       "cpuCost": 12.05,
-      "storageCost": 0,
-      "total": 12.05
+      "storageCost": 5.03,
+      "baseCost": 17.08,
+      "total": 17.08
     }
   },
   "creditBalance": null,
-  "invoices": []
+  "invoices": [],
+  "historicalUsage": [
+    {
+      "date": "2025-01-08",
+      "cpu_hours": 24.5,
+      "gpu_hours": 0,
+      "storage_gb": 50.25,
+      "total_cost": 2.45
+    }
+  ],
+  "rates": {
+    "cpu_hour": 0.1,
+    "gpu_hour": 1.0,
+    "ram_gb_hour": 0.01,
+    "storage_online_gb": 0.1,
+    "storage_offline_gb": 0.01,
+    "network_egress_gb": 0.05
+  }
 }
 ```
 
