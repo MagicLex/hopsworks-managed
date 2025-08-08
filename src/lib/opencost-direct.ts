@@ -34,10 +34,10 @@ export class OpenCostDirect {
 
       const podName = pods.body.items[0].metadata!.name!;
       
-      // Execute curl command inside the pod
+      // Execute wget command inside the pod (OpenCost doesn't have curl)
       const command = [
-        'curl',
-        '-s',
+        'wget',
+        '-qO-',
         `http://localhost:9003/allocation/compute?window=${window}&aggregate=namespace`
       ];
 
