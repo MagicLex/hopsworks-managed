@@ -441,6 +441,23 @@ export default function AdminPage() {
                             <Text className="font-medium">{user.name || 'Unknown User'}</Text>
                             <Text className="text-xs text-gray">{user.email}</Text>
                             {user.is_admin && <Badge size="sm" variant="warning" className="mt-1">Admin</Badge>}
+                            {user.projects && user.projects.length > 0 && (
+                              <Box className="mt-2">
+                                {user.projects.map(project => (
+                                  <Box key={project.namespace} className="flex items-center gap-2 mt-1">
+                                    <Badge size="sm" variant={project.is_owner ? "success" : "default"} className="text-xs">
+                                      {project.is_owner ? "Owner" : "Member"}
+                                    </Badge>
+                                    <Text className="text-xs">{project.name}</Text>
+                                    {project.hourly_cost > 0 && (
+                                      <Text className="text-xs font-mono text-gray">
+                                        ${project.hourly_cost.toFixed(3)}/h
+                                      </Text>
+                                    )}
+                                  </Box>
+                                ))}
+                              </Box>
+                            )}
                           </Box>
                         </td>
                         <td className="py-3">
@@ -488,9 +505,9 @@ export default function AdminPage() {
                               <Text className="font-mono text-sm font-medium">
                                 ${user.last_24h_cost.toFixed(2)}
                               </Text>
-                              {user.active_namespaces && user.active_namespaces.length > 0 && (
+                              {user.projects && user.projects.length > 0 && (
                                 <Text className="text-xs text-gray">
-                                  {user.active_namespaces.length} ns
+                                  {user.projects.filter(p => p.is_owner).length} owned
                                 </Text>
                               )}
                             </Box>

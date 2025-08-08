@@ -33,46 +33,57 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         `)
         .order('created_at', { ascending: false });
       
-      // Get last 24h OpenCost data for each user
+      // Get last 24h OpenCost data and project details for each user
       if (users) {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
+        const today = new Date().toISOString().split('T')[0];
         
-        // Get user projects and recent costs
+        // Get all user projects
         const { data: userProjects } = await supabase
           .from('user_projects')
-          .select('user_id, namespace, project_name')
+          .select('user_id, namespace, project_name, project_id')
           .eq('status', 'active');
         
-        const { data: recentUsage } = await supabase
+        // Get today's usage with project breakdown
+        const { data: todayUsage } = await supabase
+          .from('usage_daily')
+          .select('user_id, opencost_total_cost, project_breakdown')
+          .eq('date', today);
+        
+        // Get yesterday's usage for 24h comparison
+        const { data: yesterdayUsage } = await supabase
           .from('usage_daily')
           .select('user_id, opencost_total_cost')
-          .gte('date', yesterday.toISOString().split('T')[0]);
+          .eq('date', yesterday.toISOString().split('T')[0]);
         
-        // Aggregate data per user
-        const userCosts = new Map();
-        const userNamespaces = new Map();
-        
-        if (userProjects) {
-          userProjects.forEach(project => {
-            if (!userNamespaces.has(project.user_id)) {
-              userNamespaces.set(project.user_id, []);
-            }
-            userNamespaces.get(project.user_id).push(project.namespace);
-          });
-        }
-        
-        if (recentUsage) {
-          recentUsage.forEach(usage => {
-            const current = userCosts.get(usage.user_id) || 0;
-            userCosts.set(usage.user_id, current + (usage.opencost_total_cost || 0));
-          });
-        }
-        
-        // Add to user objects
+        // Build user data
         users.forEach(user => {
-          user.last_24h_cost = userCosts.get(user.id) || 0;
-          user.active_namespaces = userNamespaces.get(user.id) || [];
+          // Get user's projects
+          const projects = userProjects?.filter(p => p.user_id === user.id) || [];
+          const todayData = todayUsage?.find(u => u.user_id === user.id);
+          const yesterdayData = yesterdayUsage?.find(u => u.user_id === user.id);
+          
+          // Calculate 24h cost
+          user.last_24h_cost = (todayData?.opencost_total_cost || 0) + (yesterdayData?.opencost_total_cost || 0);
+          
+          // Build project details with costs
+          user.projects = projects.map(project => {
+            const projectCost = todayData?.project_breakdown?.[project.namespace] || {};
+            return {
+              namespace: project.namespace,
+              name: project.project_name,
+              id: project.project_id,
+              is_owner: true, // User owns projects mapped to them
+              hourly_cost: projectCost.hourly_cost || 0,
+              cpu_cost: projectCost.cpu_cost || 0,
+              memory_cost: projectCost.memory_cost || 0,
+              pv_cost: projectCost.pv_cost || 0
+            };
+          });
+          
+          // Count active namespaces
+          user.active_namespaces = projects.map(p => p.namespace);
         });
       }
 
