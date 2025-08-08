@@ -309,7 +309,36 @@ export async function getAllProjects(
   }
 
   const data = await response.json();
-  return data.items || [];
+  const projects = data.items || [];
+  
+  // Fetch owner details for each project
+  for (const project of projects) {
+    if (project.creator?.href) {
+      // Extract user ID from href
+      const userIdMatch = project.creator.href.match(/\/users\/(\d+)$/);
+      if (userIdMatch) {
+        const userId = userIdMatch[1];
+        try {
+          const userResponse = await fetch(
+            `${credentials.apiUrl}${ADMIN_API_BASE}/users/${userId}`,
+            {
+              headers: {
+                'Authorization': authToken
+              }
+            }
+          );
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            project.owner = userData.username;
+          }
+        } catch (error) {
+          console.error(`Failed to fetch user ${userId} for project ${project.name}:`, error);
+        }
+      }
+    }
+  }
+  
+  return projects;
 }
 
 
