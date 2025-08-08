@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
-import { getBillingRatesForUser } from '@/config/billing-rates';
+import { DEFAULT_RATES } from '@/config/billing-rates';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -25,7 +25,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const userId = session.user.sub;
-    const rates = getBillingRatesForUser(userId);
 
     // Get user billing info
     const { data: user } = await supabaseAdmin
@@ -65,17 +64,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: currentMonthData } = await supabaseAdmin
       .from('usage_daily')
-      .select('opencost_cpu_hours, opencost_ram_gb_hours, opencost_total_cost, total_cost')
+      .select('opencost_cpu_hours, opencost_gpu_hours, opencost_ram_gb_hours, total_cost')
       .eq('user_id', userId)
       .gte('date', startOfMonth.toISOString().split('T')[0]);
 
-    // Calculate current month totals - use OpenCost data as source of truth
+    // Calculate current month totals
     const currentMonthTotals = currentMonthData?.reduce((acc, day) => ({
       cpuHours: acc.cpuHours + (day.opencost_cpu_hours || 0),
+      gpuHours: acc.gpuHours + (day.opencost_gpu_hours || 0),
       storageGB: acc.storageGB + (day.opencost_ram_gb_hours || 0) / 24, // Convert GB-hours to GB
-      totalCost: acc.totalCost + (day.opencost_total_cost || day.total_cost || 0)
-    }), { cpuHours: 0, storageGB: 0, totalCost: 0 }) || 
-    { cpuHours: 0, storageGB: 0, totalCost: 0 };
+      totalCost: acc.totalCost + (day.total_cost || 0)
+    }), { cpuHours: 0, gpuHours: 0, storageGB: 0, totalCost: 0 }) || 
+    { cpuHours: 0, gpuHours: 0, storageGB: 0, totalCost: 0 };
 
 
     // Get last 30 days of usage for chart
@@ -84,7 +84,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     const { data: historicalData } = await supabaseAdmin
       .from('usage_daily')
-      .select('date, opencost_cpu_hours, opencost_ram_gb_hours, opencost_total_cost, total_cost')
+      .select('date, opencost_cpu_hours, opencost_gpu_hours, opencost_ram_gb_hours, total_cost')
       .eq('user_id', userId)
       .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
       .order('date', { ascending: true });
@@ -226,9 +226,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cpuHours: currentMonthTotals.cpuHours.toFixed(2),
         storageGB: currentMonthTotals.storageGB.toFixed(2),
         currentMonth: {
-          cpuCost: currentMonthTotals.cpuHours * rates.cpuHourRate,
-          storageCost: currentMonthTotals.storageGB * rates.storageGbMonthRate,
-          baseCost: currentMonthTotals.totalCost - (currentMonthTotals.cpuHours * rates.cpuHourRate) - (currentMonthTotals.storageGB * rates.storageGbMonthRate),
           total: currentMonthTotals.totalCost
         }
       },
@@ -243,9 +240,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       historicalUsage: historicalData?.map(day => ({
         date: day.date,
         cpu_hours: day.opencost_cpu_hours || 0,
+        gpu_hours: day.opencost_gpu_hours || 0,
         storage_gb: (day.opencost_ram_gb_hours || 0) / 24,
-        total_cost: day.opencost_total_cost || day.total_cost || 0
-      })) || []
+        total_cost: day.total_cost || 0
+      })) || [],
+      // Display rates (actual billing happens via Stripe for postpaid)
+      rates: {
+        cpu_hour: DEFAULT_RATES.CPU_HOUR,
+        gpu_hour: DEFAULT_RATES.GPU_HOUR,
+        ram_gb_hour: DEFAULT_RATES.RAM_GB_HOUR,
+        storage_online_gb: DEFAULT_RATES.STORAGE_ONLINE_GB,
+        storage_offline_gb: DEFAULT_RATES.STORAGE_OFFLINE_GB,
+        network_egress_gb: DEFAULT_RATES.NETWORK_EGRESS_GB
+      }
     });
   } catch (error) {
     console.error('Error fetching billing:', error);

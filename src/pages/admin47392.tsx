@@ -23,10 +23,8 @@ interface User {
     id: number;
     is_owner: boolean;
     total_cost: number;
-    cpu_cost: number;
-    memory_cost: number;
-    storage_cost: number;
     cpu_hours: number;
+    gpu_hours: number;
     ram_gb_hours: number;
   }[];
   user_credits?: {
@@ -308,17 +306,20 @@ export default function AdminPage() {
                                           <Box className="mt-3 grid grid-cols-3 gap-4 text-xs">
                                             <Box>
                                               <Text className="text-gray">CPU</Text>
-                                              <Text className="font-mono">${project.cpu_cost.toFixed(4)}</Text>
                                               <Text className="text-gray">{project.cpu_hours.toFixed(2)}h</Text>
+                                              <Text className="font-mono">${(project.cpu_hours * 0.125).toFixed(4)}</Text>
                                             </Box>
+                                            {project.gpu_hours > 0 && (
+                                              <Box>
+                                                <Text className="text-gray">GPU</Text>
+                                                <Text className="text-gray">{project.gpu_hours.toFixed(2)}h</Text>
+                                                <Text className="font-mono">${(project.gpu_hours * 2.50).toFixed(4)}</Text>
+                                              </Box>
+                                            )}
                                             <Box>
                                               <Text className="text-gray">Memory</Text>
-                                              <Text className="font-mono">${project.memory_cost.toFixed(4)}</Text>
                                               <Text className="text-gray">{project.ram_gb_hours.toFixed(2)} GB·h</Text>
-                                            </Box>
-                                            <Box>
-                                              <Text className="text-gray">Storage</Text>
-                                              <Text className="font-mono">${project.storage_cost.toFixed(4)}</Text>
+                                              <Text className="font-mono">${(project.ram_gb_hours * 0.0125).toFixed(4)}</Text>
                                             </Box>
                                           </Box>
                                         )}

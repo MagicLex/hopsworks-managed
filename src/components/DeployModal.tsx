@@ -5,7 +5,7 @@ import { Modal, Button, Box, Flex, Title, Text, Labeling, Card, Badge, Input } f
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthModal } from './AuthModal';
 import { useRouter } from 'next/router';
-import { defaultBillingRates } from '@/config/billing-rates';
+import { DEFAULT_RATES } from '@/config/billing-rates';
 
 interface DeployModalProps {
   isOpen: boolean;
@@ -86,7 +86,7 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
           <Flex direction="column" gap={8}>
             <Flex justify="between">
               <Labeling className="font-mono">CPU Usage</Labeling>
-              <Text className="font-mono">${defaultBillingRates.cpuHourRate}/hour</Text>
+              <Text className="font-mono">${DEFAULT_RATES.CPU_HOUR}/hour</Text>
             </Flex>
             <Box className="pt-2 border-t border-grayShade2">
               <Text className="font-mono text-sm text-gray-600">

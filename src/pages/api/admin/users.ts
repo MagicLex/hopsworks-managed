@@ -48,13 +48,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         // Get today's usage with project breakdown
         const { data: todayUsage } = await supabase
           .from('usage_daily')
-          .select('user_id, opencost_total_cost, project_breakdown')
+          .select('user_id, total_cost, project_breakdown')
           .eq('date', today);
         
         // Get yesterday's usage for 24h comparison
         const { data: yesterdayUsage } = await supabase
           .from('usage_daily')
-          .select('user_id, opencost_total_cost')
+          .select('user_id, total_cost')
           .eq('date', yesterday.toISOString().split('T')[0]);
         
         // Build user data
@@ -65,22 +65,26 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           const yesterdayData = yesterdayUsage?.find(u => u.user_id === user.id);
           
           // Calculate 24h cost
-          user.last_24h_cost = (todayData?.opencost_total_cost || 0) + (yesterdayData?.opencost_total_cost || 0);
+          user.last_24h_cost = (todayData?.total_cost || 0) + (yesterdayData?.total_cost || 0);
           
-          // Build project details with costs from OpenCost
+          // Build project details with usage from OpenCost
           user.projects = projects.map(project => {
-            const projectCost = todayData?.project_breakdown?.[project.namespace] || {};
+            const projectData = todayData?.project_breakdown?.[project.namespace] || {};
+            // Calculate cost from usage
+            const cpuCost = (projectData.cpuHours || 0) * 0.125;
+            const gpuCost = (projectData.gpuHours || 0) * 2.50;
+            const ramCost = (projectData.ramGBHours || 0) * 0.0125;
+            const totalCost = cpuCost + gpuCost + ramCost;
+            
             return {
               namespace: project.namespace,
               name: project.project_name,
               id: project.project_id,
-              is_owner: true, // User owns projects mapped to them
-              total_cost: projectCost.totalCost || 0,
-              cpu_cost: projectCost.cpuCost || 0,
-              memory_cost: projectCost.ramCost || 0,
-              storage_cost: projectCost.storageCost || 0,
-              cpu_hours: projectCost.cpuHours || 0,
-              ram_gb_hours: projectCost.ramGBHours || 0
+              is_owner: true,
+              total_cost: totalCost,
+              cpu_hours: projectData.cpuHours || 0,
+              gpu_hours: projectData.gpuHours || 0,
+              ram_gb_hours: projectData.ramGBHours || 0
             };
           });
           

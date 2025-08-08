@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { OpenCostDirect } from '../../../lib/opencost-direct';
 import { getHopsworksUserByUsername, getUserProjects, getAllProjects } from '../../../lib/hopsworks-api';
+import { calculateCreditsUsed, calculateDollarAmount } from '../../../config/billing-rates';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -70,7 +71,6 @@ async function collectOpenCostMetrics() {
     successful: 0,
     failed: 0,
     errors: [] as string[],
-    totalCost: 0,
     namespaces: [] as any[]
   };
 
@@ -167,26 +167,26 @@ async function collectOpenCostMetrics() {
         .eq('date', currentDate)
         .single();
 
-      // Calculate the hourly costs
-      const hourlyCpuCost = allocation.cpuCost;
-      const hourlyRamCost = allocation.ramCost;
-      const hourlyStorageCost = allocation.pvCost;
-      const hourlyTotalCost = allocation.totalCost;
-
-      // Convert to hours
-      const cpuHours = allocation.cpuCoreHours;
-      const ramGBHours = allocation.ramByteHours / (1024 * 1024 * 1024);
+      // Extract usage metrics
+      const cpuHours = allocation.cpuCoreHours || 0;
+      const ramGBHours = (allocation.ramByteHours || 0) / (1024 * 1024 * 1024);
+      const gpuHours = allocation.gpuHours || 0; // If OpenCost provides GPU data
+      
+      // Calculate cost using our rates
+      const creditsUsed = calculateCreditsUsed({
+        cpuHours,
+        gpuHours,
+        ramGbHours: ramGBHours
+      });
+      const hourlyTotalCost = calculateDollarAmount(creditsUsed);
 
       if (existingUsage) {
-        // Update existing record - ADD the hourly costs
+        // Update existing record - ADD the hourly usage
         const updatedProjectBreakdown = existingUsage.project_breakdown || {};
         updatedProjectBreakdown[namespace] = {
           name: projectName,
-          cpuCost: hourlyCpuCost,
-          ramCost: hourlyRamCost,
-          storageCost: hourlyStorageCost,
-          totalCost: hourlyTotalCost,
           cpuHours: cpuHours,
+          gpuHours: gpuHours,
           ramGBHours: ramGBHours,
           cpuEfficiency: allocation.cpuEfficiency,
           ramEfficiency: allocation.ramEfficiency,
@@ -196,14 +196,11 @@ async function collectOpenCostMetrics() {
         await supabaseAdmin
           .from('usage_daily')
           .update({
-            opencost_cpu_cost: (existingUsage.opencost_cpu_cost || 0) + hourlyCpuCost,
-            opencost_ram_cost: (existingUsage.opencost_ram_cost || 0) + hourlyRamCost,
-            opencost_storage_cost: (existingUsage.opencost_storage_cost || 0) + hourlyStorageCost,
-            opencost_total_cost: (existingUsage.opencost_total_cost || 0) + hourlyTotalCost,
             opencost_cpu_hours: (existingUsage.opencost_cpu_hours || 0) + cpuHours,
+            opencost_gpu_hours: (existingUsage.opencost_gpu_hours || 0) + gpuHours,
             opencost_ram_gb_hours: (existingUsage.opencost_ram_gb_hours || 0) + ramGBHours,
-            project_breakdown: updatedProjectBreakdown,
-            total_cost: (existingUsage.opencost_total_cost || 0) + hourlyTotalCost // Use OpenCost as source of truth
+            total_cost: (existingUsage.total_cost || 0) + hourlyTotalCost,
+            project_breakdown: updatedProjectBreakdown
           })
           .eq('id', existingUsage.id);
       } else {
@@ -211,11 +208,8 @@ async function collectOpenCostMetrics() {
         const projectBreakdown: any = {};
         projectBreakdown[namespace] = {
           name: projectName,
-          cpuCost: hourlyCpuCost,
-          ramCost: hourlyRamCost,
-          storageCost: hourlyStorageCost,
-          totalCost: hourlyTotalCost,
           cpuHours: cpuHours,
+          gpuHours: gpuHours,
           ramGBHours: ramGBHours,
           cpuEfficiency: allocation.cpuEfficiency,
           ramEfficiency: allocation.ramEfficiency,
@@ -227,25 +221,23 @@ async function collectOpenCostMetrics() {
           .insert({
             user_id: userId,
             date: currentDate,
-            opencost_cpu_cost: hourlyCpuCost,
-            opencost_ram_cost: hourlyRamCost,
-            opencost_storage_cost: hourlyStorageCost,
-            opencost_total_cost: hourlyTotalCost,
             opencost_cpu_hours: cpuHours,
+            opencost_gpu_hours: gpuHours,
             opencost_ram_gb_hours: ramGBHours,
-            project_breakdown: projectBreakdown,
             total_cost: hourlyTotalCost,
+            project_breakdown: projectBreakdown,
             hopsworks_cluster_id: cluster.id
           });
       }
 
       results.successful++;
-      results.totalCost += hourlyTotalCost;
       results.namespaces.push({
         namespace,
         projectName,
         userId,
-        cost: hourlyTotalCost
+        cpuHours,
+        gpuHours,
+        ramGBHours
       });
 
     } catch (error) {
@@ -265,7 +257,7 @@ async function collectOpenCostMetrics() {
     .lt('last_seen_at', thirtyDaysAgo.toISOString())
     .eq('status', 'active');
 
-    console.log(`OpenCost collection completed: ${results.successful} successful, ${results.failed} failed, total cost: $${results.totalCost.toFixed(4)}`);
+    console.log(`OpenCost collection completed: ${results.successful} successful, ${results.failed} failed`);
 
     return {
       message: 'OpenCost metrics collection completed',

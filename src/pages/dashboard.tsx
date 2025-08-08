@@ -8,7 +8,7 @@ import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Cop
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import ClusterAccessStatus from '@/components/ClusterAccessStatus';
-import { defaultBillingRates } from '@/config/billing-rates';
+import { DEFAULT_RATES } from '@/config/billing-rates';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface UsageData {
@@ -851,13 +851,13 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                           <Card variant="readOnly" className="p-4">
                             <Flex justify="between">
                               <Text className="text-sm text-gray-600">CPU Usage</Text>
-                              <Text className="text-sm font-medium">${defaultBillingRates.cpuHourRate.toFixed(2)} / hour</Text>
+                              <Text className="text-sm font-medium">${DEFAULT_RATES.CPU_HOUR.toFixed(2)} / hour</Text>
                             </Flex>
                           </Card>
                           <Card variant="readOnly" className="p-4">
                             <Flex justify="between">
                               <Text className="text-sm text-gray-600">Storage</Text>
-                              <Text className="text-sm font-medium">${defaultBillingRates.storageGbMonthRate.toFixed(2)} / GB / month</Text>
+                              <Text className="text-sm font-medium">${DEFAULT_RATES.STORAGE_ONLINE_GB.toFixed(2)} / GB / month</Text>
                             </Flex>
                           </Card>
                           

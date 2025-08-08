@@ -8,7 +8,7 @@ import Navbar from '@/components/Navbar';
 import { DeployModal } from '@/components/DeployModal';
 import { Box, Title, Text, Flex } from 'tailwind-quartz';
 import { useAuth } from '@/contexts/AuthContext';
-import { defaultBillingRates } from '@/config/billing-rates';
+import { DEFAULT_RATES } from '@/config/billing-rates';
 
 export default function Home() {
   const [isYearly, setIsYearly] = useState(false);
@@ -38,7 +38,7 @@ export default function Home() {
     <>
       <Head>
         <title>Hopsworks - Pay-As-You-Go ML Platform | Feature Store & MLOps</title>
-        <meta name="description" content={`Start using Hopsworks instantly. Enterprise-grade feature store, ML pipelines, and model deployment. Pay only for what you use - $${defaultBillingRates.cpuHourRate}/CPU hour. No upfront costs.`} />
+        <meta name="description" content={`Start using Hopsworks instantly. Enterprise-grade feature store, ML pipelines, and model deployment. Pay only for what you use - $${DEFAULT_RATES.CPU_HOUR}/CPU hour. No upfront costs.`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         
         {/* Open Graph / Facebook */}
@@ -72,7 +72,7 @@ export default function Home() {
                 "priceSpecification": [
                   {
                     "@type": "UnitPriceSpecification",
-                    "price": String(defaultBillingRates.cpuHourRate),
+                    "price": String(DEFAULT_RATES.CPU_HOUR),
                     "priceCurrency": "USD",
                     "unitText": "CPU hour"
                   }
