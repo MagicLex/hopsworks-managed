@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: monthlyUsage, error: usageError } = await supabaseAdmin
       .from('usage_daily')
-      .select('cpu_hours, gpu_hours, storage_gb, feature_store_api_calls, model_inference_calls')
+      .select('opencost_cpu_hours, opencost_gpu_hours, online_storage_gb, offline_storage_gb')
       .eq('user_id', userId)
       .gte('date', startOfMonth.toISOString().split('T')[0])
       .lte('date', currentDate);
@@ -45,12 +45,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Sum up the usage
     const totalUsage = monthlyUsage?.reduce((acc, day) => ({
-      cpuHours: acc.cpuHours + (day.cpu_hours || 0),
-      gpuHours: acc.gpuHours + (day.gpu_hours || 0),
-      storageGB: Math.max(acc.storageGB, day.storage_gb || 0), // Use max for storage
-      apiCalls: acc.apiCalls + (day.feature_store_api_calls || 0) + (day.model_inference_calls || 0), // Sum of both API types
-      featureStoreApiCalls: acc.featureStoreApiCalls + (day.feature_store_api_calls || 0),
-      modelInferenceCalls: acc.modelInferenceCalls + (day.model_inference_calls || 0)
+      cpuHours: acc.cpuHours + (day.opencost_cpu_hours || 0),
+      gpuHours: acc.gpuHours + (day.opencost_gpu_hours || 0),
+      storageGB: Math.max(acc.storageGB, (day.online_storage_gb || 0) + (day.offline_storage_gb || 0)), // Use max for storage
+      apiCalls: 0, // Not tracked in current schema
+      featureStoreApiCalls: 0,
+      modelInferenceCalls: 0
     }), { 
       cpuHours: 0, 
       gpuHours: 0, 

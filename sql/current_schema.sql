@@ -73,22 +73,39 @@ CREATE TABLE IF NOT EXISTS user_credits (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Daily usage tracking
+-- Daily usage tracking (OpenCost integration)
 CREATE TABLE IF NOT EXISTS usage_daily (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT REFERENCES users(id),
   account_owner_id TEXT REFERENCES users(id),
   date DATE NOT NULL,
-  cpu_hours DECIMAL(10,2) DEFAULT 0,
-  gpu_hours DECIMAL(10,2) DEFAULT 0,
-  storage_gb DECIMAL(10,2) DEFAULT 0,
-  api_calls INTEGER DEFAULT 0,
-  feature_store_api_calls INTEGER DEFAULT 0,
-  model_inference_calls INTEGER DEFAULT 0,
-  instance_type TEXT,
-  instance_hours DECIMAL(10,2),
+  
+  -- OpenCost metrics
+  opencost_cpu_cost DECIMAL(10,4) DEFAULT 0,
+  opencost_ram_cost DECIMAL(10,4) DEFAULT 0,
+  opencost_storage_cost DECIMAL(10,4) DEFAULT 0,
+  opencost_total_cost DECIMAL(10,4) DEFAULT 0,
+  opencost_cpu_hours DECIMAL(10,4) DEFAULT 0,
+  opencost_ram_gb_hours DECIMAL(10,4) DEFAULT 0,
+  opencost_gpu_cost DECIMAL(10,4) DEFAULT 0,
+  opencost_gpu_hours DECIMAL(10,4) DEFAULT 0,
+  
+  -- Storage breakdown
+  online_storage_gb DECIMAL(10,4) DEFAULT 0,
+  offline_storage_gb DECIMAL(10,4) DEFAULT 0,
+  online_storage_cost DECIMAL(10,4) DEFAULT 0,
+  offline_storage_cost DECIMAL(10,4) DEFAULT 0,
+  
+  -- Network
+  network_egress_gb DECIMAL(10,4) DEFAULT 0,
+  network_egress_cost DECIMAL(10,4) DEFAULT 0,
+  
+  -- Metadata
+  project_breakdown JSONB,
+  instance_types JSONB DEFAULT '{}'::jsonb,
+  resource_efficiency JSONB DEFAULT '{}'::jsonb,
+  
   total_cost DECIMAL(10,2) DEFAULT 0,
-  reported_to_stripe BOOLEAN DEFAULT false,
   hopsworks_cluster_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, date)
@@ -179,30 +196,39 @@ WHERE tm.account_owner_id IS NOT NULL;
 CREATE OR REPLACE VIEW account_usage AS
 SELECT 
   COALESCE(u.account_owner_id, u.id) as account_owner_id,
-  date,
-  SUM(cpu_hours) as total_cpu_hours,
-  SUM(gpu_hours) as total_gpu_hours,
-  SUM(storage_gb) as total_storage_gb,
-  SUM(cpu_hours * 0.1 + gpu_hours * 1.0 + storage_gb * 0.01) as total_cost
+  ud.date,
+  SUM(ud.opencost_cpu_hours) as total_cpu_hours,
+  SUM(ud.opencost_gpu_hours) as total_gpu_hours,
+  SUM(ud.opencost_ram_gb_hours) as total_ram_gb_hours,
+  SUM(ud.online_storage_gb) as total_online_storage_gb,
+  SUM(ud.offline_storage_gb) as total_offline_storage_gb,
+  SUM(ud.opencost_total_cost) as total_cost,
+  SUM(ud.opencost_cpu_cost) as cpu_cost,
+  SUM(ud.opencost_gpu_cost) as gpu_cost,
+  SUM(ud.opencost_ram_cost) as ram_cost,
+  SUM(ud.online_storage_cost + ud.offline_storage_cost) as storage_cost
 FROM usage_daily ud
 JOIN users u ON ud.user_id = u.id
-GROUP BY COALESCE(u.account_owner_id, u.id), date;
+GROUP BY COALESCE(u.account_owner_id, u.id), ud.date;
 
 CREATE OR REPLACE VIEW account_usage_summary AS
 SELECT 
   COALESCE(u.account_owner_id, u.id) as account_owner_id,
   ud.date,
-  SUM(ud.cpu_hours) as total_cpu_hours,
-  SUM(ud.gpu_hours) as total_gpu_hours,
-  SUM(ud.storage_gb) as total_storage_gb,
-  SUM(ud.cpu_hours * 0.0001) as total_cost,
+  SUM(ud.opencost_cpu_hours) as total_cpu_hours,
+  SUM(ud.opencost_gpu_hours) as total_gpu_hours,
+  SUM(ud.online_storage_gb + ud.offline_storage_gb) as total_storage_gb,
+  SUM(ud.opencost_total_cost) as total_cost,
   COUNT(DISTINCT ud.user_id) as active_users,
   jsonb_object_agg(
     ud.user_id, 
     jsonb_build_object(
-      'cpu_hours', ud.cpu_hours,
-      'gpu_hours', ud.gpu_hours,
-      'storage_gb', ud.storage_gb
+      'cpu_hours', ud.opencost_cpu_hours,
+      'gpu_hours', ud.opencost_gpu_hours,
+      'storage_gb', ud.online_storage_gb + ud.offline_storage_gb,
+      'cpu_cost', ud.opencost_cpu_cost,
+      'gpu_cost', ud.opencost_gpu_cost,
+      'storage_cost', ud.online_storage_cost + ud.offline_storage_cost
     )
   ) as user_breakdown
 FROM usage_daily ud

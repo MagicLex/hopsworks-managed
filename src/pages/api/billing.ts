@@ -52,7 +52,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         hasPaymentMethod: true, // Team members don't need payment
         currentUsage: {
           cpuHours: 0,
-          currentMonth: { total: 0 }
+          storageGB: 0,
+          currentMonth: { 
+            cpuCost: 0,
+            storageCost: 0,
+            baseCost: 0,
+            total: 0 
+          }
         }
       });
     }
@@ -64,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: currentMonthData } = await supabaseAdmin
       .from('usage_daily')
-      .select('opencost_cpu_hours, opencost_gpu_hours, opencost_ram_gb_hours, total_cost')
+      .select('opencost_cpu_hours, opencost_gpu_hours, opencost_ram_gb_hours, opencost_total_cost, online_storage_gb, offline_storage_gb')
       .eq('user_id', userId)
       .gte('date', startOfMonth.toISOString().split('T')[0]);
 
@@ -72,8 +78,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const currentMonthTotals = currentMonthData?.reduce((acc, day) => ({
       cpuHours: acc.cpuHours + (day.opencost_cpu_hours || 0),
       gpuHours: acc.gpuHours + (day.opencost_gpu_hours || 0),
-      storageGB: acc.storageGB + (day.opencost_ram_gb_hours || 0) / 24, // Convert GB-hours to GB
-      totalCost: acc.totalCost + (day.total_cost || 0)
+      storageGB: acc.storageGB + (day.online_storage_gb || 0) + (day.offline_storage_gb || 0),
+      totalCost: acc.totalCost + (day.opencost_total_cost || 0)
     }), { cpuHours: 0, gpuHours: 0, storageGB: 0, totalCost: 0 }) || 
     { cpuHours: 0, gpuHours: 0, storageGB: 0, totalCost: 0 };
 
@@ -84,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     const { data: historicalData } = await supabaseAdmin
       .from('usage_daily')
-      .select('date, opencost_cpu_hours, opencost_gpu_hours, opencost_ram_gb_hours, total_cost')
+      .select('date, opencost_cpu_hours, opencost_gpu_hours, online_storage_gb, offline_storage_gb, opencost_total_cost')
       .eq('user_id', userId)
       .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
       .order('date', { ascending: true });
@@ -226,6 +232,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cpuHours: currentMonthTotals.cpuHours.toFixed(2),
         storageGB: currentMonthTotals.storageGB.toFixed(2),
         currentMonth: {
+          cpuCost: currentMonthTotals.cpuHours * DEFAULT_RATES.CPU_HOUR,
+          storageCost: currentMonthTotals.storageGB * DEFAULT_RATES.STORAGE_ONLINE_GB,
+          baseCost: currentMonthTotals.totalCost,
           total: currentMonthTotals.totalCost
         }
       },
@@ -241,8 +250,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         date: day.date,
         cpu_hours: day.opencost_cpu_hours || 0,
         gpu_hours: day.opencost_gpu_hours || 0,
-        storage_gb: (day.opencost_ram_gb_hours || 0) / 24,
-        total_cost: day.total_cost || 0
+        storage_gb: (day.online_storage_gb || 0) + (day.offline_storage_gb || 0),
+        total_cost: day.opencost_total_cost || 0
       })) || [],
       // Display rates (actual billing happens via Stripe for postpaid)
       rates: {

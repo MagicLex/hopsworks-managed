@@ -2,301 +2,262 @@
 
 ## Overview
 
-The billing system uses **OpenCost** to track actual Kubernetes resource costs and bills users based on their project usage. All costs are sourced directly from OpenCost, ensuring accurate billing based on real cloud infrastructure costs.
+The billing system tracks resource usage via OpenCost and applies our pricing model. We support both **prepaid** (enterprise/invoice) and **postpaid** (Stripe) billing modes.
 
 ## Architecture
 
-### Cost Collection Pipeline
-
 ```
-OpenCost (in cluster) → kubectl exec → Vercel API → Database → Stripe Billing
+OpenCost (usage units) → Our Pricing → Database → Stripe (postpaid) or Invoice (prepaid)
 ```
 
-1. **OpenCost** runs in the Kubernetes cluster and tracks costs per namespace
-2. **Hourly Collection** via Vercel cron job (`/api/usage/collect-opencost`)
-3. **Direct Query** using `kubectl exec` - no external exposure needed
-4. **Cost Aggregation** per user across all their projects
-5. **Stripe Integration** for payment processing
+### Key Principles
+- **OpenCost** collects raw usage metrics (CPU hours, GPU hours, RAM GB-hours)
+- **We apply pricing** using our rate card
+- **Stripe handles billing** for postpaid customers
+- **Manual invoicing** for prepaid/enterprise customers
 
-## Key Components
+## Pricing Model
 
-### OpenCost Integration
+### Resource Rates
+```
+CPU:             $0.125/hour    (0.5 credits)
+GPU:             $2.50/hour     (10 credits)
+RAM:             $0.0125/GB-hour (0.05 credits)
+Online Storage:  $0.50/GB/month  (2 credits)
+Offline Storage: $0.03/GB/month  (0.12 credits)
+Network Egress:  $0.10/GB        (0.4 credits)
 
-OpenCost provides real-time cost data for Kubernetes workloads:
-- CPU costs per hour
-- RAM costs per hour  
-- Storage (PV) costs
-- Network costs (if configured)
-- Load balancer costs (if applicable)
+1 Credit = $0.25
+```
 
-### Data Flow
+### Billing Modes
 
-1. **Namespace → User Mapping**
-   - Each Hopsworks project runs in its own Kubernetes namespace
-   - `user_projects` table maps namespaces to user accounts
-   - Users can own multiple projects/namespaces
+#### Prepaid (Enterprise)
+- Customer pays via invoice/wire transfer
+- Usage tracked for reporting
+- No Stripe integration
+- Manual monthly/quarterly invoicing
+- Set via `billing_mode: 'prepaid'` in database
 
-2. **Hourly Cost Collection**
-   ```
-   Every hour:
-   - Query OpenCost for last hour's costs per namespace
-   - Map each namespace to its owner via user_projects
-   - Accumulate costs in usage_daily table
-   - Update project_breakdown JSONB with details
-   ```
+#### Postpaid (SaaS)
+- Automatic billing via Stripe
+- Usage reported daily to Stripe
+- Stripe handles invoicing, taxes, payments
+- Credit card on file required
 
-3. **Daily Aggregation**
-   - One `usage_daily` record per user per day
-   - Costs accumulate throughout the day (24 updates)
-   - Total cost = sum of all user's projects
+## Data Flow
+
+### 1. Usage Collection (Hourly)
+```javascript
+// OpenCost provides usage metrics per namespace
+{
+  "namespace": "mlproject",
+  "cpuCoreHours": 24.5,      // Raw usage
+  "gpuHours": 0,
+  "ramByteHours": 137438953472
+}
+
+// We calculate costs
+cpuCost = 24.5 * 0.125 = $3.06
+totalCost = cpuCost + gpuCost + ramCost
+```
+
+### 2. Cost Storage
+```sql
+-- usage_daily table stores both usage and calculated costs
+opencost_cpu_hours: 24.5        -- Usage from OpenCost
+opencost_gpu_hours: 0
+opencost_ram_gb_hours: 128
+total_cost: 3.25                -- Our calculated cost
+```
+
+### 3. Billing
+
+**Prepaid Users:**
+- See costs in dashboard
+- Receive monthly usage reports
+- Pay via invoice
+
+**Postpaid Users:**
+- Usage reported to Stripe daily
+- Stripe calculates final invoice
+- Automatic payment processing
 
 ## Database Schema
 
-### user_projects
-Maps Kubernetes namespaces to users for billing:
-```sql
-- user_id: Owner of the project
-- project_id: Hopsworks project ID
-- namespace: Kubernetes namespace name
-- status: active/inactive
-- last_seen_at: Last time costs were recorded
-```
-
 ### usage_daily
-Stores daily costs from OpenCost:
+Stores daily usage and costs:
 ```sql
-- opencost_cpu_cost: CPU costs in USD
-- opencost_ram_cost: RAM costs in USD  
-- opencost_storage_cost: Storage costs in USD
-- opencost_total_cost: Total daily cost
-- project_breakdown: JSONB with per-project details
+-- Usage metrics (from OpenCost)
+opencost_cpu_hours DECIMAL(10,4)
+opencost_gpu_hours DECIMAL(10,4)  
+opencost_ram_gb_hours DECIMAL(10,4)
+
+-- Storage metrics
+online_storage_gb DECIMAL(10,4)
+offline_storage_gb DECIMAL(10,4)
+
+-- Calculated costs (our pricing)
+total_cost DECIMAL(10,2)
+
+-- Project breakdown
+project_breakdown JSONB  -- Per-project usage details
 ```
 
-## Billing Modes
-
-### Prepaid
-- Users purchase credits upfront
-- Daily costs deducted from balance
-- Auto-refill available when balance is low
-- Credits tracked in `user_credits` table
-
-### Postpaid
-- Usage accumulated throughout the month
-- Monthly invoice generated from OpenCost totals
-- Stripe charges at end of billing period
-- No upfront payment required
-
-## Cost Calculation
-
-All costs come directly from OpenCost based on actual resource usage:
-
-```javascript
-// Example OpenCost response for a namespace
-{
-  "namespace": "mlproject",
-  "cpuCoreHours": 24.5,
-  "cpuCost": 1.23,
-  "ramByteHours": 137438953472,
-  "ramCost": 0.45,
-  "pvByteHours": 10737418240,
-  "pvCost": 0.10,
-  "totalCost": 1.78
-}
+### user_credits (Prepaid only)
+```sql
+total_purchased DECIMAL(10,2)   -- Credits purchased
+total_used DECIMAL(10,2)        -- Credits consumed
 ```
 
 ## API Endpoints
 
-### Cost Collection
-- `POST /api/usage/collect-opencost` - Hourly cron job
-- Collects costs from OpenCost
-- Updates usage_daily records
-- Maps namespaces to users
+### User Facing
+- `GET /api/billing` - Billing info with rates
+- `GET /api/usage` - Usage history
 
-### Billing Management
-- `GET /api/billing` - Get user's billing info
-- `GET /api/billing/balance` - Get credit balance
-- `POST /api/billing/purchase-credits` - Buy credits
-- `POST /api/billing/sync-stripe` - Sync with Stripe
+### Internal
+- `POST /api/usage/collect-opencost` - Collect usage (hourly cron)
+- `POST /api/billing/report-usage` - Report to Stripe (daily cron)
 
-### Admin Endpoints
-- `GET /api/admin/billing` - View all user billing
+### Admin
+- `GET /api/admin/users` - View all users with costs
+- `POST /api/admin/usage/collect` - Manual collection trigger
+
+## Stripe Integration (Postpaid Only)
+
+### Setup
+1. Create metered products in Stripe Dashboard
+2. Set price IDs in environment variables
+3. Configure webhook endpoint
+
+### Daily Reporting
+```javascript
+// Report usage to Stripe for billing
+await stripe.billing.meterEvents.create({
+  event_name: 'cpu_usage',
+  payload: {
+    value: cpuHours,
+    stripe_customer_id: customerId
+  }
+});
+```
+
+### Webhook Events
+- `customer.subscription.created` - New subscription
+- `invoice.payment_succeeded` - Payment received
+- `invoice.payment_failed` - Payment failed
+
+## Implementation Files
+
+### Core Files
+- `src/config/billing-rates.ts` - Pricing configuration
+- `src/pages/api/usage/collect-opencost.ts` - Usage collection
+- `src/pages/api/billing/report-usage.ts` - Stripe reporting
+- `src/pages/api/billing.ts` - User billing API
+
+### Admin Files
+- `src/pages/admin47392.tsx` - Admin dashboard
+- `src/pages/api/admin/users.ts` - User management
 
 ## Cron Jobs
 
-### Hourly Cost Collection
 ```json
+// vercel.json
 {
-  "path": "/api/usage/collect-opencost",
-  "schedule": "0 * * * *"  // Every hour
+  "crons": [
+    {
+      "path": "/api/usage/collect-opencost",
+      "schedule": "0 * * * *"  // Every hour
+    },
+    {
+      "path": "/api/billing/report-usage",
+      "schedule": "0 2 * * *"   // Daily at 2 AM
+    }
+  ]
 }
 ```
 
-### Daily Stripe Sync
-```json
-{
-  "path": "/api/billing/sync-stripe",
-  "schedule": "0 3 * * *"  // 3 AM daily
-}
-```
-
-## Team Billing
-
-For team accounts:
-1. Each team member can create projects
-2. All project costs aggregate to the account owner
-3. Owner sees breakdown by team member and project
-4. Single invoice for the entire team
-
-## Setup Requirements
-
-### 1. OpenCost Installation
-OpenCost must be installed in your Kubernetes cluster:
+## Environment Variables
 
 ```bash
-# Install OpenCost using Helm
-helm repo add opencost https://opencost.github.io/opencost-helm-chart
-helm install opencost opencost/opencost \
-  --namespace opencost --create-namespace
+# Stripe (postpaid only)
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Price IDs from Stripe
+STRIPE_PRICE_CPU_HOURS=price_...
+STRIPE_PRICE_GPU_HOURS=price_...
+STRIPE_PRICE_RAM_GB_HOURS=price_...
+STRIPE_PRICE_STORAGE_ONLINE=price_...
+STRIPE_PRICE_STORAGE_OFFLINE=price_...
+STRIPE_PRICE_NETWORK_EGRESS=price_...
+
+# Cron authentication
+CRON_SECRET=...
 ```
-
-### 2. Kubeconfig Setup
-1. Upload kubeconfig in Admin UI (`/admin47392`)
-2. Test connection with "Test OpenCost" button
-3. Verify you see namespace costs
-
-### 3. Database Migration
-Run the migration to add OpenCost tables and columns:
-
-```sql
--- Run sql/migrations/001_opencost_integration.sql in Supabase
-```
-
-### 4. Environment Variables
-```env
-# Existing variables remain unchanged
-NEXT_PUBLIC_SUPABASE_URL=...
-SUPABASE_SERVICE_ROLE_KEY=...
-STRIPE_SECRET_KEY=...
-```
-
-## Stripe Integration
-
-### Products Setup
-Products are automatically created based on OpenCost costs. No manual product creation needed.
-
-### Webhook Configuration
-```
-Production: https://your-domain.vercel.app/api/webhooks/stripe
-```
-
-### Payment Flow
-1. **Prepaid**: Purchase credits → Deduct daily from balance
-2. **Postpaid**: Accumulate monthly → Charge via Stripe invoice
 
 ## Admin Features
 
 Access at `/admin47392`:
 
-### Cluster Management
-- View all Hopsworks clusters
-- Upload/update kubeconfig
-- Test OpenCost connection
-- Monitor connection status
+### Billing Overview
+- View all users with total PAYG amounts
+- Today's costs per user
+- Expandable project breakdown
+- Shows usage (CPU/GPU/RAM hours) and costs
 
-### Cost Monitoring
-- View real-time costs per namespace
-- Check user-project mappings
-- Force collection manually
-- Review billing history
+### Manual Actions
+- "Update Usage Data" - Trigger collection manually
+- View collection results and errors
 
-## Troubleshooting
-
-### No Costs Showing
-1. **Check OpenCost is running:**
-   ```bash
-   kubectl get pods -n opencost
-   ```
-
-2. **Test connection in Admin UI:**
-   - Go to `/admin47392` → Clusters tab
-   - Click "Test OpenCost" for your cluster
-   - Should show connected + namespace count
-
-3. **Verify namespace mapping:**
-   ```sql
-   SELECT * FROM user_projects WHERE user_id = 'YOUR_USER_ID';
-   ```
-
-### Collection Failures
-1. **Check cron logs in Vercel dashboard**
-2. **Verify kubeconfig is valid:**
-   ```bash
-   kubectl --kubeconfig=your-kubeconfig.yml get nodes
-   ```
-3. **Check OpenCost API directly:**
-   ```bash
-   kubectl exec -n opencost deploy/opencost -- \
-     curl -s "http://localhost:9003/allocation/compute?window=1h&aggregate=namespace"
-   ```
-
-### Unmapped Namespaces
-- Namespaces without owners won't be billed
-- Check Hopsworks API for project ownership
-- Ensure users have `hopsworks_username` set
-
-## Common SQL Queries
+## SQL Queries
 
 ```sql
--- Current month OpenCost totals
+-- User's current month cost
 SELECT 
-  date,
-  opencost_total_cost,
+  SUM(total_cost) as month_total
+FROM usage_daily
+WHERE user_id = 'auth0|123'
+AND date >= date_trunc('month', CURRENT_DATE);
+
+-- Project breakdown for today
+SELECT 
   project_breakdown
 FROM usage_daily
-WHERE user_id = 'USER_ID'
-AND date >= date_trunc('month', CURRENT_DATE)
-ORDER BY date DESC;
+WHERE user_id = 'auth0|123'
+AND date = CURRENT_DATE;
 
--- All projects for a user
-SELECT * FROM user_projects 
-WHERE user_id = 'USER_ID' 
-AND status = 'active';
-
--- Credits balance (prepaid users)
+-- Prepaid balance
 SELECT 
   total_purchased - total_used as balance
 FROM user_credits
-WHERE user_id = 'USER_ID';
-
--- Daily cost breakdown by project
-SELECT 
-  date,
-  jsonb_each_text(project_breakdown) as project_costs
-FROM usage_daily
-WHERE user_id = 'USER_ID'
-AND date = CURRENT_DATE;
+WHERE user_id = 'auth0|123';
 ```
 
-## Security
+## Testing
 
-- **No External Exposure**: OpenCost not exposed outside cluster
-- **Secure Access**: Uses kubeconfig with kubectl exec
-- **Read-Only**: Only queries costs, no modifications
-- **Encrypted Storage**: Kubeconfig stored encrypted in database
+### Test Prepaid Billing
+1. Set user to `billing_mode: 'prepaid'`
+2. Run usage collection
+3. Verify costs appear but no Stripe activity
 
-## Migration from Legacy System
+### Test Postpaid Billing
+1. Set user to `billing_mode: 'postpaid'`
+2. Ensure Stripe subscription exists
+3. Run usage collection
+4. Run Stripe reporting
+5. Check Stripe dashboard for usage records
 
-The system previously used hardcoded pricing. To migrate:
+## Migration Notes
 
-1. **Keep legacy fields** for historical data
-2. **Use OpenCost fields** going forward:
-   - `opencost_total_cost` instead of calculated `total_cost`
-   - `opencost_cpu_cost` instead of `cpu_hours * rate`
-3. **Gradual transition** - both systems can run in parallel
+### From Old System
+- Legacy fields removed from `usage_daily`
+- OpenCost no longer stores costs, only usage
+- Pricing now in `billing-rates.ts`
+- Views updated to use new fields
 
-## Related Documentation
-
-- [Database Schema](database/03-billing-tables.md)
-- [API Documentation](api.md)
-- [Deployment Guide](deployment.md)
-- [Architecture Overview](architecture.md)
+### Backward Compatibility
+- `total_cost` field maintained for display
+- Old data remains readable
+- Gradual migration possible
