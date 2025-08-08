@@ -423,46 +423,44 @@ export default function AdminPage() {
               <Box className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-grayShade2">
-                      <th className="text-left py-2">Email</th>
-                      <th className="text-left py-2">Name</th>
-                      <th className="text-left py-2">HW Username</th>
-                      <th className="text-left py-2">Status</th>
-                      <th className="text-left py-2">Admin</th>
-                      <th className="text-left py-2">Cluster</th>
-                      <th className="text-left py-2">Logins</th>
-                      <th className="text-left py-2">Credits Used</th>
-                      <th className="text-left py-2">Created</th>
-                      <th className="text-left py-2">Actions</th>
+                    <tr className="border-b border-grayShade2 text-xs font-semibold uppercase text-gray">
+                      <th className="text-left py-3">User</th>
+                      <th className="text-left py-3">Hopsworks</th>
+                      <th className="text-left py-3">Status</th>
+                      <th className="text-left py-3">Cluster</th>
+                      <th className="text-right py-3">Total Usage</th>
+                      <th className="text-right py-3">24h Cost</th>
+                      <th className="text-left py-3">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.map(user => (
-                      <tr key={user.id} className="border-b border-grayShade2">
-                        <td className="py-2">
-                          <Text className="font-mono text-sm">{user.email}</Text>
+                      <tr key={user.id} className="border-b border-grayShade1 hover:bg-grayShade1/30">
+                        <td className="py-3">
+                          <Box>
+                            <Text className="font-medium">{user.name || 'Unknown User'}</Text>
+                            <Text className="text-xs text-gray">{user.email}</Text>
+                            {user.is_admin && <Badge size="sm" variant="warning" className="mt-1">Admin</Badge>}
+                          </Box>
                         </td>
-                        <td className="py-2">
-                          <Text>{user.name || '-'}</Text>
+                        <td className="py-3">
+                          {user.hopsworks_username ? (
+                            <Text className="font-mono text-sm">{user.hopsworks_username}</Text>
+                          ) : user.user_hopsworks_assignments?.[0] ? (
+                            <Button
+                              onClick={() => syncUsername(user.id)}
+                              disabled={testingHopsworks[`sync-${user.id}`]}
+                              size="md"
+                              intent="secondary"
+                              className="text-xs"
+                            >
+                              {testingHopsworks[`sync-${user.id}`] ? '...' : 'Sync'}
+                            </Button>
+                          ) : (
+                            <Text className="text-xs text-gray">-</Text>
+                          )}
                         </td>
-                        <td className="py-2">
-                          <Flex align="center" gap={4}>
-                            <Text className="font-mono text-sm">
-                              {user.hopsworks_username || '-'}
-                            </Text>
-                            {!user.hopsworks_username && user.user_hopsworks_assignments?.[0] && (
-                              <Button
-                                onClick={() => syncUsername(user.id)}
-                                disabled={testingHopsworks[`sync-${user.id}`]}
-                                size="md"
-                                intent="secondary"
-                              >
-                                {testingHopsworks[`sync-${user.id}`] ? '...' : 'Sync'}
-                              </Button>
-                            )}
-                          </Flex>
-                        </td>
-                        <td className="py-2">
+                        <td className="py-3">
                           <Badge 
                             variant={user.status === 'active' ? 'success' : 'default'}
                             size="sm"
@@ -470,28 +468,35 @@ export default function AdminPage() {
                             {user.status}
                           </Badge>
                         </td>
-                        <td className="py-2">
-                          <Text>{user.is_admin ? '✓' : '-'}</Text>
-                        </td>
-                        <td className="py-2">
+                        <td className="py-3">
                           {user.user_hopsworks_assignments?.[0] ? (
-                            <Badge size="sm" variant="default">
+                            <Text className="text-sm">
                               {user.user_hopsworks_assignments[0].hopsworks_clusters.name}
-                            </Badge>
+                            </Text>
                           ) : (
-                            <Text className="text-gray">-</Text>
+                            <Text className="text-xs text-gray">-</Text>
                           )}
                         </td>
-                        <td className="py-2">
-                          <Text>{user.login_count}</Text>
-                        </td>
-                        <td className="py-2">
-                          <Text className="font-mono">
+                        <td className="py-3 text-right">
+                          <Text className="font-mono text-sm">
                             ${user.user_credits?.total_used?.toFixed(2) || '0.00'}
                           </Text>
                         </td>
-                        <td className="py-2">
-                          <Text className="text-gray">{new Date(user.created_at).toLocaleDateString()}</Text>
+                        <td className="py-3 text-right">
+                          {user.last_24h_cost > 0 ? (
+                            <Box>
+                              <Text className="font-mono text-sm font-medium">
+                                ${user.last_24h_cost.toFixed(2)}
+                              </Text>
+                              {user.active_namespaces && user.active_namespaces.length > 0 && (
+                                <Text className="text-xs text-gray">
+                                  {user.active_namespaces.length} ns
+                                </Text>
+                              )}
+                            </Box>
+                          ) : (
+                            <Text className="text-xs text-gray">-</Text>
+                          )}
                         </td>
                         <td className="py-2">
                           {user.user_hopsworks_assignments?.[0] ? (
