@@ -25,7 +25,7 @@ export class OpenCostDirect {
         undefined,
         undefined,
         undefined,
-        'app=opencost'
+        'app.kubernetes.io/name=opencost'
       );
 
       if (!pods.body.items.length) {
