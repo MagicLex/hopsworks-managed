@@ -67,7 +67,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           // Calculate 24h cost
           user.last_24h_cost = (todayData?.opencost_total_cost || 0) + (yesterdayData?.opencost_total_cost || 0);
           
-          // Build project details with costs
+          // Build project details with costs from OpenCost
           user.projects = projects.map(project => {
             const projectCost = todayData?.project_breakdown?.[project.namespace] || {};
             return {
@@ -75,10 +75,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               name: project.project_name,
               id: project.project_id,
               is_owner: true, // User owns projects mapped to them
-              hourly_cost: projectCost.hourly_cost || 0,
-              cpu_cost: projectCost.cpu_cost || 0,
-              memory_cost: projectCost.memory_cost || 0,
-              pv_cost: projectCost.pv_cost || 0
+              total_cost: projectCost.totalCost || 0,
+              cpu_cost: projectCost.cpuCost || 0,
+              memory_cost: projectCost.ramCost || 0,
+              storage_cost: projectCost.storageCost || 0,
+              cpu_hours: projectCost.cpuHours || 0,
+              ram_gb_hours: projectCost.ramGBHours || 0
             };
           });
           

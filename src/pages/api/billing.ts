@@ -65,15 +65,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: currentMonthData } = await supabaseAdmin
       .from('usage_daily')
-      .select('cpu_hours, gpu_hours, storage_gb, total_cost')
+      .select('opencost_cpu_hours, opencost_ram_gb_hours, opencost_total_cost, total_cost')
       .eq('user_id', userId)
       .gte('date', startOfMonth.toISOString().split('T')[0]);
 
-    // Calculate current month totals
+    // Calculate current month totals - use OpenCost data as source of truth
     const currentMonthTotals = currentMonthData?.reduce((acc, day) => ({
-      cpuHours: acc.cpuHours + (day.cpu_hours || 0),
-      storageGB: Math.max(acc.storageGB, day.storage_gb || 0),
-      totalCost: acc.totalCost + (day.total_cost || 0)
+      cpuHours: acc.cpuHours + (day.opencost_cpu_hours || 0),
+      storageGB: acc.storageGB + (day.opencost_ram_gb_hours || 0) / 24, // Convert GB-hours to GB
+      totalCost: acc.totalCost + (day.opencost_total_cost || day.total_cost || 0)
     }), { cpuHours: 0, storageGB: 0, totalCost: 0 }) || 
     { cpuHours: 0, storageGB: 0, totalCost: 0 };
 
@@ -84,7 +84,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     const { data: historicalData } = await supabaseAdmin
       .from('usage_daily')
-      .select('date, cpu_hours, gpu_hours, storage_gb, total_cost')
+      .select('date, opencost_cpu_hours, opencost_ram_gb_hours, opencost_total_cost, total_cost')
       .eq('user_id', userId)
       .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
       .order('date', { ascending: true });
@@ -240,7 +240,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status: bill.status,
         created_at: bill.created_at
       })) || [],
-      historicalUsage: historicalData || []
+      historicalUsage: historicalData?.map(day => ({
+        date: day.date,
+        cpu_hours: day.opencost_cpu_hours || 0,
+        storage_gb: (day.opencost_ram_gb_hours || 0) / 24,
+        total_cost: day.opencost_total_cost || day.total_cost || 0
+      })) || []
     });
   } catch (error) {
     console.error('Error fetching billing:', error);
