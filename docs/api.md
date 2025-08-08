@@ -53,17 +53,37 @@ Get current user's Hopsworks information.
 ```
 
 ### GET /api/usage
-Get user's current usage.
+Get user's current usage from OpenCost.
 
 **Response:**
 ```json
 {
-  "cpuHours": 120.5,
-  "gpuHours": 0,
-  "storageGB": 0,
-  "apiCalls": 0,
-  "featureStoreApiCalls": 0,
-  "modelInferenceCalls": 0
+  "currentMonth": {
+    "opencostTotalCost": 45.67,
+    "opencostCpuCost": 30.45,
+    "opencostRamCost": 12.22,
+    "opencostStorageCost": 3.00,
+    "projects": [
+      {
+        "namespace": "mlproject",
+        "name": "ML Training",
+        "totalCost": 25.50,
+        "cpuHours": 120.5,
+        "ramGBHours": 2048.0
+      }
+    ]
+  },
+  "dailyCosts": [
+    {
+      "date": "2024-01-08",
+      "opencost_total_cost": 1.78,
+      "project_breakdown": {
+        "mlproject": {
+          "totalCost": 1.78
+        }
+      }
+    }
+  ]
 }
 ```
 
@@ -212,6 +232,28 @@ Update cluster's kubeconfig.
 }
 ```
 
+### POST /api/admin/test-opencost
+Test OpenCost connection for a cluster.
+
+**Request:**
+```json
+{
+  "clusterId": "uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "connected": true,
+  "cluster": "cluster-name",
+  "namespaces": 5,
+  "hourlyTotalCost": 12.34,
+  "message": "Connected via kubectl exec! Found 5 namespaces, hourly cost: $12.34"
+}
+```
+
 ### POST /api/admin/test-hopsworks
 Test Hopsworks connection and get user info.
 
@@ -224,7 +266,29 @@ Test Hopsworks connection and get user info.
 ```
 
 ### POST /api/admin/usage/collect
-Manually trigger usage collection for all users.
+Manually trigger OpenCost collection for all users.
+
+**Response:**
+```json
+{
+  "message": "OpenCost metrics collection completed",
+  "timestamp": "2024-01-08",
+  "hour": 14,
+  "results": {
+    "successful": 10,
+    "failed": 0,
+    "totalCost": 123.45,
+    "namespaces": [
+      {
+        "namespace": "mlproject",
+        "projectName": "ML Training",
+        "userId": "auth0|123",
+        "cost": 45.67
+      }
+    ]
+  }
+}
+```
 
 ### GET /api/admin/usage/[userId]
 Get detailed usage metrics for a specific user.
@@ -257,15 +321,20 @@ Handles Stripe webhook events:
 
 ## Cron Endpoints
 
-### GET /api/usage/collect-k8s
-Collects Kubernetes metrics for all clusters.
-- Runs every 15 minutes
-- Requires `CRON_SECRET` header
+### GET /api/usage/collect-opencost
+Collects cost data from OpenCost for all clusters.
+- Runs every hour (`:00`)
+- Requires `CRON_SECRET` header in production
+- Uses `kubectl exec` to query OpenCost inside cluster
+- Updates `usage_daily` with accumulated costs
+- Maps namespaces to users via `user_projects` table
 
 ### GET /api/billing/sync-stripe
-Syncs usage data to Stripe for billing.
+Syncs OpenCost usage data to Stripe for billing.
 - Runs daily at 3 AM
+- Uses `opencost_total_cost` from `usage_daily`
 - Creates usage records in Stripe for postpaid customers
+- Marks records as `reported_to_stripe = true`
 
 ## Error Handling
 

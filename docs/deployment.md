@@ -7,6 +7,7 @@
 3. **Supabase Project** - For database
 4. **Stripe Account** - For billing
 5. **Hopsworks Cluster** - With admin access
+6. **OpenCost** - Installed in Kubernetes cluster
 
 ## Initial Setup
 
@@ -62,17 +63,21 @@ Configure Hopsworks to accept Auth0 users:
 Run migrations in Supabase SQL Editor:
 
 ```sql
--- Run the complete schema from sql/current_schema.sql
--- This includes all tables, indexes, views, and functions
+-- 1. Run the base schema from sql/current_schema.sql
+-- 2. Run OpenCost migration from sql/migrations/001_opencost_integration.sql
 ```
+
+Key tables for billing:
+- `user_projects` - Maps namespaces to users
+- `usage_daily` - Stores OpenCost metrics
+- `user_credits` - Prepaid credit balances
 
 See [Database Documentation](database/) for complete schema details.
 
 ### 4. Stripe Configuration
 
-1. Create products and prices:
-   - CPU Hour ($0.10)
-   - Credits ($1.00)
+1. Products are created automatically based on OpenCost costs
+2. Credits product for prepaid users ($1.00 per credit)
 
 2. Set up webhook endpoint:
    - URL: `https://your-domain.vercel.app/api/webhooks/stripe`
@@ -105,12 +110,12 @@ The cron jobs are already configured in `vercel.json`:
 {
   "crons": [
     {
-      "path": "/api/usage/collect-k8s",
-      "schedule": "*/15 * * * *"
+      "path": "/api/usage/collect-opencost",
+      "schedule": "0 * * * *"  // Every hour
     },
     {
       "path": "/api/billing/sync-stripe",
-      "schedule": "0 3 * * *"
+      "schedule": "0 3 * * *"  // Daily at 3 AM
     }
   ]
 }
@@ -118,18 +123,30 @@ The cron jobs are already configured in `vercel.json`:
 
 ## Post-Deployment
 
-### 1. Upload Kubeconfig
+### 1. Install OpenCost
+
+Install OpenCost in your Kubernetes cluster:
+```bash
+helm repo add opencost https://opencost.github.io/opencost-helm-chart
+helm install opencost opencost/opencost \
+  --namespace opencost --create-namespace
+```
+
+### 2. Upload Kubeconfig
 
 For each Hopsworks cluster:
 1. Access admin panel at `/admin47392`
 2. Navigate to Clusters tab
-3. Upload kubeconfig for metrics collection
+3. Upload kubeconfig
+4. Click "Test OpenCost" to verify connection
 
-### 2. Verify Webhooks
+### 3. Verify System
 
 1. Test Auth0 webhook with a new user signup
 2. Test Stripe webhook with a test purchase
-3. Check cron jobs in Vercel dashboard
+3. Verify OpenCost connection in admin panel
+4. Check cron jobs in Vercel dashboard
+5. Monitor `usage_daily` for OpenCost data
 
 ### 3. Configure Admin Access
 
@@ -143,9 +160,10 @@ Set `ADMIN_EMAILS` environment variable with comma-separated admin emails.
 - Auth0 logs
 
 ### Metrics Collection
-- Check cron job execution in Vercel
-- Monitor `usage_daily` table for new records
-- Verify Kubernetes metrics with admin panel
+- Check hourly OpenCost collection in Vercel logs
+- Monitor `usage_daily` table for `opencost_*` columns
+- Verify namespace mapping in `user_projects` table
+- Test OpenCost connection in admin panel
 
 ### Billing
 - Monitor Stripe dashboard
