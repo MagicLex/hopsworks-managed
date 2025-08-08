@@ -139,11 +139,8 @@ export default function AdminPage() {
     );
   }
 
-  // Filter out users with no projects or costs
-  const activeUsers = users.filter(u => 
-    (u.projects && u.projects.length > 0) || 
-    (u.user_credits && u.user_credits.total_used > 0)
-  );
+  // Show all users, not just those with activity
+  const activeUsers = users;
 
   return (
     <>
@@ -207,14 +204,14 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {activeUsers.length === 0 ? (
+                  {users.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-gray">
-                        No users with billing data found. Run &quot;Update Usage Data&quot; to fetch latest costs.
+                        No users found in the system.
                       </td>
                     </tr>
                   ) : (
-                    activeUsers.map(user => {
+                    users.map(user => {
                       const totalPayg = getUserTotalPayg(user);
                       const todayCost = getUserTodayCost(user);
                       const isExpanded = expandedUsers.has(user.id);
@@ -339,16 +336,16 @@ export default function AdminPage() {
             </Box>
             
             {/* Summary */}
-            {activeUsers.length > 0 && (
+            {users.length > 0 && (
               <Box className="mt-6 pt-4 border-t border-grayShade2">
                 <Flex justify="between" align="center">
                   <Text className="text-sm text-gray">
-                    Total Active Users: {activeUsers.length}
+                    Total Users: {users.length} | With Activity: {users.filter(u => (u.projects && u.projects.length > 0) || (u.user_credits && u.user_credits.total_used > 0)).length}
                   </Text>
                   <Box className="text-right">
                     <Text className="text-sm text-gray">Total Today&apos;s Cost</Text>
                     <Text className="font-mono font-semibold text-lg">
-                      ${activeUsers.reduce((sum, u) => sum + getUserTodayCost(u), 0).toFixed(2)}
+                      ${users.reduce((sum, u) => sum + getUserTodayCost(u), 0).toFixed(2)}
                     </Text>
                   </Box>
                 </Flex>

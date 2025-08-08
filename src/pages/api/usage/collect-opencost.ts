@@ -153,7 +153,13 @@ async function collectOpenCostMetrics() {
       }
 
       if (!userId) {
-        console.warn(`No user found for namespace ${namespace}`);
+        // Try to identify what type of namespace this is
+        let namespaceType = 'user project';
+        if (namespace.includes('admin') || namespace === 'hopsworks') {
+          namespaceType = 'admin/system';
+        }
+        
+        console.warn(`No user found for namespace ${namespace} (type: ${namespaceType})`);
         results.errors.push(`Namespace ${namespace}: No user mapping found`);
         results.failed++;
         continue;
