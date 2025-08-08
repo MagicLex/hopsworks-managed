@@ -119,7 +119,6 @@ All costs come directly from OpenCost based on actual resource usage:
 - `POST /api/billing/sync-stripe` - Sync with Stripe
 
 ### Admin Endpoints
-- `POST /api/admin/test-opencost` - Test OpenCost connection
 - `GET /api/admin/billing` - View all user billing
 
 ## Cron Jobs

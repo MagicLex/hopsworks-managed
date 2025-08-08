@@ -232,28 +232,6 @@ Update cluster's kubeconfig.
 }
 ```
 
-### POST /api/admin/test-opencost
-Test OpenCost connection for a cluster.
-
-**Request:**
-```json
-{
-  "clusterId": "uuid"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "connected": true,
-  "cluster": "cluster-name",
-  "namespaces": 5,
-  "hourlyTotalCost": 12.34,
-  "message": "Connected via kubectl exec! Found 5 namespaces, hourly cost: $12.34"
-}
-```
-
 ### POST /api/admin/test-hopsworks
 Test Hopsworks connection and get user info.
 
@@ -265,8 +243,6 @@ Test Hopsworks connection and get user info.
 }
 ```
 
-### POST /api/admin/usage/collect
-Manually trigger OpenCost collection for all users.
 
 **Response:**
 ```json
@@ -325,7 +301,7 @@ Handles Stripe webhook events:
 Collects cost data from OpenCost for all clusters.
 - Runs every hour (`:00`)
 - Requires `CRON_SECRET` header in production
-- Uses `kubectl exec` to query OpenCost inside cluster
+- Uses Kubernetes API proxy to query OpenCost securely
 - Updates `usage_daily` with accumulated costs
 - Maps namespaces to users via `user_projects` table
 

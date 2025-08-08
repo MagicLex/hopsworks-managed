@@ -138,7 +138,7 @@ For each Hopsworks cluster:
 1. Access admin panel at `/admin47392`
 2. Navigate to Clusters tab
 3. Upload kubeconfig
-4. Click "Test OpenCost" to verify connection
+4. Verify OpenCost shows "Active" status
 
 ### 3. Verify System
 
@@ -163,7 +163,7 @@ Set `ADMIN_EMAILS` environment variable with comma-separated admin emails.
 - Check hourly OpenCost collection in Vercel logs
 - Monitor `usage_daily` table for `opencost_*` columns
 - Verify namespace mapping in `user_projects` table
-- Test OpenCost connection in admin panel
+- Verify OpenCost integration status in admin panel
 
 ### Billing
 - Monitor Stripe dashboard
@@ -189,8 +189,7 @@ npm run build
 ### Metrics Not Collecting
 - Verify kubeconfig is valid
 - Check pod labels in Kubernetes
-- Test with "Force Collection" button
-- Review cron job logs
+- Review cron job logs in Vercel dashboard
 
 ### Billing Not Working
 - Verify Stripe webhook secret
