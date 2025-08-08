@@ -1,35 +1,66 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { writeFileSync, unlinkSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
-
-const execAsync = promisify(exec);
+import * as k8s from '@kubernetes/client-node';
+import { Writable } from 'stream';
 
 export class OpenCostDirect {
-  private kubeconfigPath: string;
+  private k8sApi: k8s.CoreV1Api;
+  private exec: k8s.Exec;
 
   constructor(kubeconfigContent: string) {
-    // Write kubeconfig to temp file
-    this.kubeconfigPath = join(tmpdir(), `kubeconfig-${Date.now()}.yml`);
-    writeFileSync(this.kubeconfigPath, kubeconfigContent, { mode: 0o600 });
+    const kc = new k8s.KubeConfig();
+    kc.loadFromString(kubeconfigContent);
+    this.k8sApi = kc.makeApiClient(k8s.CoreV1Api);
+    this.exec = new k8s.Exec(kc);
   }
 
   async cleanup() {
-    try {
-      unlinkSync(this.kubeconfigPath);
-    } catch {}
+    // No cleanup needed with in-memory kubeconfig
   }
 
   async getOpenCostData(window: string = '1h'): Promise<any> {
     try {
-      // Use kubectl exec to run curl inside the OpenCost pod
-      const { stdout } = await execAsync(
-        `kubectl --kubeconfig="${this.kubeconfigPath}" -n opencost exec deploy/opencost -- curl -s "http://localhost:9003/allocation/compute?window=${window}&aggregate=namespace"`,
-        { maxBuffer: 10 * 1024 * 1024 } // 10MB buffer
+      // Get the OpenCost deployment pods
+      const pods = await this.k8sApi.listNamespacedPod(
+        'opencost',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'app=opencost'
       );
 
-      const data = JSON.parse(stdout);
+      if (!pods.body.items.length) {
+        throw new Error('No OpenCost pods found');
+      }
+
+      const podName = pods.body.items[0].metadata!.name!;
+      
+      // Execute curl command inside the pod
+      const command = [
+        'curl',
+        '-s',
+        `http://localhost:9003/allocation/compute?window=${window}&aggregate=namespace`
+      ];
+
+      let output = '';
+      const stdout = new Writable({
+        write(chunk, encoding, callback) {
+          output += chunk.toString();
+          callback();
+        }
+      });
+
+      await this.exec.exec(
+        'opencost',
+        podName,
+        'opencost',
+        command,
+        stdout,
+        null,
+        null,
+        false
+      );
+
+      const data = JSON.parse(output);
       return data;
     } catch (error) {
       console.error('Failed to get OpenCost data:', error);
