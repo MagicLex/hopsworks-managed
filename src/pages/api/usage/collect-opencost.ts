@@ -118,8 +118,11 @@ async function collectOpenCostMetrics() {
           `ApiKey ${cluster.api_key}`
         );
 
+        // Try exact match first, then with underscore/hyphen conversion
         const hopsworksProject = hopsworksProjects.find(p => 
-          p.name.toLowerCase() === namespace.toLowerCase()
+          p.name.toLowerCase() === namespace.toLowerCase() ||
+          p.name.toLowerCase().replace(/_/g, '-') === namespace.toLowerCase() ||
+          p.name.toLowerCase().replace(/-/g, '_') === namespace.toLowerCase()
         );
 
         if (hopsworksProject) {

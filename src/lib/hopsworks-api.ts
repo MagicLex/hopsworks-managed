@@ -153,12 +153,8 @@ export async function getUserProjects(
   const allProjects = data.items || [];
   
   // Filter projects by owner username
-  // Note: Hopsworks returns creator as an object with href
-  // We need to match against the username passed in
   return allProjects.filter((project: any) => {
-    // For now, return all projects since we can't reliably filter by owner
-    // without additional API calls to resolve creator href
-    return true;
+    return project.owner === username;
   });
 }
 
