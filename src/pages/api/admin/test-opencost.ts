@@ -63,10 +63,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let totalCost = 0;
       let namespaceCount = 0;
       
-      for (const [namespace, allocation] of allocations) {
+      allocations.forEach((allocation, namespace) => {
         totalCost += allocation.totalCost;
         namespaceCount++;
-      }
+      });
 
       await opencost.cleanup();
 

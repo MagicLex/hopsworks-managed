@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { requireAdmin } from '../../../../middleware/adminAuth';
-import { collectK8sMetrics } from '../../../../lib/usage-collection';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -8,11 +7,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    // Call the collection function directly
-    const result = await collectK8sMetrics();
+    // Call the OpenCost collection endpoint directly
+    const response = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/usage/collect-opencost`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.CRON_SECRET}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Collection failed: ${response.statusText}`);
+    }
+
+    const result = await response.json();
 
     return res.status(200).json({
-      message: 'Usage collection triggered successfully',
+      message: 'OpenCost collection triggered successfully',
       result
     });
   } catch (error) {

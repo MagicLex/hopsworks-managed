@@ -75,7 +75,7 @@ async function collectOpenCostMetrics() {
   };
 
   // Process each namespace with costs
-  for (const [namespace, allocation] of allocations) {
+  for (const [namespace, allocation] of Array.from(allocations.entries())) {
     try {
       // Skip Hopsworks system namespace
       if (namespace === 'hopsworks') {
