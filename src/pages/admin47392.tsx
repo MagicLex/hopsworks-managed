@@ -15,6 +15,18 @@ interface User {
   status: string;
   is_admin: boolean;
   hopsworks_username?: string;
+  last_24h_cost?: number;
+  active_namespaces?: string[];
+  projects?: {
+    namespace: string;
+    name: string;
+    id: number;
+    is_owner: boolean;
+    hourly_cost: number;
+    cpu_cost: number;
+    memory_cost: number;
+    pv_cost: number;
+  }[];
   user_credits?: {
     total_purchased: number;
     total_used: number;
@@ -500,7 +512,7 @@ export default function AdminPage() {
                           </Text>
                         </td>
                         <td className="py-3 text-right">
-                          {user.last_24h_cost > 0 ? (
+                          {user.last_24h_cost && user.last_24h_cost > 0 ? (
                             <Box>
                               <Text className="font-mono text-sm font-medium">
                                 ${user.last_24h_cost.toFixed(2)}
