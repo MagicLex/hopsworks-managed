@@ -343,12 +343,12 @@ mr = project.get_model_registry()`;
                         {copied === 'quickstart' ? (
                           <Flex align="center" gap={4}>
                             <CheckCircle size={14} className="text-green-500" />
-                            <Text className="text-xs">Copied!</Text>
+                            <Text className="text-xs text-white">Copied!</Text>
                           </Flex>
                         ) : (
                           <Flex align="center" gap={4}>
-                            <Copy size={14} />
-                            <Text className="text-xs">Copy</Text>
+                            <Copy size={14} className="text-gray-300" />
+                            <Text className="text-xs text-white">Copy</Text>
                           </Flex>
                         )}
                       </Button>
