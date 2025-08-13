@@ -285,11 +285,11 @@ export default function Dashboard() {
                       Connect to your Hopsworks cluster from VS Code, Jupyter notebooks, or any local environment:
                     </Text>
 
-                    <Card variant="readOnly" className="relative">
+                    <Box className="relative">
                       <Button
                         intent="ghost"
-                        size="md"
-                        className="absolute top-2 right-2 p-1"
+                        size="sm"
+                        className="absolute top-2 right-2 z-10"
                         onClick={() => {
                           // Extract host and port from endpoint URL if available
                           let host = '162.19.238.22';
@@ -340,7 +340,17 @@ mr = project.get_model_registry()`;
                           setTimeout(() => setCopied(''), 2000);
                         }}
                       >
-                        {copied === 'quickstart' ? <><CheckCircle size={12} /> Copied!</> : <><Copy size={12} /> Copy</>}
+                        {copied === 'quickstart' ? (
+                          <Flex align="center" gap={4}>
+                            <CheckCircle size={14} className="text-green-500" />
+                            <Text className="text-xs">Copied!</Text>
+                          </Flex>
+                        ) : (
+                          <Flex align="center" gap={4}>
+                            <Copy size={14} />
+                            <Text className="text-xs">Copy</Text>
+                          </Flex>
+                        )}
                       </Button>
                       <pre className="overflow-x-auto p-4 text-sm bg-gray-900 text-gray-300 rounded">
                         <code>
@@ -357,25 +367,23 @@ mr = project.get_model_registry()`;
                           <span className="text-orange-300">project</span>=<span className="text-green-300">&apos;mlops_preflight&apos;</span>,  <span className="text-gray-500"># or other project</span>
                           {'\n    '}
                           <span className="text-orange-300">host</span>=<span className="text-green-300">&quot;{(() => {
-                            let host = '162.19.238.22';
                             if (instance?.endpoint) {
                               try {
                                 const url = new URL(instance.endpoint);
-                                host = url.hostname;
+                                return url.hostname;
                               } catch (e) {}
                             }
-                            return host;
+                            return '162.19.238.22';
                           })()}&quot;</span>,
                           {'\n    '}
                           <span className="text-orange-300">port</span>=<span className="text-purple-300">{(() => {
-                            let port = 28181;
                             if (instance?.endpoint) {
                               try {
                                 const url = new URL(instance.endpoint);
-                                port = parseInt(url.port) || (url.protocol === 'https:' ? 443 : 80);
+                                return parseInt(url.port) || (url.protocol === 'https:' ? 443 : 80);
                               } catch (e) {}
                             }
-                            return port;
+                            return 28181;
                           })()}</span>,
                           {'\n    '}
                           <span className="text-orange-300">api_key_value</span>=<span className="text-green-300">&quot;your api key&quot;</span>  <span className="text-gray-500"># Get from Hopsworks UI &gt; Account Settings &gt; API Keys</span>
@@ -411,7 +419,7 @@ mr = project.get_model_registry()`;
                           <span className="text-blue-300">mr</span> = <span className="text-blue-300">project</span>.<span className="text-yellow-300">get_model_registry</span>()
                         </code>
                       </pre>
-                    </Card>
+                    </Box>
                   </Card>
 
                   {/* Usage Metrics */}
