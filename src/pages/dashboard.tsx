@@ -279,10 +279,10 @@ export default function Dashboard() {
                   
                   {/* Quick Start Code */}
                   <Card className="p-6 mb-6">
-                    <Title as="h3" className="text-lg mb-4">Quick Start</Title>
+                    <Title as="h3" className="text-lg mb-4">Quick Start - Connect from VS Code</Title>
                     
                     <Text className="text-sm text-gray-600 mb-4">
-                      Connect to your instance using the Hopsworks Python client:
+                      Connect to your Hopsworks cluster from VS Code, Jupyter notebooks, or any local environment:
                     </Text>
 
                     <Card variant="readOnly" className="relative">
@@ -291,25 +291,50 @@ export default function Dashboard() {
                         size="md"
                         className="absolute top-2 right-2 p-1"
                         onClick={() => {
-                          const code = `# Feature Pipeline (Hopsworks)
+                          // Extract host and port from endpoint URL if available
+                          let host = '162.19.238.22';
+                          let port = 28181;
+                          if (instance?.endpoint) {
+                            try {
+                              const url = new URL(instance.endpoint);
+                              host = url.hostname;
+                              port = parseInt(url.port) || (url.protocol === 'https:' ? 443 : 80);
+                            } catch (e) {
+                              // Fallback to defaults
+                            }
+                          }
+                          
+                          const code = `# Install Hopsworks Python client
+!pip install "hopsworks[python]"
+
+# Connect to Hopsworks
 import hopsworks
 
-# Login with host
 project = hopsworks.login(
-    host="${instance?.endpoint || 'https://your-hopsworks-instance.com'}"
+    project='mlops_preflight',  # or other project
+    host="${host}",
+    port=${port},
+    api_key_value="your api key"  # Get from Hopsworks UI > Account Settings > API Keys
 )
+
+# Access the feature store
 fs = project.get_feature_store()
 
-# Create feature group
-fg = fs.get_or_create_feature_group(
-    name='user_features',
-    version=1,
-    primary_key=['user_id'],
-    online=True,
-    description='User features based on order history'
+# Example: Read an existing feature group
+fg = fs.get_feature_group(
+    name="your_feature_group",
+    version=1
 )
 
-print(f"Feature group '{fg.name}' created/retrieved successfully")`;
+# Read data from the feature group
+df = fg.read()
+print(f"Connected to {project.name}. Feature group has {len(df)} rows")
+
+# For model serving
+ms = project.get_model_serving()
+
+# For model registry
+mr = project.get_model_registry()`;
                           navigator.clipboard.writeText(code);
                           setCopied('quickstart');
                           setTimeout(() => setCopied(''), 2000);
@@ -319,37 +344,71 @@ print(f"Feature group '{fg.name}' created/retrieved successfully")`;
                       </Button>
                       <pre className="overflow-x-auto p-4 text-sm bg-gray-900 text-gray-300 rounded">
                         <code>
-                          <span className="text-gray-500"># Feature Pipeline (Hopsworks)</span>
+                          <span className="text-gray-500"># Install Hopsworks Python client</span>
+                          {'\n'}
+                          <span className="text-yellow-300">!pip install</span> <span className="text-green-300">&quot;hopsworks[python]&quot;</span>
+                          {'\n\n'}
+                          <span className="text-gray-500"># Connect to Hopsworks</span>
                           {'\n'}
                           <span className="text-purple-400">import</span> <span className="text-green-400">hopsworks</span>
                           {'\n\n'}
-                          <span className="text-gray-500"># Login with host</span>
-                          {'\n'}
                           <span className="text-blue-300">project</span> = <span className="text-green-400">hopsworks</span>.<span className="text-yellow-300">login</span>(
                           {'\n    '}
-                          <span className="text-orange-300">host</span>=<span className="text-green-300">&quot;{instance?.endpoint || 'your-hopsworks-instance.com'}&quot;</span>
+                          <span className="text-orange-300">project</span>=<span className="text-green-300">&apos;mlops_preflight&apos;</span>,  <span className="text-gray-500"># or other project</span>
+                          {'\n    '}
+                          <span className="text-orange-300">host</span>=<span className="text-green-300">&quot;{(() => {
+                            let host = '162.19.238.22';
+                            if (instance?.endpoint) {
+                              try {
+                                const url = new URL(instance.endpoint);
+                                host = url.hostname;
+                              } catch (e) {}
+                            }
+                            return host;
+                          })()}&quot;</span>,
+                          {'\n    '}
+                          <span className="text-orange-300">port</span>=<span className="text-purple-300">{(() => {
+                            let port = 28181;
+                            if (instance?.endpoint) {
+                              try {
+                                const url = new URL(instance.endpoint);
+                                port = parseInt(url.port) || (url.protocol === 'https:' ? 443 : 80);
+                              } catch (e) {}
+                            }
+                            return port;
+                          })()}</span>,
+                          {'\n    '}
+                          <span className="text-orange-300">api_key_value</span>=<span className="text-green-300">&quot;your api key&quot;</span>  <span className="text-gray-500"># Get from Hopsworks UI &gt; Account Settings &gt; API Keys</span>
                           {'\n'}
                           )
+                          {'\n\n'}
+                          <span className="text-gray-500"># Access the feature store</span>
                           {'\n'}
                           <span className="text-blue-300">fs</span> = <span className="text-blue-300">project</span>.<span className="text-yellow-300">get_feature_store</span>()
                           {'\n\n'}
-                          <span className="text-gray-500"># Create feature group</span>
+                          <span className="text-gray-500"># Example: Read an existing feature group</span>
                           {'\n'}
-                          <span className="text-blue-300">fg</span> = <span className="text-blue-300">fs</span>.<span className="text-yellow-300">get_or_create_feature_group</span>(
+                          <span className="text-blue-300">fg</span> = <span className="text-blue-300">fs</span>.<span className="text-yellow-300">get_feature_group</span>(
                           {'\n    '}
-                          <span className="text-orange-300">name</span>=<span className="text-green-300">&apos;user_features&apos;</span>,
+                          <span className="text-orange-300">name</span>=<span className="text-green-300">&quot;your_feature_group&quot;</span>,
                           {'\n    '}
-                          <span className="text-orange-300">version</span>=<span className="text-purple-300">1</span>,
-                          {'\n    '}
-                          <span className="text-orange-300">primary_key</span>=[<span className="text-green-300">&apos;user_id&apos;</span>],
-                          {'\n    '}
-                          <span className="text-orange-300">online</span>=<span className="text-purple-300">True</span>,
-                          {'\n    '}
-                          <span className="text-orange-300">description</span>=<span className="text-green-300">&apos;User features based on order history&apos;</span>
+                          <span className="text-orange-300">version</span>=<span className="text-purple-300">1</span>
                           {'\n'}
                           )
                           {'\n\n'}
-                          <span className="text-purple-400">print</span>(<span className="text-purple-400">f</span><span className="text-green-300">&quot;Feature group &apos;{'{fg.name}'}&apos; created/retrieved successfully&quot;</span>)
+                          <span className="text-gray-500"># Read data from the feature group</span>
+                          {'\n'}
+                          <span className="text-blue-300">df</span> = <span className="text-blue-300">fg</span>.<span className="text-yellow-300">read</span>()
+                          {'\n'}
+                          <span className="text-purple-400">print</span>(<span className="text-purple-400">f</span><span className="text-green-300">&quot;Connected to {'{project.name}'}. Feature group has {'{len(df)}'} rows&quot;</span>)
+                          {'\n\n'}
+                          <span className="text-gray-500"># For model serving</span>
+                          {'\n'}
+                          <span className="text-blue-300">ms</span> = <span className="text-blue-300">project</span>.<span className="text-yellow-300">get_model_serving</span>()
+                          {'\n\n'}
+                          <span className="text-gray-500"># For model registry</span>
+                          {'\n'}
+                          <span className="text-blue-300">mr</span> = <span className="text-blue-300">project</span>.<span className="text-yellow-300">get_model_registry</span>()
                         </code>
                       </pre>
                     </Card>
