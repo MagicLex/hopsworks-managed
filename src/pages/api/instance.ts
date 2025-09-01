@@ -25,7 +25,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const userId = session.user.sub;
-    console.log('Instance API - User ID:', userId);
+
+    // Get user's billing mode
+    const { data: userData } = await supabaseAdmin
+      .from('users')
+      .select('billing_mode')
+      .eq('id', userId)
+      .single();
+
+    const billingMode = userData?.billing_mode || 'prepaid';
+    const planName = billingMode === 'postpaid' ? 'Pay-as-you-go' : 'Prepaid';
 
     // Get user's assigned Hopsworks cluster
     const { data: clusterAssignment, error: assignmentError } = await supabaseAdmin
@@ -34,23 +43,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         assigned_at,
         hopsworks_clusters!inner (
           name,
-          api_url
+          api_url,
+          status
         )
       `)
       .eq('user_id', userId)
       .single();
-
-    console.log('Assignment error:', assignmentError);
-    console.log('Cluster assignment:', clusterAssignment);
     
     // If user has no cluster assignment yet
     if (!clusterAssignment || assignmentError) {
-      console.log('No cluster assignment found for user:', userId);
       return res.status(200).json({
         name: 'Hopsworks Instance',
         status: 'Not Assigned',
         endpoint: '',
-        plan: 'Pay-as-you-go',
+        plan: planName,
         created: null
       });
     }
@@ -63,9 +69,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Return the shared cluster information
     return res.status(200).json({
       name: hopsworksCluster?.name || 'Hopsworks Instance',
-      status: 'Active', // Shared clusters are always active
+      status: hopsworksCluster?.status || 'Active',
       endpoint: hopsworksCluster?.api_url || '',
-      plan: 'Pay-as-you-go',
+      plan: planName,
       created: clusterAssignment.assigned_at || new Date().toISOString()
     });
   } catch (error) {

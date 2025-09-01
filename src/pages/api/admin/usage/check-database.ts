@@ -25,6 +25,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         opencost_ram_gb_hours,
         total_cost,
         project_breakdown,
+        created_at,
         updated_at
       `)
       .eq('date', today)
@@ -33,7 +34,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Get last collection time
     const { data: lastCollection } = await supabaseAdmin
       .from('usage_daily')
-      .select('created_at')
+      .select('created_at, updated_at')
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
