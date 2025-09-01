@@ -1,5 +1,11 @@
 ## General Information
-Each user is allocated to a cluster in the database. In the `hopsworks_clusters` table, each cluster has an admin API, a kubeconfig attached, and an ID. This ID is used to map individual users to their clusters in the `user_hopsworks_assignments` table. 
+Each user is allocated to a cluster in the database. In the `hopsworks_clusters` table, each cluster has an admin API, a kubeconfig attached, and an ID. This ID is used to map individual users to their clusters in the `user_hopsworks_assignments` table.
+
+**Important**: Hopsworks users are created during cluster assignment with the following project limits:
+- **Account owners (billing users)**: 5 projects (`maxNumProjects: 5`)
+- **Team members**: 0 projects (`maxNumProjects: 0`)
+
+The `hopsworks_user_id` is stored in both `users` and `user_hopsworks_assignments` tables for API operations. 
 
 ## New Cluster
 When setting up a new cluster, for it to be configured to work with the saas service you need to do the following actions in each of the platforms;
