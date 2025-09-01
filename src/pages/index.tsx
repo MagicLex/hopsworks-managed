@@ -28,7 +28,7 @@ export default function Home() {
       fetch('/api/auth/validate-corporate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dealId: ref, email: 'validation@check.com' }) // Just checking if deal exists
+        body: JSON.stringify({ dealId: ref, checkDealOnly: true }) // Just checking if deal exists
       })
         .then(res => {
           if (res.status === 404) {

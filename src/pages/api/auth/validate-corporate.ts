@@ -8,10 +8,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { dealId, email } = req.body;
+  const { dealId, email, checkDealOnly } = req.body;
 
-  if (!dealId || !email) {
-    return res.status(400).json({ error: 'Missing dealId or email' });
+  if (!dealId) {
+    return res.status(400).json({ error: 'Missing dealId' });
+  }
+  
+  // For upfront validation, only check if deal exists
+  if (checkDealOnly) {
+    try {
+      const dealResponse = await fetch(
+        `${HUBSPOT_API_URL}/crm/v3/objects/deals/${dealId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${HUBSPOT_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (!dealResponse.ok) {
+        if (dealResponse.status === 404) {
+          return res.status(404).json({ error: 'Deal not found' });
+        }
+        throw new Error(`HubSpot API error: ${dealResponse.status}`);
+      }
+      
+      const dealData = await dealResponse.json();
+      return res.status(200).json({ valid: true, dealName: dealData.properties?.dealname });
+    } catch (error) {
+      console.error('Deal validation error:', error);
+      return res.status(500).json({ error: 'Failed to validate deal' });
+    }
+  }
+  
+  // Full validation requires email
+  if (!email) {
+    return res.status(400).json({ error: 'Missing email for full validation' });
   }
 
   if (!HUBSPOT_API_KEY) {
