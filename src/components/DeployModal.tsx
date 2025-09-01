@@ -11,9 +11,10 @@ interface DeployModalProps {
   isOpen: boolean;
   deployment: DeploymentOption | null;
   onClose: () => void;
+  corporateRef?: string | null;
 }
 
-export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, onClose }) => {
+export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, onClose, corporateRef }) => {
   const { user } = useAuth();
   const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -124,6 +125,7 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
           // After successful auth, redirect to billing
           router.push('/billing');
         }}
+        corporateRef={corporateRef || undefined}
       />
     </Modal>
   );

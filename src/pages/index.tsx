@@ -14,8 +14,20 @@ export default function Home() {
   const [isYearly, setIsYearly] = useState(false);
   const [selectedDeployment, setSelectedDeployment] = useState<DeploymentOption | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [corporateRef, setCorporateRef] = useState<string | null>(null);
   const { user, loading } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    // Check for corporate_ref in URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get('corporate_ref');
+    if (ref) {
+      setCorporateRef(ref);
+      // Store in sessionStorage for persistence
+      sessionStorage.setItem('corporate_ref', ref);
+    }
+  }, []);
 
   useEffect(() => {
     if (!loading && user) {
@@ -131,6 +143,7 @@ export default function Home() {
         isOpen={isModalOpen}
         deployment={selectedDeployment}
         onClose={() => setIsModalOpen(false)}
+        corporateRef={corporateRef}
       />
     </>
   );
