@@ -70,8 +70,9 @@ export async function createHopsworksOAuthUser(
   email: string,
   firstName: string,
   lastName: string,
-  auth0Id: string
-): Promise<string> {
+  auth0Id: string,
+  maxNumProjects: number = 0
+): Promise<HopsworksUser> {
   const response = await fetch(`${credentials.apiUrl}${HOPSWORKS_API_BASE}/admin/users`, {
     method: 'POST',
     headers: {
@@ -86,7 +87,7 @@ export async function createHopsworksOAuthUser(
       email,
       givenName: firstName,
       surname: lastName,
-      maxNumProjects: 1,
+      maxNumProjects: maxNumProjects,
       status: 'ACTIVATED'
     })
   });
@@ -96,7 +97,7 @@ export async function createHopsworksOAuthUser(
   }
 
   const data = await response.json();
-  return data.username;
+  return data;
 }
 
 /**
@@ -230,6 +231,33 @@ export async function getHopsworksUserByAuth0Id(
   );
   
   return user || null;
+}
+
+/**
+ * Update user's max number of projects
+ */
+export async function updateUserProjectLimit(
+  credentials: HopsworksCredentials,
+  hopsworksUserId: number,
+  maxNumProjects: number
+): Promise<void> {
+  const response = await fetch(
+    `${credentials.apiUrl}${ADMIN_API_BASE}/users/${hopsworksUserId}`,
+    {
+      method: 'PUT',
+      headers: {
+        'Authorization': `ApiKey ${credentials.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        maxNumProjects
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to update user project limit: ${response.statusText}`);
+  }
 }
 
 /**

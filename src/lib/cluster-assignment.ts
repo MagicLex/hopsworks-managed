@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import { createHopsworksOAuthUser } from './hopsworks-api';
 
 export async function assignUserToCluster(
   supabaseAdmin: SupabaseClient,
@@ -24,7 +25,7 @@ export async function assignUserToCluster(
     // Get user details including account owner
     const { data: user } = await supabaseAdmin
       .from('users')
-      .select('stripe_customer_id, account_owner_id')
+      .select('stripe_customer_id, account_owner_id, email, name, hopsworks_user_id')
       .eq('id', userId)
       .single();
 
@@ -50,12 +51,63 @@ export async function assignUserToCluster(
         };
       }
 
+      // Get cluster details
+      const { data: cluster } = await supabaseAdmin
+        .from('hopsworks_clusters')
+        .select('api_url, api_key')
+        .eq('id', ownerAssignment.hopsworks_cluster_id)
+        .single();
+
+      if (!cluster) {
+        return { 
+          success: false, 
+          error: 'Cluster not found' 
+        };
+      }
+
+      // Create Hopsworks user if not exists
+      let hopsworksUserId = user.hopsworks_user_id;
+      let hopsworksUsername = null;
+      
+      if (!hopsworksUserId) {
+        try {
+          const [firstName, ...lastNameParts] = (user.name || user.email).split(' ');
+          const lastName = lastNameParts.join(' ') || firstName;
+          
+          const hopsworksUser = await createHopsworksOAuthUser(
+            { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+            user.email,
+            firstName,
+            lastName,
+            userId,
+            0 // Team members get 0 projects
+          );
+          
+          hopsworksUserId = hopsworksUser.id;
+          hopsworksUsername = hopsworksUser.username;
+          
+          // Update user with Hopsworks ID
+          await supabaseAdmin
+            .from('users')
+            .update({ 
+              hopsworks_user_id: hopsworksUserId,
+              hopsworks_username: hopsworksUsername 
+            })
+            .eq('id', userId);
+        } catch (error) {
+          console.error('Failed to create Hopsworks user:', error);
+          // Continue with assignment even if Hopsworks user creation fails
+        }
+      }
+
       // Assign team member to same cluster as owner
       const { error: assignError } = await supabaseAdmin
         .from('user_hopsworks_assignments')
         .insert({
           user_id: userId,
           hopsworks_cluster_id: ownerAssignment.hopsworks_cluster_id,
+          hopsworks_user_id: hopsworksUserId,
+          hopsworks_username: hopsworksUsername,
           assigned_at: new Date().toISOString(),
           assigned_by: 'team_member_auto'
         });
@@ -104,12 +156,63 @@ export async function assignUserToCluster(
       };
     }
 
+    // Get cluster details for Hopsworks user creation
+    const { data: clusterDetails } = await supabaseAdmin
+      .from('hopsworks_clusters')
+      .select('api_url, api_key')
+      .eq('id', availableCluster.id)
+      .single();
+
+    if (!clusterDetails) {
+      return { 
+        success: false, 
+        error: 'Cluster details not found' 
+      };
+    }
+
+    // Create Hopsworks user if not exists
+    let hopsworksUserId = user.hopsworks_user_id;
+    let hopsworksUsername = null;
+    
+    if (!hopsworksUserId) {
+      try {
+        const [firstName, ...lastNameParts] = (user.name || user.email).split(' ');
+        const lastName = lastNameParts.join(' ') || firstName;
+        
+        const hopsworksUser = await createHopsworksOAuthUser(
+          { apiUrl: clusterDetails.api_url, apiKey: clusterDetails.api_key },
+          user.email,
+          firstName,
+          lastName,
+          userId,
+          0 // Account owners start with 0, will be upgraded to 5 after payment
+        );
+        
+        hopsworksUserId = hopsworksUser.id;
+        hopsworksUsername = hopsworksUser.username;
+        
+        // Update user with Hopsworks ID
+        await supabaseAdmin
+          .from('users')
+          .update({ 
+            hopsworks_user_id: hopsworksUserId,
+            hopsworks_username: hopsworksUsername 
+          })
+          .eq('id', userId);
+      } catch (error) {
+        console.error('Failed to create Hopsworks user:', error);
+        // Continue with assignment even if Hopsworks user creation fails
+      }
+    }
+
     // Assign user to cluster
     const { error: assignError } = await supabaseAdmin
       .from('user_hopsworks_assignments')
       .insert({
         user_id: userId,
         hopsworks_cluster_id: availableCluster.id,
+        hopsworks_user_id: hopsworksUserId,
+        hopsworks_username: hopsworksUsername,
         assigned_at: new Date().toISOString(),
         assigned_by: isManualAssignment ? 'admin' : 'system'
       });

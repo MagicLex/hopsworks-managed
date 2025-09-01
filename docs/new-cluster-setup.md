@@ -18,6 +18,7 @@ leave the remaining fields (given name, family name, group claim, email claim) e
 - `oauth_group_mapping` set to **ANY_GROUP->HOPS_USER**
 - `oauth_group_mapping_enabled` set to **TRUE**
 - `oauth_enabled` set to **TRUE**
+- `oauth_group_mapping_sync_enabled` set to **TRUE** (enables automatic project assignment based on OAuth groups)
 
 A new variable needs to be added;
 `REMOTE_AUTH_NEED_CONSENT` set to **FALSE**
@@ -29,6 +30,7 @@ More documentation on hopsworks' configuration at [this link](https://docs.hopsw
 __NotaBene: if you used an installer to deploy Hopsworks, remember to change the admin's  logins/passwords.__ 
 
 ### In Auth0
+Replace or add all the callback links, CORS etc. 
 
 ### In Supabase
 Add or replace a new entry in the `hopsworks_clusters` table. If you choose to replace an existing entry; users that are assigned to that entry will be assigned to the new cluster. 
