@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { requireAdmin } from '../../../middleware/adminAuth';
 import { createClient } from '@supabase/supabase-js';
+import { handleApiError } from '../../../lib/error-handler';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,8 +32,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       return res.status(200).json({ clusters: clustersWithCounts });
     } catch (error) {
-      console.error('Server error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      return handleApiError(error, res, 'GET /api/admin/clusters');
     }
   } else if (req.method === 'POST') {
     try {
@@ -58,8 +58,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       return res.status(201).json({ cluster });
     } catch (error) {
-      console.error('Server error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      return handleApiError(error, res, 'POST /api/admin/clusters');
     }
   } else if (req.method === 'PUT') {
     try {
@@ -79,8 +78,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       return res.status(200).json({ cluster });
     } catch (error) {
-      console.error('Server error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      return handleApiError(error, res, 'PUT /api/admin/clusters');
     }
   } else {
     return res.status(405).json({ error: 'Method not allowed' });

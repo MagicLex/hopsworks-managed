@@ -19,10 +19,29 @@ const supabaseAdmin = createClient(
   }
 );
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Verify webhook secret
+import crypto from 'crypto';
+
+function verifyWebhookSignature(req: NextApiRequest): boolean {
+  // For Auth0 webhooks, we can use either HMAC verification or a shared secret
+  // Using shared secret for simplicity in MVP, but HMAC is more secure
   const secret = req.headers['x-auth0-secret'];
-  if (secret !== process.env.AUTH0_WEBHOOK_SECRET) {
+  
+  // In production, always verify the webhook secret
+  if (process.env.NODE_ENV === 'production') {
+    if (!secret || !process.env.AUTH0_WEBHOOK_SECRET) {
+      return false;
+    }
+    return secret === process.env.AUTH0_WEBHOOK_SECRET;
+  }
+  
+  // In development, allow if secret matches or if no secret is configured
+  return !process.env.AUTH0_WEBHOOK_SECRET || secret === process.env.AUTH0_WEBHOOK_SECRET;
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Verify webhook signature
+  if (!verifyWebhookSignature(req)) {
+    console.error('Auth0 webhook verification failed');
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

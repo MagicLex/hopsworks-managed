@@ -33,8 +33,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Get last collection time
     const { data: lastCollection } = await supabaseAdmin
       .from('usage_daily')
-      .select('updated_at')
-      .order('updated_at', { ascending: false })
+      .select('created_at')
+      .order('created_at', { ascending: false })
       .limit(1)
       .single();
 
@@ -77,7 +77,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         ramGBHours: u.opencost_ram_gb_hours || 0,
         totalCost: u.total_cost || 0,
         projectCount: Object.keys(u.project_breakdown || {}).length,
-        lastUpdate: u.updated_at
+        lastUpdate: u.created_at
       })) || [],
       projectSummary: Array.from(allProjects.values())
     });

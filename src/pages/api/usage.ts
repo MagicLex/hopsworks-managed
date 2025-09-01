@@ -34,18 +34,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: monthlyUsage, error: usageError } = await supabaseAdmin
       .from('usage_daily')
-      .select('opencost_cpu_hours, opencost_gpu_hours, opencost_ram_gb_hours, online_storage_gb, offline_storage_gb, project_breakdown, updated_at, date')
+      .select('opencost_cpu_hours, opencost_gpu_hours, opencost_ram_gb_hours, online_storage_gb, offline_storage_gb, project_breakdown, created_at, date')
       .eq('user_id', userId)
       .gte('date', startOfMonth.toISOString().split('T')[0])
       .lte('date', currentDate)
-      .order('updated_at', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (usageError) {
       console.error('Usage error:', usageError);
     }
 
     // Get the latest update time
-    const lastUpdate = monthlyUsage?.[0]?.updated_at || null;
+    const lastUpdate = monthlyUsage?.[0]?.created_at || null;
     
     // Get project breakdown from today's data
     const todayUsage = monthlyUsage?.find(d => d.date === currentDate);

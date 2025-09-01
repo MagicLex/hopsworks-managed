@@ -16,12 +16,14 @@ const supabaseAdmin = createClient(
 );
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Verify this is called by Vercel Cron or admin
+  // Verify this is called by Vercel Cron with proper authentication
   const authHeader = req.headers.authorization;
-  if (process.env.NODE_ENV === 'production') {
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+  const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
+  
+  // Always check CRON_SECRET if it's configured
+  if (process.env.CRON_SECRET && authHeader !== expectedAuth) {
+    console.error('OpenCost collection unauthorized attempt');
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   if (req.method !== 'POST' && req.method !== 'GET') {

@@ -3,6 +3,7 @@ import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
 import { Resend } from 'resend';
+import { rateLimit } from '../../../middleware/rateLimit';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,7 +12,7 @@ const supabase = createClient(
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getSession(req, res);
   
   if (!session?.user) {
@@ -201,4 +202,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } else {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+}
+
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  return rateLimit('teamInvite')(req, res, () => inviteHandler(req, res));
 }
