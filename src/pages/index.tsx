@@ -15,6 +15,7 @@ export default function Home() {
   const [selectedDeployment, setSelectedDeployment] = useState<DeploymentOption | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [corporateRef, setCorporateRef] = useState<string | null>(null);
+  const [corporateError, setCorporateError] = useState<string | null>(null);
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -23,9 +24,27 @@ export default function Home() {
     const urlParams = new URLSearchParams(window.location.search);
     const ref = urlParams.get('corporate_ref');
     if (ref) {
-      setCorporateRef(ref);
-      // Store in sessionStorage for persistence
-      sessionStorage.setItem('corporate_ref', ref);
+      // Validate the corporate ref exists
+      fetch('/api/auth/validate-corporate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dealId: ref, email: 'validation@check.com' }) // Just checking if deal exists
+      })
+        .then(res => {
+          if (res.status === 404) {
+            setCorporateError(`Invalid corporate reference: ${ref}. Please contact your Hopsworks representative or use the regular sign-up.`);
+            // Remove invalid ref from URL
+            window.history.replaceState({}, '', window.location.pathname);
+          } else if (res.ok) {
+            setCorporateRef(ref);
+            // Store in sessionStorage for persistence
+            sessionStorage.setItem('corporate_ref', ref);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to validate corporate ref:', err);
+          setCorporateError('Unable to validate corporate reference. Please try again or contact support.');
+        });
     }
   }, []);
 
@@ -116,6 +135,11 @@ export default function Home() {
       
       <Box as="main" className="min-h-screen py-10 px-5">
         <Box className="max-w-6xl mx-auto">
+          {corporateError && (
+            <Box className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <Text className="text-red-700">{corporateError}</Text>
+            </Box>
+          )}
           <Box className="mb-8">
             <Title className="text-2xl mb-2">
               Start with Hopsworks
