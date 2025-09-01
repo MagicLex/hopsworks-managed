@@ -9,28 +9,31 @@ corporate accounts use a prepaid billing model with external invoicing. these ac
 ### link generation
 corporate registration links follow this format:
 ```
-https://run.hopsworks.ai/corporate?ref=reference_id
+https://run.hopsworks.ai/?corporate_ref=deal_id
 ```
 
-the `reference_id` corresponds to:
+the `deal_id` corresponds to:
 - hubspot deal id (e.g., `16586605456`)
 - must be a valid deal id in hubspot
 
 ### user registration flow
 when a user accesses the corporate registration link:
-1. the system captures the `ref` parameter (deal id)
-2. user proceeds through standard auth0 authentication
-3. backend validates the registration:
+1. the system validates the deal exists immediately upon page load
+2. if invalid, shows error message and removes the parameter
+3. if valid, displays corporate registration messaging
+4. the system captures the `corporate_ref` parameter (deal id)
+5. user proceeds through standard auth0 authentication
+6. backend validates the registration:
    - fetches deal from hubspot api using the ref id
    - retrieves all contacts associated with the deal
    - verifies auth0 email matches one of the contact emails
    - optionally checks deal stage (e.g., closed won)
-4. if validation passes:
+7. if validation passes:
    - sets `billing_mode = 'prepaid'`
    - stores the deal id in `metadata.corporate_ref`
    - assigns a hopsworks cluster immediately
    - creates user credit records
-5. if validation fails (email mismatch or invalid deal):
+8. if validation fails (email mismatch or invalid deal):
    - rejects registration
    - logs attempt for security monitoring
    - redirects to standard registration flow
@@ -97,7 +100,7 @@ set
   metadata = jsonb_set(
     coalesce(metadata, '{}'::jsonb),
     '{corporate_ref}',
-    '"reference_id"'
+    '"DEAL-123"'
   )
 where email = 'user@company.com';
 ```
@@ -145,9 +148,9 @@ the `corporate_ref` field in metadata enables direct correlation with external s
 
 ## api-endpoints
 
-### check corporate status
-`get /api/auth/check-status`
-returns user's billing mode and corporate reference if applicable
+### corporate validation
+`post /api/auth/validate-corporate`
+validates hubspot deal id and email match for corporate registration
 
 ### usage report
 `get /api/usage`
