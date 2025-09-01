@@ -85,8 +85,7 @@ if (process.env.NODE_ENV === 'development') {
 ## Sensitive Data Storage
 
 ### Database Security
-- Supabase service role key for admin operations
-- Row-level security enforced by Supabase
+- Supabase service role key for admin operations (bypasses RLS)
 - Sensitive fields:
   - `stripe_customer_id` - Payment provider reference
   - `api_key` - Hopsworks cluster API keys
@@ -147,9 +146,8 @@ These items are acknowledged for future improvement:
    - Future: Implement full HMAC signature verification
    - Mitigation: Secret rotation capability exists
 
-3. **Rate Limiting Storage**: In-memory only
-   - Future: Redis-backed for distributed deployments
-   - Mitigation: Single instance deployment model
+3. **Rate Limiting**: In-memory storage doesn't work across Vercel's distributed instances
+   - Future: Redis-backed or edge-compatible solution
 
 4. **Audit Logging**: Limited to console logs
    - Future: Structured logging with audit trail
@@ -162,15 +160,12 @@ These items are acknowledged for future improvement:
 ## Security Checklist for Deployment
 
 Before deploying to production:
-
-- [ ] Set `NODE_ENV=production`
 - [ ] Configure all required environment variables
 - [ ] Generate strong `CRON_SECRET` (minimum 32 characters)
 - [ ] Configure Auth0 webhook with secret
 - [ ] Verify Stripe webhook endpoint in Stripe dashboard
 - [ ] Test health check endpoint accessibility
 - [ ] Review admin user list
-- [ ] Confirm rate limiting is active
 - [ ] Verify TLS validation is enabled
 - [ ] Check error messages are sanitized
 
