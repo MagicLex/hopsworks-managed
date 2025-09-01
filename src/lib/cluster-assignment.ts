@@ -80,7 +80,7 @@ export async function assignUserToCluster(
             firstName,
             lastName,
             userId,
-            0 // Team members get 0 projects
+            0 // Team members stay at 0 projects
           );
           
           hopsworksUserId = hopsworksUser.id;
@@ -179,13 +179,16 @@ export async function assignUserToCluster(
         const [firstName, ...lastNameParts] = (user.name || user.email).split(' ');
         const lastName = lastNameParts.join(' ') || firstName;
         
+        // Account owners get cluster assignment AFTER payment, so give them 5 projects
+        const maxProjects = user.stripe_customer_id ? 5 : 0;
+        
         const hopsworksUser = await createHopsworksOAuthUser(
           { apiUrl: clusterDetails.api_url, apiKey: clusterDetails.api_key },
           user.email,
           firstName,
           lastName,
           userId,
-          0 // Account owners start with 0, will be upgraded to 5 after payment
+          maxProjects // Billing users get 5, others get 0
         );
         
         hopsworksUserId = hopsworksUser.id;
