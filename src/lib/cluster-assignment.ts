@@ -25,7 +25,7 @@ export async function assignUserToCluster(
     // Get user details including account owner
     const { data: user } = await supabaseAdmin
       .from('users')
-      .select('stripe_customer_id, account_owner_id, email, name, hopsworks_user_id')
+      .select('stripe_customer_id, account_owner_id, email, name, hopsworks_user_id, billing_mode')
       .eq('id', userId)
       .single();
 
@@ -132,8 +132,9 @@ export async function assignUserToCluster(
       };
     }
 
-    // For account owners, check payment method
-    if (!isManualAssignment && !user.stripe_customer_id) {
+    // For account owners, check payment method (skip for prepaid users)
+    const isPrepaid = user.billing_mode === 'prepaid';
+    if (!isManualAssignment && !user.stripe_customer_id && !isPrepaid) {
       return { 
         success: false, 
         error: 'User must set up payment method before cluster assignment' 
@@ -179,8 +180,8 @@ export async function assignUserToCluster(
         const [firstName, ...lastNameParts] = (user.name || user.email).split(' ');
         const lastName = lastNameParts.join(' ') || firstName;
         
-        // Account owners get cluster assignment AFTER payment, so give them 5 projects
-        const maxProjects = user.stripe_customer_id ? 5 : 0;
+        // Account owners with payment or prepaid get 5 projects
+        const maxProjects = (user.stripe_customer_id || isPrepaid) ? 5 : 0;
         
         const hopsworksUser = await createHopsworksOAuthUser(
           { apiUrl: clusterDetails.api_url, apiKey: clusterDetails.api_key },
