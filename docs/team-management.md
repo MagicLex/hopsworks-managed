@@ -11,6 +11,8 @@ team management allows account owners to invite members to share their hopsworks
 - can invite and remove team members
 - responsible for all team usage and costs
 - identified by `account_owner_id = null` in the database
+- gets 5 project limit in Hopsworks after payment setup
+- can create and manage projects in Hopsworks
 
 ### team member
 - invited by an account owner
@@ -18,6 +20,8 @@ team management allows account owners to invite members to share their hopsworks
 - shares the same cluster as the owner
 - usage aggregates under the owner's account
 - identified by `account_owner_id` pointing to the owner
+- gets 0 project limit in Hopsworks (cannot create projects)
+- can only access projects the owner adds them to
 
 ## invitation flow
 
@@ -51,7 +55,9 @@ the acceptance process:
 2. user authenticates via auth0
 3. system links user to the account owner
 4. inherits billing mode and cluster assignment
-5. redirects to dashboard
+5. creates Hopsworks OAuth user with 0 project limit
+6. stores `hopsworks_user_id` for future API calls
+7. redirects to dashboard
 
 ## database schema
 
@@ -60,11 +66,17 @@ the acceptance process:
 ```sql
 -- account owner
 account_owner_id: null
-billing_mode: 'stripe' or 'prepaid'
+billing_mode: 'postpaid' or 'prepaid'
+hopsworks_user_id: integer (after cluster assignment)
+hopsworks_username: string (after cluster assignment)
+stripe_customer_id: string (for postpaid billing)
 
 -- team member
 account_owner_id: 'auth0|owner-id'
 billing_mode: inherited from owner
+hopsworks_user_id: integer (after cluster assignment)
+hopsworks_username: string (after cluster assignment)
+stripe_customer_id: null (uses owner's billing)
 ```
 
 ### team_invites table
@@ -223,11 +235,38 @@ where ud.date >= date_trunc('month', current_date)
 group by u.id, u.email, u.name, owner.email;
 ```
 
+## hopsworks project access
+
+### project limits
+- **account owners**: 5 projects maximum (`maxNumProjects: 5`)
+- **team members**: 0 projects (`maxNumProjects: 0`)
+- limits are enforced by Hopsworks, not hopsworks-managed
+
+### project management
+- account owners create projects in Hopsworks UI
+- owners manually add team members to specific projects
+- team members can only access projects they're added to
+- project-level permissions managed within Hopsworks
+
+### future: group mapping api
+planned implementation for automatic team access:
+```javascript
+// When owner creates a project
+POST /hopsworks-api/api/admin/group/mapping/bulk
+{
+  "projectName": "ml_project_1",
+  "group": ["team_owner_xyz"],
+  "projectRole": "Data scientist",
+  "groupType": "OAUTH"
+}
+```
+
 ## cluster management
 
 ### assignment rules
 - team members use the same cluster as the owner
 - cluster assignment happens automatically on join
+- creates Hopsworks OAuth user during assignment
 - removing a team member decrements cluster user count
 - cluster limits apply to total team size
 

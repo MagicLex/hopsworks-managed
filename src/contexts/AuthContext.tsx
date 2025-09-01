@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 interface AuthContextType {
   user: any; // Auth0's UserProfile type has nullable sub
   loading: boolean;
-  signIn: () => void;
+  signIn: (corporateRef?: string) => void;
   signOut: () => void;
 }
 
@@ -17,15 +17,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (user && !isLoading) {
+      // Get corporate ref from sessionStorage if present
+      const corporateRef = sessionStorage.getItem('corporate_ref');
+      
       // Sync user to Supabase when they log in
       fetch('/api/auth/sync-user', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ corporateRef })
+      }).then(() => {
+        // Clear corporate ref after successful sync
+        sessionStorage.removeItem('corporate_ref');
       }).catch(err => console.error('Failed to sync user:', err));
     }
   }, [user, isLoading]);
 
-  const signIn = () => {
+  const signIn = (corporateRef?: string) => {
+    if (corporateRef) {
+      // Store corporate ref in sessionStorage to persist through auth flow
+      sessionStorage.setItem('corporate_ref', corporateRef);
+    }
     router.push('/api/auth/login');
   };
 

@@ -1,7 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
-import { createHopsworksOAuthUser, createHopsworksProject } from '../../../lib/hopsworks-api';
 
 // Create Stripe client
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
