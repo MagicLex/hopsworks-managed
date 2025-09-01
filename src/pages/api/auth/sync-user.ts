@@ -44,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         try {
           // Validate corporate registration
           const validateResponse = await fetch(
-            `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/auth/validate-corporate`,
+            `${process.env.AUTH0_BASE_URL || 'http://localhost:3000'}/api/auth/validate-corporate`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

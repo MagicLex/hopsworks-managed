@@ -122,7 +122,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Optional: Check deal stage (e.g., closed won)
+    // Get deal properties for logging
     const dealStage = dealData.properties?.dealstage;
     const dealName = dealData.properties?.dealname;
     
