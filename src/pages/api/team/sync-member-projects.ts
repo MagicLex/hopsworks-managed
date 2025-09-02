@@ -162,7 +162,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Add warning if some projects failed
     if (results.failed.length > 0) {
-      response.warning = 'Some projects could not be synced. The cluster may need to be upgraded to support OAuth group mappings. Please contact support.';
+      response.warning = `Failed to sync ${results.failed.length} project(s)`;
     }
 
     return res.status(200).json(response);

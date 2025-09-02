@@ -91,29 +91,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         role: p.role,
         synced: p.synced_to_hopsworks,
         lastSyncAt: p.last_sync_at,
-        syncError: p.sync_error
+        syncError: p.sync_error,
+        pending: !p.synced_to_hopsworks // Flag for UI to show pending state
       })) || [];
 
-      // If user has hopsworks username but no projects in DB, try to fetch from Hopsworks
-      // This handles backward compatibility
-      if (teamMember.hopsworks_username && projects.length === 0) {
-        try {
-          const hopsworksProjects = await getUserProjects(credentials, teamMember.hopsworks_username);
-          // These won't have roles, but at least we show the projects
-          return res.status(200).json({ 
-            projects: hopsworksProjects.map(p => ({
-              ...p,
-              role: null, // Unknown role
-              synced: false,
-              fromHopsworks: true // Flag to indicate this came from Hopsworks directly
-            }))
-          });
-        } catch (error) {
-          console.error('Failed to fetch from Hopsworks:', error);
-        }
-      }
-
-      return res.status(200).json({ projects });
+      // Count how many are pending sync
+      const pendingCount = projects.filter(p => !p.synced).length;
+      
+      return res.status(200).json({ 
+        projects,
+        pendingCount,
+        hasPendingSync: pendingCount > 0
+      });
 
     } catch (error) {
       console.error('Failed to fetch member projects:', error);
@@ -175,7 +164,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
 
       if (action === 'add') {
-        // First, save to our database
+        // Check if user already has a role for this project
+        const { data: existingRole } = await supabaseAdmin
+          .from('project_member_roles')
+          .select('*')
+          .eq('member_id', memberId)
+          .eq('project_name', projectName)
+          .eq('account_owner_id', userId)
+          .single();
+
+        if (existingRole) {
+          // User already has access to this project - check if it's just a role change
+          if (existingRole.role === role) {
+            return res.status(400).json({ 
+              error: `${teamMember.email} already has ${role} access to ${projectName}` 
+            });
+          }
+          
+          // This is a role change - only allow if already synced to Hopsworks
+          if (!existingRole.synced_to_hopsworks) {
+            return res.status(400).json({ 
+              error: `Cannot change role for ${teamMember.email} in ${projectName} - initial sync pending or failed` 
+            });
+          }
+          
+          // For role changes, we should update not create
+          // But Hopsworks doesn't support role updates via API yet
+          return res.status(400).json({ 
+            error: 'Role changes are not yet supported. Please remove the user and re-add with the new role.' 
+          });
+        }
+
+        // This is a new assignment - create it
         const { data: roleRecord, error: dbError } = await supabaseAdmin
           .rpc('upsert_project_member_role', {
             p_member_id: memberId,
@@ -188,6 +208,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (dbError) {
           console.error('Failed to save role to database:', dbError);
+          return res.status(500).json({ error: 'Failed to save project assignment' });
         }
 
         try {
@@ -205,38 +226,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               })
               .eq('id', roleRecord);
           }
+          
+          return res.status(200).json({ 
+            message: `Successfully added ${teamMember.email} to ${projectName} as ${role}`,
+            project: projectName,
+            role,
+            synced: true
+          });
+          
         } catch (hopsworksError: any) {
-          // If Hopsworks sync fails, remove the database record and return error
+          // If Hopsworks sync fails, keep the record but mark it as unsynced
+          const errorMessage = hopsworksError.message || 'Failed to sync to Hopsworks';
+          console.error('Hopsworks sync failed:', errorMessage);
+          
           if (roleRecord) {
             await supabaseAdmin
               .from('project_member_roles')
-              .delete()
+              .update({ 
+                synced_to_hopsworks: false,
+                last_sync_at: new Date().toISOString(),
+                sync_error: errorMessage
+              })
               .eq('id', roleRecord);
           }
           
-          // Return error to owner
-          const errorMessage = hopsworksError.message || 'Failed to sync to Hopsworks';
-          console.error('Hopsworks sync failed:', errorMessage);
-          return res.status(500).json({ 
-            error: 'Failed to add user to project in Hopsworks. The cluster may need to be upgraded to support OAuth group mappings. Please contact support.',
-            details: errorMessage
+          // Return success but with sync warning
+          return res.status(200).json({ 
+            message: `Added ${teamMember.email} to ${projectName} as ${role} (pending sync)`,
+            project: projectName,
+            role,
+            synced: false,
+            warning: 'Project assignment saved but could not sync to Hopsworks',
+            syncError: errorMessage
           });
         }
 
-        return res.status(200).json({ 
-          message: `Successfully added ${teamMember.email} to ${projectName} as ${role}`,
-          project: projectName,
-          role,
-          synced: true
-        });
+        // This line was moved into the try block above
 
       } else if (action === 'remove') {
+        // Check if the role exists before trying to remove
+        const { data: existingRole } = await supabaseAdmin
+          .from('project_member_roles')
+          .select('*')
+          .eq('member_id', memberId)
+          .eq('project_name', projectName)
+          .eq('account_owner_id', userId)
+          .single();
+
+        if (!existingRole) {
+          return res.status(404).json({ 
+            error: `${teamMember.email} does not have access to ${projectName}` 
+          });
+        }
+
         // Remove from our database
         const { error: dbError } = await supabaseAdmin
           .from('project_member_roles')
           .delete()
           .eq('member_id', memberId)
-          .eq('project_name', projectName);
+          .eq('project_name', projectName)
+          .eq('account_owner_id', userId);
 
         if (dbError) {
           console.error('Failed to remove role from database:', dbError);
