@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Box, Flex, Title, Text, Button, Card, Badge } from 'tailwind-quartz';
 import Navbar from '@/components/Navbar';
+import ProjectRoleManager from '@/components/admin/ProjectRoleManager';
 
 interface User {
   id: string;
@@ -13,6 +14,7 @@ interface User {
   login_count: number;
   status: string;
   is_admin: boolean;
+  account_owner_id?: string;
   hopsworks_username?: string;
   last_24h_cost?: number;
   active_namespaces?: string[];
@@ -301,7 +303,7 @@ export default function AdminPage() {
                               )}
                             </td>
                             <td className="py-3 text-center">
-                              {user.projects && user.projects.length > 0 && (
+                              {(user.hopsworks_username || user.user_hopsworks_assignments?.[0]) && (
                                 <Button
                                   onClick={() => toggleUserExpanded(user.id)}
                                   size="sm"
@@ -313,12 +315,23 @@ export default function AdminPage() {
                             </td>
                           </tr>
                           
-                          {/* Project breakdown row */}
-                          {isExpanded && user.projects && user.projects.length > 0 && (
-                            <tr key={`${user.id}-projects`}>
+                          {/* Expanded details row */}
+                          {isExpanded && (
+                            <tr key={`${user.id}-expanded`}>
                               <td colSpan={6} className="bg-grayShade1/20 p-4">
-                                <Box className="ml-8">
-                                  <Text className="text-sm font-semibold mb-3">Project Breakdown</Text>
+                                <Box className="ml-8 space-y-4">
+                                  {/* Project Role Manager */}
+                                  <ProjectRoleManager
+                                    userId={user.id}
+                                    userEmail={user.email}
+                                    isTeamMember={!!user.account_owner_id}
+                                    accountOwnerId={user.account_owner_id}
+                                  />
+                                  
+                                  {/* Project breakdown */}
+                                  {user.projects && user.projects.length > 0 && (
+                                    <Box>
+                                      <Text className="text-sm font-semibold mb-3">Usage Breakdown</Text>
                                   <Box className="space-y-2">
                                     {user.projects.map(project => (
                                       <Card key={project.namespace} className="border border-grayShade2 p-3">
@@ -361,6 +374,8 @@ export default function AdminPage() {
                                       </Card>
                                     ))}
                                   </Box>
+                                    </Box>
+                                  )}
                                 </Box>
                               </td>
                             </tr>

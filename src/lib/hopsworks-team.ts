@@ -19,7 +19,7 @@ export async function addUserToProject(
   credentials: HopsworksCredentials,
   projectName: string,
   username: string,
-  role: 'Data owner' | 'Data scientist' | 'Data engineer' = 'Data scientist'
+  role: 'Data owner' | 'Data scientist' | 'Observer' = 'Data scientist'
 ): Promise<void> {
   const response = await fetch(
     `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${projectName}/projectMembers`,
@@ -50,7 +50,7 @@ export async function createGroupMapping(
   credentials: HopsworksCredentials,
   projectName: string,
   groupNames: string[],
-  role: 'Data owner' | 'Data scientist' | 'Data engineer' = 'Data scientist'
+  role: 'Data owner' | 'Data scientist' | 'Observer' = 'Data scientist'
 ): Promise<void> {
   const response = await fetch(
     `${credentials.apiUrl}${ADMIN_API_BASE}/group/mapping/bulk`,
@@ -109,7 +109,7 @@ export async function addTeamMemberToOwnerProjects(
   credentials: HopsworksCredentials,
   teamMemberUsername: string,
   ownerUsername: string,
-  role: 'Data scientist' | 'Data engineer' = 'Data scientist'
+  role: 'Data scientist' | 'Observer' = 'Data scientist'
 ): Promise<{ success: boolean; projects: string[] }> {
   try {
     // Get owner's projects

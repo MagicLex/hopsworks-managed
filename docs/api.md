@@ -280,6 +280,37 @@ Sync Hopsworks username for a user.
 }
 ```
 
+### GET /api/admin/project-roles
+Get user's Hopsworks projects.
+
+**Query Parameters:**
+- `userId` - User ID to fetch projects for
+
+### POST /api/admin/project-roles
+Add/remove user from project with role.
+
+**Request:**
+```json
+{
+  "userId": "auth0|...",
+  "projectName": "project_name",
+  "role": "Data scientist",  // "Data owner", "Data scientist", "Observer"
+  "action": "add"            // "add" or "remove"
+}
+```
+
+### PUT /api/admin/project-roles
+Bulk assign team member to owner's projects.
+
+**Request:**
+```json
+{
+  "teamMemberId": "auth0|...",
+  "ownerId": "auth0|...",
+  "defaultRole": "Data scientist"
+}
+```
+
 ## Webhook Endpoints
 
 ### POST /api/webhooks/auth0

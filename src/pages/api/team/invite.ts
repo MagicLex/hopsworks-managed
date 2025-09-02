@@ -23,10 +23,16 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
 
   if (req.method === 'POST') {
     try {
-      const { email } = req.body;
+      const { email, projectRole = 'Data scientist', autoAssignProjects = true } = req.body;
 
       if (!email || typeof email !== 'string') {
         return res.status(400).json({ error: 'Email is required' });
+      }
+
+      // Validate role
+      const validRoles = ['Data owner', 'Data scientist', 'Observer'];
+      if (!validRoles.includes(projectRole)) {
+        return res.status(400).json({ error: 'Invalid project role. Valid roles: Data owner, Data scientist, Observer' });
       }
 
       // Check if user is an account owner (account_owner_id is NULL)
@@ -71,13 +77,15 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
       // Generate invite token
       const token = randomBytes(32).toString('hex');
 
-      // Create invite
+      // Create invite with project role and auto-assign preference
       const { data: invite, error: inviteError } = await supabase
         .from('team_invites')
         .insert({
           account_owner_id: userId,
           email,
           token,
+          project_role: projectRole,
+          auto_assign_projects: autoAssignProjects,
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
         })
         .select()

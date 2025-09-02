@@ -55,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const { sub: userId, email, name } = session.user;
-    const { corporateRef } = req.body;
+    const { corporateRef, teamInviteToken } = req.body;
     const healthCheckResults = {
       userExists: false,
       billingEnabled: false,
@@ -492,6 +492,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             // TODO: Implement cluster migration
           } else {
             healthCheckResults.teamMembershipCorrect = true;
+          }
+        }
+        
+        // HEALTH CHECK 6: Log team member project access status (no auto-repair)
+        const teamMemberUsername = assignment?.hopsworks_username || existingUser.hopsworks_username;
+        if (assignment?.hopsworks_clusters && teamMemberUsername) {
+          try {
+            const { getUserProjects } = await import('../../../lib/hopsworks-team');
+            const credentials = {
+              apiUrl: assignment.hopsworks_clusters.api_url,
+              apiKey: assignment.hopsworks_clusters.api_key
+            };
+            
+            // Get team member's current projects
+            const memberProjects = await getUserProjects(credentials, teamMemberUsername);
+            
+            // Get owner's username
+            const { data: owner } = await supabaseAdmin
+              .from('users')
+              .select('hopsworks_username')
+              .eq('id', existingUser.account_owner_id)
+              .single();
+            
+            if (owner?.hopsworks_username) {
+              // Get owner's projects
+              const ownerProjects = await getUserProjects(credentials, owner.hopsworks_username);
+              
+              // Just log the status - don't auto-add
+              const memberProjectNames = new Set(memberProjects.map(p => p.name));
+              const accessibleProjects = ownerProjects.filter(p => memberProjectNames.has(p.name));
+              const missingProjects = ownerProjects.filter(p => !memberProjectNames.has(p.name));
+              
+              if (accessibleProjects.length > 0) {
+                console.log(`[Health Check] Team member ${email} has access to ${accessibleProjects.length}/${ownerProjects.length} owner projects`);
+              }
+              
+              if (missingProjects.length > 0) {
+                console.log(`[Health Check] Team member ${email} not in projects: ${missingProjects.map(p => p.name).join(', ')}`);
+                // Don't auto-add - owner controls project membership
+              }
+            }
+          } catch (error) {
+            console.error(`[Health Check] Failed to check team member project access:`, error);
           }
         }
       } else {

@@ -119,10 +119,67 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Don't fail the join operation, they can be assigned later
     }
 
+    // If auto_assign_projects is true and we have a cluster, add to owner's projects
+    let projectsAssigned: string[] = [];
+    if (invite.auto_assign_projects && clusterAssignment.success) {
+      try {
+        // Get owner's cluster and Hopsworks username
+        const { data: owner } = await supabase
+          .from('users')
+          .select(`
+            hopsworks_username,
+            user_hopsworks_assignments!inner (
+              hopsworks_cluster_id,
+              hopsworks_clusters!inner (
+                api_url,
+                api_key
+              )
+            )
+          `)
+          .eq('id', invite.account_owner_id)
+          .single();
+
+        // Get team member's Hopsworks username (might need to wait for it to be created)
+        const { data: teamMember } = await supabase
+          .from('users')
+          .select('hopsworks_username')
+          .eq('id', userId)
+          .single();
+
+        if (owner?.hopsworks_username && teamMember?.hopsworks_username) {
+          const { getUserProjects, addUserToProject } = await import('@/lib/hopsworks-team');
+          const assignment = owner.user_hopsworks_assignments[0] as any;
+          const credentials = {
+            apiUrl: assignment.hopsworks_clusters.api_url,
+            apiKey: assignment.hopsworks_clusters.api_key
+          };
+
+          // Get owner's projects
+          const ownerProjects = await getUserProjects(credentials, owner.hopsworks_username);
+          const projectRole = invite.project_role || 'Data scientist';
+
+          // Add team member to each project
+          for (const project of ownerProjects) {
+            try {
+              await addUserToProject(credentials, project.name, teamMember.hopsworks_username, projectRole);
+              projectsAssigned.push(project.name);
+              console.log(`Added ${userEmail} to project ${project.name} as ${projectRole}`);
+            } catch (error) {
+              console.error(`Failed to add ${userEmail} to project ${project.name}:`, error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to auto-assign projects:', error);
+        // Don't fail the join operation
+      }
+    }
+
     return res.status(200).json({ 
       message: 'Successfully joined team',
       account_owner_id: invite.account_owner_id,
-      cluster_assigned: clusterAssignment.success
+      cluster_assigned: clusterAssignment.success,
+      projects_assigned: projectsAssigned
     });
 
   } catch (error) {

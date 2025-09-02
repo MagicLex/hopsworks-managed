@@ -32,7 +32,9 @@ account owners can invite team members via email:
 ```http
 POST /api/team/invite
 {
-  "email": "newmember@example.com"
+  "email": "newmember@example.com",
+  "projectRole": "Data scientist",    // optional: "Data owner", "Data scientist", "Observer"
+  "autoAssignProjects": true          // optional: auto-add to owner's projects on join
 }
 ```
 
@@ -40,7 +42,8 @@ the system:
 1. validates the requester is an account owner
 2. checks the email isn't already a team member
 3. creates an invite record with 7-day expiration
-4. sends an email with the invite link
+4. stores project role preference and auto-assignment settings
+5. sends an email with the invite link
 
 ### accepting invites
 

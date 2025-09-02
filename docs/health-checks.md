@@ -66,6 +66,11 @@ The system performs these checks on every login (`/api/auth/sync-user`):
 - **Checks**: Team members on same cluster as account owner
 - **Auto-repair**: Logs mismatch (migration not automated)
 
+### 6. Team Project Access
+- **Checks**: Logs which owner projects the team member has access to
+- **Auto-repair**: None - owner controls project membership
+- **Note**: Can be managed via admin panel or directly in Hopsworks
+
 ## Failure Tracking
 
 ### Database Table: `health_check_failures`
