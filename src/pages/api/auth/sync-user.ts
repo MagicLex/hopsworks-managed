@@ -3,7 +3,7 @@ import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { assignUserToCluster } from '../../../lib/cluster-assignment';
-import { getHopsworksUserByUsername, updateUserProjectLimit, createHopsworksOAuthUser } from '../../../lib/hopsworks-api';
+import { getHopsworksUserByUsername, getHopsworksUserByAuth0Id, updateUserProjectLimit, createHopsworksOAuthUser } from '../../../lib/hopsworks-api';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -330,13 +330,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Check if Hopsworks user exists
         let hopsworksUser = null;
         let hopsworksUsername = assignment.hopsworks_username || existingUser.hopsworks_username;
+        let hopsworksUserId = assignment.hopsworks_user_id || existingUser.hopsworks_user_id;
         
+        // Try to get user by username first
         if (hopsworksUsername) {
           try {
             hopsworksUser = await getHopsworksUserByUsername(credentials, hopsworksUsername);
-            healthCheckResults.hopsworksUserExists = !!hopsworksUser;
+            if (hopsworksUser) {
+              healthCheckResults.hopsworksUserExists = true;
+              hopsworksUserId = hopsworksUser.id;
+              
+              // Update database with Hopsworks user ID if missing
+              if (!assignment.hopsworks_user_id || !existingUser.hopsworks_user_id) {
+                console.log(`[Health Check] Found Hopsworks user ID ${hopsworksUserId} for ${hopsworksUsername}`);
+                
+                await supabaseAdmin
+                  .from('users')
+                  .update({ hopsworks_user_id: hopsworksUserId })
+                  .eq('id', userId);
+                
+                await supabaseAdmin
+                  .from('user_hopsworks_assignments')
+                  .update({ hopsworks_user_id: hopsworksUserId })
+                  .eq('user_id', userId);
+              }
+            }
           } catch (error) {
             console.error(`[Health Check] Failed to fetch Hopsworks user ${hopsworksUsername}:`, error);
+          }
+        }
+        
+        // If still no user, try by email
+        if (!hopsworksUser) {
+          try {
+            hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, existingUser.email);
+            if (hopsworksUser) {
+              healthCheckResults.hopsworksUserExists = true;
+              hopsworksUserId = hopsworksUser.id;
+              hopsworksUsername = hopsworksUser.username;
+              
+              console.log(`[Health Check] Found Hopsworks user by email: ${hopsworksUsername} (ID: ${hopsworksUserId})`);
+              
+              // Update database with found user info
+              await supabaseAdmin
+                .from('users')
+                .update({ 
+                  hopsworks_user_id: hopsworksUserId,
+                  hopsworks_username: hopsworksUsername
+                })
+                .eq('id', userId);
+              
+              await supabaseAdmin
+                .from('user_hopsworks_assignments')
+                .update({ 
+                  hopsworks_user_id: hopsworksUserId,
+                  hopsworks_username: hopsworksUsername
+                })
+                .eq('user_id', userId);
+            }
+          } catch (error) {
+            console.error(`[Health Check] Failed to fetch Hopsworks user by email:`, error);
           }
         }
         
@@ -388,23 +441,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         
         // HEALTH CHECK 4: Verify maxNumProjects is correct
-        if (hopsworksUser) {
+        if (hopsworksUser && hopsworksUserId) {
           const expectedMaxProjects = isTeamMember ? 0 : 
                                     (existingUser.stripe_customer_id || existingUser.billing_mode === 'prepaid') ? 5 : 0;
           
-          if (hopsworksUser.maxNumProjects !== expectedMaxProjects) {
-            console.log(`[Health Check] User ${email} has incorrect maxNumProjects (${hopsworksUser.maxNumProjects} vs expected ${expectedMaxProjects}) - fixing`);
+          const currentMaxProjects = hopsworksUser.maxNumProjects ?? 0;
+          
+          if (currentMaxProjects !== expectedMaxProjects) {
+            console.log(`[Health Check] User ${email} has incorrect maxNumProjects (${currentMaxProjects} vs expected ${expectedMaxProjects}) - fixing`);
             try {
-              await updateUserProjectLimit(credentials, hopsworksUser.id, expectedMaxProjects);
+              await updateUserProjectLimit(credentials, hopsworksUserId, expectedMaxProjects);
               healthCheckResults.maxNumProjectsCorrect = true;
-              console.log(`[Health Check] Updated maxNumProjects to ${expectedMaxProjects} for ${email}`);
+              console.log(`[Health Check] Successfully updated maxNumProjects to ${expectedMaxProjects} for ${email}`);
             } catch (error) {
               await logHealthCheckFailure(userId, email, 'maxnumprojects_update', 
-                `Failed to update maxNumProjects from ${hopsworksUser.maxNumProjects} to ${expectedMaxProjects}`, error);
+                `Failed to update maxNumProjects from ${currentMaxProjects} to ${expectedMaxProjects}`, error);
               console.error(`[Health Check] Failed to update maxNumProjects for ${email}:`, error);
             }
           } else {
             healthCheckResults.maxNumProjectsCorrect = true;
+            console.log(`[Health Check] User ${email} already has correct maxNumProjects: ${currentMaxProjects}`);
           }
           
           // Sync username if needed
