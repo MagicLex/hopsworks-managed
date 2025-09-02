@@ -32,22 +32,30 @@ Offline Storage:  $0.03/GB/month
 
 ### Billing Modes
 
-#### Prepaid (Enterprise)
-- Customer pays via invoice/wire transfer
-- Usage tracked for reporting
-- No Stripe integration
-- Manual monthly/quarterly invoicing
-- Set via `billing_mode: 'prepaid'` in database
+#### Prepaid (Corporate/Enterprise)
+- **Registration**: Via special link with `?corporate_ref=deal_id`
+- **Payment**: Invoice/wire transfer (handled outside platform)
+- **Stripe**: Not required
+- **Cluster access**: Immediate upon registration
+- **Projects**: 5 projects immediately available
+- **Usage tracking**: For reporting only, not billing
+- **Database**: `billing_mode = 'prepaid'`
 
-#### Postpaid (SaaS)
-- Automatic billing via Stripe
-- Usage reported daily to Stripe
-- Stripe handles invoicing, taxes, payments
-- Credit card on file required
-- Metered billing with 3 products:
-  - `compute_credits` (prod_SyouWf2n0ZTrgl)
-  - `storage_online_gb` (prod_SyowZZ5KSoxZZR)
-  - `storage_offline_gb` (prod_SyoxUy6KrEirtL)
+#### Postpaid (SaaS/Self-Service)
+- **Registration**: Standard signup flow
+- **Payment**: Credit card via Stripe
+- **Stripe setup**: Automatic on first login
+  - Creates customer
+  - Creates metered subscription
+  - Payment method added later
+- **Cluster access**: After Stripe customer created
+- **Projects**: 5 projects once billing enabled
+- **Usage tracking**: Reported to Stripe for billing
+- **Database**: `billing_mode = 'postpaid'` or null
+- **Metered products**:
+  - `compute_credits` (prod_SyouWf2n0ZTrgl) - $0.35/credit
+  - `storage_online_gb` (prod_SyowZZ5KSoxZZR) - $0.50/GB
+  - `storage_offline_gb` (prod_SyoxUy6KrEirtL) - $0.03/GB
 
 ## Stripe Integration
 

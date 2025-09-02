@@ -17,14 +17,33 @@ User Login → sync-user.ts → Health Checks → Auto-Repair → Log Failures
 The system performs these checks on every login (`/api/auth/sync-user`):
 
 ### 1. Billing Status
-- **Checks**: Stripe customer exists, subscription active (for postpaid)
-- **Auto-repair**: Creates missing Stripe customer and subscription
+- **Checks**: Determines billing type and ensures proper setup
+- **Auto-repair**: 
+  - **Postpaid users**: Creates Stripe customer and subscription if missing
+  - **Prepaid/Corporate users**: No Stripe needed, billing already enabled
 - **Applies to**: Account owners only (not team members)
+
+#### Billing Types:
+**Postpaid (SaaS)**:
+- Requires Stripe customer ID
+- Auto-creates metered subscription
+- Payment method added later via billing page
+- Identified by: `billing_mode = 'postpaid'` or null
+
+**Prepaid (Corporate/Enterprise)**:
+- No Stripe integration needed
+- Billing handled via invoices
+- Cluster assigned immediately
+- Identified by: `billing_mode = 'prepaid'`
+- Set during registration with `?corporate_ref=deal_id`
 
 ### 2. Cluster Assignment
 - **Checks**: User assigned to an active Hopsworks cluster
 - **Auto-repair**: Assigns to available cluster with capacity
-- **Prerequisites**: Valid billing or team membership
+- **Prerequisites**: 
+  - **Postpaid**: Must have Stripe customer (payment method optional)
+  - **Prepaid**: Assigned immediately, no payment check
+  - **Team members**: Assigned to same cluster as account owner
 
 ### 3. Hopsworks User
 - **Checks**: Hopsworks user exists with correct settings
@@ -38,9 +57,10 @@ The system performs these checks on every login (`/api/auth/sync-user`):
 - **Checks**: Correct project limit set in Hopsworks
 - **Auto-repair**: Updates to correct value
 - **Values**:
-  - Account owners with billing: 5 projects
-  - Team members: 0 projects (inherit from owner)
-  - Users without billing: 0 projects
+  - **Postpaid account owners**: 5 projects (if Stripe customer exists)
+  - **Prepaid/Corporate account owners**: 5 projects (always)
+  - **Team members**: 0 projects (use owner's projects)
+  - **Users without billing**: 0 projects (trial/restricted)
 
 ### 5. Team Membership
 - **Checks**: Team members on same cluster as account owner
