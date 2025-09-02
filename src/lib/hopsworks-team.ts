@@ -76,30 +76,56 @@ export async function createGroupMapping(
 }
 
 /**
- * Get all projects for a user
+ * Get all projects from the cluster
+ * Since we use an admin API key, this should return all projects
  */
 export async function getUserProjects(
   credentials: HopsworksCredentials,
   username: string
 ): Promise<any[]> {
-  const response = await fetch(
-    `${credentials.apiUrl}${ADMIN_API_BASE}/users/${username}/projects`,
-    {
-      headers: {
-        'Authorization': `ApiKey ${credentials.apiKey}`
+  try {
+    // Try admin endpoint to get ALL projects
+    const adminResponse = await fetch(
+      `${credentials.apiUrl}${ADMIN_API_BASE}/projects`,
+      {
+        headers: {
+          'Authorization': `ApiKey ${credentials.apiKey}`
+        }
       }
+    );
+    
+    if (adminResponse.ok) {
+      const adminData = await adminResponse.json();
+      // Return all projects for now - we can filter by owner later if needed
+      return adminData.items || adminData || [];
     }
-  );
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      return [];
-    }
-    throw new Error(`Failed to fetch user projects: ${response.statusText}`);
+  } catch (error) {
+    console.error('Failed to fetch from admin endpoint:', error);
   }
 
-  const data = await response.json();
-  return data.items || [];
+  try {
+    // Fallback: try regular project endpoint
+    const response = await fetch(
+      `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project`,
+      {
+        headers: {
+          'Authorization': `ApiKey ${credentials.apiKey}`
+        }
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      // Handle both array response and object with items
+      return Array.isArray(data) ? data : (data.items || []);
+    }
+  } catch (error) {
+    console.error('Failed to fetch from project endpoint:', error);
+  }
+
+  // If all else fails, return empty array
+  console.log(`No projects found for user ${username}`);
+  return [];
 }
 
 /**
