@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
-import { Box, Flex, Title, Text, Button, Card, Input, Badge, Modal } from 'tailwind-quartz';
+import { Box, Flex, Title, Text, Button, Card, Input, Badge, Modal, Select } from 'tailwind-quartz';
 import { Users, UserPlus, Trash2, Copy, ArrowLeft, Mail, Clock } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import TeamMemberProjects from '@/components/team/TeamMemberProjects';
 
 interface TeamMember {
   id: string;
@@ -44,6 +45,8 @@ export default function Team() {
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('Data scientist');
+  const [autoAssignProjects, setAutoAssignProjects] = useState(true);
   const [inviteError, setInviteError] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
 
@@ -92,7 +95,11 @@ export default function Team() {
       const response = await fetch('/api/team/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail })
+        body: JSON.stringify({ 
+          email: inviteEmail,
+          projectRole: inviteRole,
+          autoAssignProjects 
+        })
       });
 
       const data = await response.json();
@@ -227,33 +234,43 @@ export default function Team() {
               {/* Team Members */}
               {teamMembers.map((member) => (
                 <Card key={member.id} variant="readOnly" className="p-4">
-                  <Flex justify="between" align="center">
-                    <Box>
-                      <Text className="font-medium">{member.name || member.email}</Text>
-                      <Text className="text-sm text-gray-600">{member.email}</Text>
-                      {member.hopsworks_username && (
-                        <Text className="text-xs text-gray-500">
-                          Hopsworks: {member.hopsworks_username}
-                        </Text>
-                      )}
-                    </Box>
-                    <Flex align="center" gap={12}>
-                      {member.last_login_at && (
-                        <Text className="text-xs text-gray-500">
-                          Last login: {new Date(member.last_login_at).toLocaleDateString()}
-                        </Text>
-                      )}
-                      {isOwner && (
-                        <Button
-                          intent="ghost"
-                          size="md"
-                          onClick={() => handleRemoveMember(member.id)}
-                        >
-                          <Trash2 size={16} className="text-red-500" />
-                        </Button>
-                      )}
+                  <Box>
+                    <Flex justify="between" align="center">
+                      <Box>
+                        <Text className="font-medium">{member.name || member.email}</Text>
+                        <Text className="text-sm text-gray-600">{member.email}</Text>
+                        {member.hopsworks_username && (
+                          <Text className="text-xs text-gray-500">
+                            Hopsworks: {member.hopsworks_username}
+                          </Text>
+                        )}
+                      </Box>
+                      <Flex align="center" gap={12}>
+                        {member.last_login_at && (
+                          <Text className="text-xs text-gray-500">
+                            Last login: {new Date(member.last_login_at).toLocaleDateString()}
+                          </Text>
+                        )}
+                        {isOwner && (
+                          <Button
+                            intent="ghost"
+                            size="md"
+                            onClick={() => handleRemoveMember(member.id)}
+                          >
+                            <Trash2 size={16} className="text-red-500" />
+                          </Button>
+                        )}
+                      </Flex>
                     </Flex>
-                  </Flex>
+                    {member.hopsworks_username && (
+                      <TeamMemberProjects
+                        memberId={member.id}
+                        memberEmail={member.email}
+                        memberName={member.name || member.email}
+                        isOwner={isOwner}
+                      />
+                    )}
+                  </Box>
                 </Card>
               ))}
             </Flex>
@@ -318,6 +335,8 @@ export default function Team() {
         onClose={() => {
           setShowInviteModal(false);
           setInviteEmail('');
+          setInviteRole('Data scientist');
+          setAutoAssignProjects(true);
           setInviteError('');
         }}
         size="sm"
@@ -341,6 +360,37 @@ export default function Team() {
             {inviteError && (
               <Text className="text-xs text-red-500 mt-1">{inviteError}</Text>
             )}
+          </Box>
+
+          <Box>
+            <Text className="text-sm font-medium mb-2">Default Project Role</Text>
+            <Select
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value)}
+              disabled={inviteLoading}
+            >
+              <option value="Data scientist">Data scientist</option>
+              <option value="Data owner">Data owner</option>
+              <option value="Observer">Observer</option>
+            </Select>
+            <Text className="text-xs text-gray-500 mt-1">
+              Role they&apos;ll have when added to your projects
+            </Text>
+          </Box>
+
+          <Box>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={autoAssignProjects}
+                onChange={(e) => setAutoAssignProjects(e.target.checked)}
+                disabled={inviteLoading}
+                className="mr-2"
+              />
+              <Text className="text-sm">
+                Automatically add to all my existing projects
+              </Text>
+            </label>
           </Box>
 
           <Flex gap={12} justify="end">
