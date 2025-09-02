@@ -285,7 +285,7 @@ export default function TeamMemberProjects({
                           if (data.warning) {
                             setMessage({ 
                               type: 'error', 
-                              text: data.warning + (data.failedProjects ? `: ${data.failedProjects.map(f => f.project).join(', ')}` : '')
+                              text: data.warning + (data.failedProjects ? `: ${data.failedProjects.map((f: any) => f.project).join(', ')}` : '')
                             });
                           }
                           await fetchProjects();
@@ -322,9 +322,9 @@ export default function TeamMemberProjects({
                     <Flex align="center" gap={4}>
                       <Text className="text-sm font-medium">{project.name}</Text>
                       {!project.synced && (
-                        <Badge size="xs" variant="warning" className="text-xs">
+                        <span className="text-xs px-2 py-0.5 rounded text-yellow-700 bg-yellow-50 border border-yellow-300">
                           Pending Sync
-                        </Badge>
+                        </span>
                       )}
                     </Flex>
                     <Text className="text-xs text-gray-500">
@@ -338,7 +338,7 @@ export default function TeamMemberProjects({
                   </Box>
                   <Flex gap={8} align="center">
                     {project.role && (
-                      <Badge size="sm" variant={project.synced ? "default" : "outline"}>
+                      <Badge size="sm" variant="default">
                         {project.role}
                       </Badge>
                     )}
