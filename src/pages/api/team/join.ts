@@ -121,6 +121,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // If auto_assign_projects is true and we have a cluster, add to owner's projects
     let projectsAssigned: string[] = [];
+    let projectErrors: string[] = [];
     if (invite.auto_assign_projects && clusterAssignment.success) {
       try {
         // Get owner's cluster and Hopsworks username
@@ -164,8 +165,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               await addUserToProject(credentials, project.name, teamMember.hopsworks_username, projectRole);
               projectsAssigned.push(project.name);
               console.log(`Added ${userEmail} to project ${project.name} as ${projectRole}`);
-            } catch (error) {
+              
+              // Save successful assignment to database
+              await supabase.rpc('upsert_project_member_role', {
+                p_member_id: userId,
+                p_owner_id: invite.account_owner_id,
+                p_project_id: project.id || 0,
+                p_project_name: project.name,
+                p_role: projectRole,
+                p_added_by: invite.account_owner_id
+              });
+              
+              // Mark as synced
+              await supabase
+                .from('project_member_roles')
+                .update({ 
+                  synced_to_hopsworks: true,
+                  last_sync_at: new Date().toISOString(),
+                  sync_error: null
+                })
+                .eq('member_id', userId)
+                .eq('project_name', project.name);
+                
+            } catch (error: any) {
               console.error(`Failed to add ${userEmail} to project ${project.name}:`, error);
+              projectErrors.push(`${project.name}: ${error.message || 'sync failed'}`);
             }
           }
         }
@@ -175,12 +199,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    return res.status(200).json({ 
+    // Prepare response with warnings if needed
+    const response: any = { 
       message: 'Successfully joined team',
       account_owner_id: invite.account_owner_id,
       cluster_assigned: clusterAssignment.success,
       projects_assigned: projectsAssigned
-    });
+    };
+    
+    // Add warnings if there were errors
+    if (projectErrors.length > 0) {
+      response.warning = 'Some projects could not be assigned. The cluster may need to be upgraded to support OAuth group mappings. Please contact support.';
+      response.project_errors = projectErrors;
+    }
+    
+    return res.status(200).json(response);
 
   } catch (error) {
     console.error('Join team error:', error);

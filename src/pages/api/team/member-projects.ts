@@ -206,20 +206,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               .eq('id', roleRecord);
           }
         } catch (hopsworksError: any) {
-          // Save sync error to database
+          // If Hopsworks sync fails, remove the database record and return error
           if (roleRecord) {
             await supabaseAdmin
               .from('project_member_roles')
-              .update({ 
-                sync_error: hopsworksError.message || 'Failed to sync to Hopsworks'
-              })
+              .delete()
               .eq('id', roleRecord);
           }
-          throw hopsworksError;
+          
+          // Return error to owner
+          const errorMessage = hopsworksError.message || 'Failed to sync to Hopsworks';
+          console.error('Hopsworks sync failed:', errorMessage);
+          return res.status(500).json({ 
+            error: 'Failed to add user to project in Hopsworks. The cluster may need to be upgraded to support OAuth group mappings. Please contact support.',
+            details: errorMessage
+          });
         }
 
         return res.status(200).json({ 
-          message: `Added ${teamMember.email} to ${projectName} as ${role}`,
+          message: `Successfully added ${teamMember.email} to ${projectName} as ${role}`,
           project: projectName,
           role,
           synced: true

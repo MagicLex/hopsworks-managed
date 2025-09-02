@@ -185,8 +185,98 @@ complete team joining after auth0 login
 **response:**
 ```json
 {
-  "success": true,
-  "message": "Successfully joined team"
+  "message": "Successfully joined team",
+  "account_owner_id": "auth0|owner-id",
+  "cluster_assigned": true,
+  "projects_assigned": ["project1", "project2"],
+  "warning": "Some projects could not be assigned...",  // if errors
+  "project_errors": ["project3: sync failed"]           // if errors
+}
+```
+
+### GET /api/team/member-projects
+get team member's project assignments
+
+**query params:** `memberId=auth0|member-id`
+
+**authorization:** must be account owner
+
+**response:**
+```json
+{
+  "projects": [
+    {
+      "id": 123,
+      "name": "ml_project_1",
+      "role": "Data scientist",
+      "synced": true,
+      "lastSyncAt": "2024-01-01T00:00:00Z",
+      "syncError": null
+    }
+  ]
+}
+```
+
+### POST /api/team/member-projects
+manage team member project access
+
+**authorization:** must be account owner
+
+**request:**
+```json
+{
+  "memberId": "auth0|member-id",
+  "projectName": "ml_project_1",
+  "projectId": 123,              // optional
+  "role": "Data scientist",
+  "action": "add"                // "add" or "remove"
+}
+```
+
+**response (success):**
+```json
+{
+  "message": "Successfully added member@example.com to ml_project_1 as Data scientist",
+  "project": "ml_project_1",
+  "role": "Data scientist",
+  "synced": true
+}
+```
+
+**response (error):**
+```json
+{
+  "error": "Failed to add user to project in Hopsworks. The cluster may need to be upgraded to support OAuth group mappings. Please contact support.",
+  "details": "404 Not Found"
+}
+```
+
+### POST /api/team/sync-member-projects
+retry failed project assignments
+
+**authorization:** must be account owner
+
+**request:**
+```json
+{
+  "memberId": "auth0|member-id"
+}
+```
+
+**response:**
+```json
+{
+  "message": "Successfully synced 2 project(s)",
+  "syncedCount": 2,
+  "failedCount": 1,
+  "syncedProjects": ["project1", "project2"],
+  "failedProjects": [
+    {
+      "project": "project3",
+      "error": "404 Not Found"
+    }
+  ],
+  "warning": "Some projects could not be synced..."  // if failures
 }
 ```
 
@@ -246,22 +336,67 @@ group by u.id, u.email, u.name, owner.email;
 - limits are enforced by Hopsworks, not hopsworks-managed
 
 ### project management
-- account owners create projects in Hopsworks UI
-- owners manually add team members to specific projects
-- team members can only access projects they're added to
-- project-level permissions managed within Hopsworks
 
-### future: group mapping api
-planned implementation for automatic team access:
+#### automatic project assignment
+when `autoAssignProjects: true` in the invite:
+- team member automatically added to all owner's existing projects
+- uses the specified `projectRole` (default: "Data scientist")
+- assignments tracked in `project_member_roles` table
+- sync status shown to account owner
+
+#### manual project management
+account owners can manage team member project access:
+
+```http
+POST /api/team/member-projects
+{
+  "memberId": "auth0|member-id",
+  "projectName": "ml_project_1",
+  "role": "Data scientist",  // "Data owner", "Data scientist", or "Observer"
+  "action": "add"            // "add" or "remove"
+}
+```
+
+#### sync failed assignments
+if project assignments fail (e.g., cluster needs upgrade):
+
+```http
+POST /api/team/sync-member-projects
+{
+  "memberId": "auth0|member-id"
+}
+```
+
+returns detailed sync results with any errors
+
+### group mapping implementation
+
+**IMPORTANT**: requires Hopsworks 4.6.0+ for OAuth group mapping support
+
+the system uses OAuth group mappings to grant project access:
 ```javascript
-// When owner creates a project
+// When adding a team member to a project
 POST /hopsworks-api/api/admin/group/mapping/bulk
 {
   "projectName": "ml_project_1",
-  "group": ["team_owner_xyz"],
+  "group": ["user_membername123"],  // unique group per user
   "projectRole": "Data scientist",
   "groupType": "OAUTH"
 }
+```
+
+### database tracking
+
+project assignments are stored in `project_member_roles`:
+```sql
+member_id: auth0 user id
+account_owner_id: owner's auth0 id
+project_id: hopsworks project id
+project_name: project name
+role: "Data owner" | "Data scientist" | "Observer"
+synced_to_hopsworks: boolean
+sync_error: error message if sync failed
+last_sync_at: timestamp of last sync attempt
 ```
 
 ## cluster management
