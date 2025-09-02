@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
 import { Box, Flex, Title, Text, Button, Card, Input, Badge, Modal, Select } from 'tailwind-quartz';
-import { Users, UserPlus, Trash2, Copy, ArrowLeft, Mail, Clock } from 'lucide-react';
+import { Users, UserPlus, Trash2, Copy, ArrowLeft, Mail, Clock, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import TeamMemberProjects from '@/components/team/TeamMemberProjects';
@@ -201,12 +201,29 @@ export default function Team() {
           </Flex>
 
           {!isOwner && (
-            <Card className="p-6 mb-6 border-blue-200 bg-blue-50">
-              <Text className="text-sm">
-                You are part of <strong>{teamData?.account_owner.email}</strong>&apos;s team. 
-                Your usage is billed to the account owner.
-              </Text>
-            </Card>
+            <>
+              <Card className="p-6 mb-6 border-blue-200 bg-blue-50">
+                <Text className="text-sm">
+                  You are part of <strong>{teamData?.account_owner.email}</strong>&apos;s team. 
+                  Your usage is billed to the account owner.
+                </Text>
+              </Card>
+              
+              {/* Show team member's own projects */}
+              <Card className="p-6 mb-6">
+                <Flex align="center" gap={12} className="mb-4">
+                  <FolderOpen size={20} className="text-[#1eb182]" />
+                  <Title as="h2" className="text-lg">My Project Access</Title>
+                </Flex>
+                <TeamMemberProjects
+                  memberId={user.sub}
+                  memberEmail={user.email || ''}
+                  memberName={user.name || user.email || ''}
+                  isOwner={false}
+                  ownerId={teamData?.account_owner.id || ''}
+                />
+              </Card>
+            </>
           )}
 
           {/* Team Members */}

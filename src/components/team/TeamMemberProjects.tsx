@@ -185,6 +185,9 @@ export default function TeamMemberProjects({
   const handleToggle = () => {
     setExpanded(!expanded);
   };
+  
+  // For team members viewing their own access
+  const isViewingOwnAccess = !isOwner && memberId === ownerId;
 
   return (
     <Box className="mt-3">
@@ -196,7 +199,7 @@ export default function TeamMemberProjects({
           className="text-xs"
         >
           <FolderOpen size={14} className="mr-1" />
-          {expanded ? 'Hide' : 'Manage'} Projects
+          {expanded ? 'Hide' : (isOwner ? 'Manage' : 'View')} Projects
         </Button>
         
         {isOwner && expanded && (
