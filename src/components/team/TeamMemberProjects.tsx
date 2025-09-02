@@ -29,12 +29,40 @@ export default function TeamMemberProjects({
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  const syncRoles = async () => {
+    if (!isOwner) return;
+    
+    try {
+      setSyncing(true);
+      const response = await fetch('/api/team/sync-member-roles', {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to sync roles');
+      } else {
+        const result = await response.json();
+        console.log('Sync result:', result);
+      }
+    } catch (error) {
+      console.error('Failed to sync roles:', error);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const fetchProjects = async () => {
     if (!expanded) return;
     
     try {
       setLoading(true);
+      
+      // If owner, sync roles from Hopsworks first
+      if (isOwner) {
+        await syncRoles();
+      }
       
       // Fetch both member's current projects and owner's available projects
       const [memberResponse, ownerResponse] = await Promise.all([
@@ -116,10 +144,12 @@ export default function TeamMemberProjects({
             Project Access for {memberName || memberEmail}
           </Text>
           
-          {loading ? (
+          {loading || syncing ? (
             <Flex align="center" justify="center" className="py-4">
               <Loader className="animate-spin" size={16} />
-              <Text className="ml-2 text-sm text-gray-600">Loading projects...</Text>
+              <Text className="ml-2 text-sm text-gray-600">
+                {syncing ? 'Syncing with Hopsworks...' : 'Loading projects...'}
+              </Text>
             </Flex>
           ) : (
             <Box className="space-y-3">
