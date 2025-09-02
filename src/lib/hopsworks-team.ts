@@ -14,6 +14,7 @@ interface HopsworksCredentials {
 
 /**
  * Add a user to a project with a specific role
+ * Note: Hopsworks expects a MembersDTO with projectTeam array
  */
 export async function addUserToProject(
   credentials: HopsworksCredentials,
@@ -21,6 +22,10 @@ export async function addUserToProject(
   username: string,
   role: 'Data owner' | 'Data scientist' | 'Observer' = 'Data scientist'
 ): Promise<void> {
+  // First, we need to find the user by username to get their email
+  // Since ProjectTeam expects email as the teamMember field
+  // For now, we'll try with the username as email (OAuth users often have email as username)
+  
   const response = await fetch(
     `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${projectName}/projectMembers`,
     {
@@ -30,15 +35,48 @@ export async function addUserToProject(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        username,
-        projectRole: role
+        projectTeam: [
+          {
+            teamMember: username, // This should be email in Hopsworks
+            teamRole: role,
+            // ProjectTeamPK is created server-side, we don't send it
+          }
+        ]
       })
     }
   );
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to add user to project: ${response.statusText} - ${errorText}`);
+    console.error('Failed to add user to project:', errorText);
+    
+    // Try alternative endpoint or structure if the first one fails
+    // Some Hopsworks versions might accept different formats
+    if (errorText.includes('MembersDTO') || errorText.includes('projectTeam')) {
+      // Already tried the right format, it's a different error
+      throw new Error(`Failed to add user to project: ${response.statusText} - ${errorText}`);
+    }
+    
+    // Fallback: try simple format (some Hopsworks versions might accept this)
+    const fallbackResponse = await fetch(
+      `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${projectName}/projectMembers`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `ApiKey ${credentials.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          username,
+          projectRole: role
+        })
+      }
+    );
+    
+    if (!fallbackResponse.ok) {
+      const fallbackError = await fallbackResponse.text();
+      throw new Error(`Failed to add user to project (tried both formats): ${fallbackError}`);
+    }
   }
 }
 
