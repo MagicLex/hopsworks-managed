@@ -14,15 +14,18 @@ interface TeamMemberProjectsProps {
   memberEmail: string;
   memberName: string;
   isOwner: boolean;
+  ownerId: string;
 }
 
 export default function TeamMemberProjects({ 
   memberId, 
   memberEmail,
   memberName,
-  isOwner
+  isOwner,
+  ownerId
 }: TeamMemberProjectsProps) {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [memberProjects, setMemberProjects] = useState<Project[]>([]);
+  const [ownerProjects, setOwnerProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -32,12 +35,23 @@ export default function TeamMemberProjects({
     
     try {
       setLoading(true);
-      const response = await fetch(`/api/team/member-projects?memberId=${memberId}`);
-      if (!response.ok) throw new Error('Failed to fetch projects');
-      const data = await response.json();
-      setProjects(data.projects || []);
+      
+      // Fetch both member's current projects and owner's available projects
+      const [memberResponse, ownerResponse] = await Promise.all([
+        fetch(`/api/team/member-projects?memberId=${memberId}`),
+        fetch(`/api/team/owner-projects`)
+      ]);
+      
+      if (!memberResponse.ok) throw new Error('Failed to fetch member projects');
+      if (!ownerResponse.ok) throw new Error('Failed to fetch owner projects');
+      
+      const memberData = await memberResponse.json();
+      const ownerData = await ownerResponse.json();
+      
+      setMemberProjects(memberData.projects || []);
+      setOwnerProjects(ownerData.projects || []);
     } catch (error) {
-      console.error('Failed to fetch member projects:', error);
+      console.error('Failed to fetch projects:', error);
     } finally {
       setLoading(false);
     }
@@ -106,13 +120,14 @@ export default function TeamMemberProjects({
               <Loader className="animate-spin" size={16} />
               <Text className="ml-2 text-sm text-gray-600">Loading projects...</Text>
             </Flex>
-          ) : projects.length === 0 ? (
-            <Text className="text-sm text-gray-600">
-              No projects assigned yet. Add this member to projects in Hopsworks or use the admin panel.
-            </Text>
           ) : (
-            <Box className="space-y-2">
-              {projects.map(project => (
+            <Box className="space-y-3">
+              {/* Member's current projects */}
+              {memberProjects.length > 0 && (
+                <Box>
+                  <Text className="text-xs font-medium text-gray-700 mb-2">Current Access</Text>
+                  <Box className="space-y-2">
+                    {memberProjects.map(project => (
                 <Flex 
                   key={project.namespace} 
                   justify="between" 
@@ -153,7 +168,59 @@ export default function TeamMemberProjects({
                     )}
                   </Flex>
                 </Flex>
-              ))}
+                    ))}
+                  </Box>
+                </Box>
+              )}
+              
+              {/* Available projects to add */}
+              {isOwner && ownerProjects.length > 0 && (
+                <Box>
+                  <Text className="text-xs font-medium text-gray-700 mb-2">
+                    {memberProjects.length === 0 ? 'Your Projects' : 'Add to More Projects'}
+                  </Text>
+                  <Box className="space-y-2">
+                    {ownerProjects
+                      .filter(p => !memberProjects.some(mp => mp.name === p.name))
+                      .map(project => (
+                        <Flex 
+                          key={project.namespace} 
+                          justify="between" 
+                          align="center"
+                          className="p-2 bg-white rounded border border-gray-200 opacity-75"
+                        >
+                          <Box>
+                            <Text className="text-sm font-medium">{project.name}</Text>
+                            <Text className="text-xs text-gray-500">Not added yet</Text>
+                          </Box>
+                          <Select
+                            onChange={(e) => {
+                              const role = e.target.value;
+                              if (role && role !== 'select') {
+                                updateProjectRole(project.name, role, 'add');
+                              }
+                            }}
+                            disabled={updating === project.name}
+                            className="text-xs"
+                            style={{ width: '140px' }}
+                            defaultValue="select"
+                          >
+                            <option value="select">Add with role...</option>
+                            <option value="Data scientist">Data scientist</option>
+                            <option value="Data owner">Data owner</option>
+                            <option value="Observer">Observer</option>
+                          </Select>
+                        </Flex>
+                      ))}
+                  </Box>
+                </Box>
+              )}
+              
+              {memberProjects.length === 0 && ownerProjects.length === 0 && (
+                <Text className="text-sm text-gray-600">
+                  No projects available. Create projects in Hopsworks first.
+                </Text>
+              )}
             </Box>
           )}
           

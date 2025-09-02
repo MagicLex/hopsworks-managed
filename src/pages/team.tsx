@@ -268,6 +268,7 @@ export default function Team() {
                         memberEmail={member.email}
                         memberName={member.name || member.email}
                         isOwner={isOwner}
+                        ownerId={teamData?.account_owner.id || ''}
                       />
                     )}
                   </Box>
