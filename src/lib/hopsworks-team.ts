@@ -1,6 +1,7 @@
 // Hopsworks team and project management functions
 
 import { ADMIN_API_BASE, HOPSWORKS_API_BASE } from './hopsworks-api';
+import { validateProject } from './hopsworks-validation';
 
 // Disable SSL verification for self-signed certificates
 if (typeof process !== 'undefined') {
@@ -22,11 +23,17 @@ export async function addUserToProject(
   username: string,
   role: 'Data owner' | 'Data scientist' | 'Observer' = 'Data scientist'
 ): Promise<void> {
+  // VALIDATE PROJECT EXISTS FIRST
+  const project = await validateProject(credentials, projectName);
+  if (!project) {
+    throw new Error(`Project '${projectName}' does not exist in Hopsworks`);
+  }
+  
   // OAuth users MUST use group mappings - individual user adds don't work
   // Create a unique group for this specific user-project combination
   const userGroup = `user_${username.replace(/[^a-zA-Z0-9]/g, '_')}`;
   
-  console.log(`Adding user ${username} to project ${projectName} via group mapping ${userGroup}`);
+  console.log(`Adding user ${username} to project ${projectName} (id: ${project.id}) via group mapping ${userGroup}`);
   
   // Use the group mapping endpoint - this is what actually works
   const response = await fetch(
@@ -49,6 +56,12 @@ export async function addUserToProject(
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`Failed to create group mapping for ${username}:`, errorText);
+    
+    // Check if it's a project not found error
+    if (errorText.includes('404') || errorText.includes('Not Found')) {
+      throw new Error(`Project '${projectName}' not found or inaccessible`);
+    }
+    
     throw new Error(`Failed to add user to project via group mapping: ${response.statusText} - ${errorText}`);
   }
   
