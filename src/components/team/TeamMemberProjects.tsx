@@ -63,7 +63,7 @@ export default function TeamMemberProjects({
     }
   }, [expanded]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const updateProjectRole = async (projectName: string, role: string, action: 'add' | 'remove') => {
+  const updateProjectRole = async (projectName: string, projectId: number, role: string, action: 'add' | 'remove') => {
     if (!isOwner) return;
     
     try {
@@ -74,6 +74,7 @@ export default function TeamMemberProjects({
         body: JSON.stringify({
           memberId,
           projectName,
+          projectId,
           role,
           action
         })
@@ -150,9 +151,9 @@ export default function TeamMemberProjects({
                         onChange={(e) => {
                           const value = e.target.value;
                           if (value === 'remove') {
-                            updateProjectRole(project.name, '', 'remove');
+                            updateProjectRole(project.name, project.id, '', 'remove');
                           } else if (value !== project.role) {
-                            updateProjectRole(project.name, value, 'add');
+                            updateProjectRole(project.name, project.id, value, 'add');
                           }
                         }}
                         disabled={updating === project.name}
@@ -197,7 +198,7 @@ export default function TeamMemberProjects({
                             onChange={(e) => {
                               const role = e.target.value;
                               if (role && role !== 'select') {
-                                updateProjectRole(project.name, role, 'add');
+                                updateProjectRole(project.name, project.id, role, 'add');
                               }
                             }}
                             disabled={updating === project.name}
