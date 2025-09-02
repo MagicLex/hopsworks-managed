@@ -18,17 +18,17 @@ OpenCost (usage units) → Our Pricing → Database → Stripe (postpaid) or Inv
 
 ## Pricing Model
 
-### Resource Rates
+### Resource Rates (Simplified)
 ```
-CPU:             $0.125/hour    (0.5 credits)
-GPU:             $2.50/hour     (10 credits)
-RAM:             $0.0125/GB-hour (0.05 credits)
-Online Storage:  $0.50/GB/month  (2 credits)
-Offline Storage: $0.03/GB/month  (0.12 credits)
-Network Egress:  $0.10/GB        (0.4 credits)
+Compute Credits:  $0.35/credit   (1 CPU hour + 0.1 GB RAM)
+Online Storage:   $0.50/GB/month  
+Offline Storage:  $0.03/GB/month  
+```
 
-1 Credit = $0.25
-```
+### Compute Credit Definition
+- 1 compute credit = 1 vCPU hour + 0.1 GB RAM (10:1 ratio)
+- Billed at $0.35 per credit
+- Simplifies billing by combining CPU and memory costs
 
 ### Billing Modes
 
@@ -44,6 +44,28 @@ Network Egress:  $0.10/GB        (0.4 credits)
 - Usage reported daily to Stripe
 - Stripe handles invoicing, taxes, payments
 - Credit card on file required
+- Metered billing with 3 products:
+  - `compute_credits` (prod_SyouWf2n0ZTrgl)
+  - `storage_online_gb` (prod_SyowZZ5KSoxZZR)
+  - `storage_offline_gb` (prod_SyoxUy6KrEirtL)
+
+## Stripe Integration
+
+### Products and Pricing
+We use Stripe's metered billing with the following products:
+
+| Product Type | Product ID | Price ID | Unit Price |
+|--------------|------------|----------|------------|
+| Compute Credits | prod_SyouWf2n0ZTrgl | price_1S2rGbBVhabmeSATRqsYZHUm | $0.35/credit |
+| Online Storage | prod_SyowZZ5KSoxZZR | price_1S2rINBVhabmeSATVcqyroBz | $0.50/GB-month |
+| Offline Storage | prod_SyoxUy6KrEirtL | price_1S2rJLBVhabmeSATjpqLQgIn | $0.03/GB-month |
+
+### Webhook Configuration
+- Endpoint: `https://run.hopsworks.ai/api/webhooks/stripe`
+- Events monitored:
+  - `checkout.session.completed`
+  - `customer.subscription.created/updated/deleted`
+  - `invoice.payment_succeeded/failed`
 
 ## Data Flow
 

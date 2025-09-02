@@ -27,8 +27,13 @@ This document outlines the security measures implemented in the hopsworks-manage
 
 ### Stripe Webhook
 - **Endpoint**: `/api/webhooks/stripe`
-- **Verification**: Stripe signature validation (built-in)
-- Handles payment events and subscription updates
+- **Domain**: `https://run.hopsworks.ai/api/webhooks/stripe`
+- **Verification**: Stripe signature validation using `STRIPE_WEBHOOK_SECRET`
+- **Events handled**:
+  - `checkout.session.completed` - Credit purchases and payment setup
+  - `customer.subscription.created/updated/deleted` - Subscription lifecycle
+  - `invoice.payment_succeeded/failed` - Payment status
+- Auto-assigns clusters after payment confirmation
 
 ## CRON Job Security
 
@@ -60,15 +65,23 @@ Implemented using `rate-limiter-flexible` with in-memory storage:
 ## TLS/SSL Configuration
 
 ### Hopsworks API Communication
-- TLS certificate validation enforced in production
-- Self-signed certificates only accepted in development
-- Controlled by `NODE_ENV` environment variable
+Hopsworks clusters use self-signed certificates. To handle this:
+
+- **Production & Development**: SSL verification disabled for Hopsworks API calls
+- Located in `src/lib/hopsworks-api.ts`
+- Uses `NODE_TLS_REJECT_UNAUTHORIZED = '0'` for all environments
+
 ```javascript
-// Only disabled in development
-if (process.env.NODE_ENV === 'development') {
+// Required for self-signed certificates
+if (typeof process !== 'undefined') {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }
 ```
+
+**Security Note**: This is acceptable because:
+1. Communication happens within private Kubernetes networks
+2. API keys provide authentication
+3. Hopsworks clusters are isolated per customer
 
 ## Error Handling
 
