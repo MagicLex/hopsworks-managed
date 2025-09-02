@@ -125,11 +125,27 @@ The cron jobs are already configured in `vercel.json`:
 
 ### 1. Install OpenCost
 
-Install OpenCost in your Kubernetes cluster:
+After Hopsworks installation, configure OpenCost to use Hopsworks' Prometheus:
+
+```yaml
+# opencost-values.yaml
+opencost:
+  prometheus:
+    internal:
+      enabled: true
+      serviceName: hopsworks-release-prometheus-server
+      namespaceName: hopsworks
+      port: 80
+```
+
 ```bash
 helm repo add opencost https://opencost.github.io/opencost-helm-chart
 helm install opencost opencost/opencost \
-  --namespace opencost --create-namespace
+  --namespace opencost --create-namespace \
+  --values opencost-values.yaml
+
+# Verify pods are running (2/2 READY)
+kubectl get pods -n opencost
 ```
 
 ### 2. Upload Kubeconfig

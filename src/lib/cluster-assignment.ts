@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { createHopsworksOAuthUser } from './hopsworks-api';
+import { createHopsworksOAuthUser, getHopsworksUserByAuth0Id, updateUserProjectLimit } from './hopsworks-api';
 
 export async function assignUserToCluster(
   supabaseAdmin: SupabaseClient,
@@ -25,7 +25,7 @@ export async function assignUserToCluster(
     // Get user details including account owner
     const { data: user } = await supabaseAdmin
       .from('users')
-      .select('stripe_customer_id, account_owner_id, email, name, hopsworks_user_id, billing_mode')
+      .select('stripe_customer_id, account_owner_id, email, name, hopsworks_user_id, hopsworks_username, billing_mode')
       .eq('id', userId)
       .single();
 
@@ -67,26 +67,80 @@ export async function assignUserToCluster(
 
       // Create Hopsworks user if not exists
       let hopsworksUserId = user.hopsworks_user_id;
-      let hopsworksUsername = null;
+      let hopsworksUsername = (user as any).hopsworks_username || null;
       
-      if (!hopsworksUserId) {
+      if (!hopsworksUserId || !hopsworksUsername) {
+        // Try to find existing Hopsworks user first
         try {
-          const [firstName, ...lastNameParts] = (user.name || user.email).split(' ');
-          const lastName = lastNameParts.join(' ') || firstName;
-          
-          const hopsworksUser = await createHopsworksOAuthUser(
+          const existingHopsworksUser = await getHopsworksUserByAuth0Id(
             { apiUrl: cluster.api_url, apiKey: cluster.api_key },
-            user.email,
-            firstName,
-            lastName,
             userId,
-            0 // Team members stay at 0 projects
+            user.email
           );
           
-          hopsworksUserId = hopsworksUser.id;
-          hopsworksUsername = hopsworksUser.username;
+          if (existingHopsworksUser) {
+            hopsworksUserId = existingHopsworksUser.id;
+            hopsworksUsername = existingHopsworksUser.username;
+            console.log(`Found existing Hopsworks user ${hopsworksUsername} for team member ${user.email}`);
+          }
+        } catch (error) {
+          console.log('No existing Hopsworks user found, will create new one');
+        }
+        
+        // Create new Hopsworks user if not found
+        if (!hopsworksUserId) {
+          const maxRetries = 3;
+          let lastError = null;
           
-          // Update user with Hopsworks ID
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+              const [firstName, ...lastNameParts] = (user.name || user.email).split(' ');
+              const lastName = lastNameParts.join(' ') || firstName;
+              
+              console.log(`Attempt ${attempt}/${maxRetries}: Creating Hopsworks user for team member ${user.email}`);
+              
+              const hopsworksUser = await createHopsworksOAuthUser(
+                { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+                user.email,
+                firstName,
+                lastName,
+                userId,
+                0 // Team members stay at 0 projects
+              );
+              
+              hopsworksUserId = hopsworksUser.id;
+              hopsworksUsername = hopsworksUser.username;
+              
+              console.log(`Successfully created Hopsworks user ${hopsworksUsername} for team member ${user.email}`);
+              break; // Success, exit retry loop
+            } catch (error) {
+              lastError = error;
+              console.error(`Attempt ${attempt}/${maxRetries} failed to create Hopsworks user:`, error);
+              
+              if (attempt < maxRetries) {
+                // Wait before retrying (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+              }
+            }
+          }
+          
+          if (!hopsworksUserId && lastError) {
+            // Log failure but continue with assignment
+            console.error('All attempts to create Hopsworks user failed:', lastError);
+            await supabaseAdmin
+              .from('health_check_failures')
+              .insert({
+                user_id: userId,
+                email: user.email,
+                check_type: 'hopsworks_user_creation_team',
+                error_message: 'Failed to create Hopsworks user for team member after retries',
+                details: { error: String(lastError), cluster_id: ownerAssignment.hopsworks_cluster_id }
+              });
+          }
+        }
+        
+        // Update user with Hopsworks ID if we got one
+        if (hopsworksUserId) {
           await supabaseAdmin
             .from('users')
             .update({ 
@@ -94,9 +148,6 @@ export async function assignUserToCluster(
               hopsworks_username: hopsworksUsername 
             })
             .eq('id', userId);
-        } catch (error) {
-          console.error('Failed to create Hopsworks user:', error);
-          // Continue with assignment even if Hopsworks user creation fails
         }
       }
 
@@ -173,29 +224,99 @@ export async function assignUserToCluster(
 
     // Create Hopsworks user if not exists
     let hopsworksUserId = user.hopsworks_user_id;
-    let hopsworksUsername = null;
+    let hopsworksUsername = (user as any).hopsworks_username || null;
     
-    if (!hopsworksUserId) {
+    if (!hopsworksUserId || !hopsworksUsername) {
+      // Try to find existing Hopsworks user first
       try {
-        const [firstName, ...lastNameParts] = (user.name || user.email).split(' ');
-        const lastName = lastNameParts.join(' ') || firstName;
-        
-        // Account owners with payment or prepaid get 5 projects
-        const maxProjects = (user.stripe_customer_id || isPrepaid) ? 5 : 0;
-        
-        const hopsworksUser = await createHopsworksOAuthUser(
+        const existingHopsworksUser = await getHopsworksUserByAuth0Id(
           { apiUrl: clusterDetails.api_url, apiKey: clusterDetails.api_key },
-          user.email,
-          firstName,
-          lastName,
           userId,
-          maxProjects // Billing users get 5, others get 0
+          user.email
         );
         
-        hopsworksUserId = hopsworksUser.id;
-        hopsworksUsername = hopsworksUser.username;
+        if (existingHopsworksUser) {
+          hopsworksUserId = existingHopsworksUser.id;
+          hopsworksUsername = existingHopsworksUser.username;
+          console.log(`Found existing Hopsworks user ${hopsworksUsername} for ${user.email}`);
+          
+          // Check and update maxNumProjects if needed
+          const expectedMaxProjects = (user.stripe_customer_id || isPrepaid) ? 5 : 0;
+          if (existingHopsworksUser.maxNumProjects !== expectedMaxProjects) {
+            console.log(`Updating maxNumProjects from ${existingHopsworksUser.maxNumProjects} to ${expectedMaxProjects} for ${user.email}`);
+            await updateUserProjectLimit(
+              { apiUrl: clusterDetails.api_url, apiKey: clusterDetails.api_key },
+              existingHopsworksUser.id,
+              expectedMaxProjects
+            );
+          }
+        }
+      } catch (error) {
+        console.log('No existing Hopsworks user found, will create new one');
+      }
+      
+      // Create new Hopsworks user if not found
+      if (!hopsworksUserId) {
+        const maxRetries = 3;
+        let lastError = null;
         
-        // Update user with Hopsworks ID
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            const [firstName, ...lastNameParts] = (user.name || user.email).split(' ');
+            const lastName = lastNameParts.join(' ') || firstName;
+            
+            // Account owners with payment or prepaid get 5 projects
+            const maxProjects = (user.stripe_customer_id || isPrepaid) ? 5 : 0;
+            
+            console.log(`Attempt ${attempt}/${maxRetries}: Creating Hopsworks user for ${user.email} with ${maxProjects} max projects`);
+            
+            const hopsworksUser = await createHopsworksOAuthUser(
+              { apiUrl: clusterDetails.api_url, apiKey: clusterDetails.api_key },
+              user.email,
+              firstName,
+              lastName,
+              userId,
+              maxProjects
+            );
+            
+            hopsworksUserId = hopsworksUser.id;
+            hopsworksUsername = hopsworksUser.username;
+            
+            console.log(`Successfully created Hopsworks user ${hopsworksUsername} for ${user.email}`);
+            break; // Success, exit retry loop
+          } catch (error) {
+            lastError = error;
+            console.error(`Attempt ${attempt}/${maxRetries} failed to create Hopsworks user:`, error);
+            
+            if (attempt < maxRetries) {
+              // Wait before retrying (exponential backoff)
+              await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+            }
+          }
+        }
+        
+        if (!hopsworksUserId && lastError) {
+          // Log failure but continue with assignment
+          console.error('All attempts to create Hopsworks user failed:', lastError);
+          await supabaseAdmin
+            .from('health_check_failures')
+            .insert({
+              user_id: userId,
+              email: user.email,
+              check_type: 'hopsworks_user_creation_owner',
+              error_message: 'Failed to create Hopsworks user for account owner after retries',
+              details: { 
+                error: String(lastError), 
+                cluster_id: availableCluster.id,
+                has_payment: !!user.stripe_customer_id,
+                is_prepaid: isPrepaid
+              }
+            });
+        }
+      }
+      
+      // Update user with Hopsworks ID if we got one
+      if (hopsworksUserId) {
         await supabaseAdmin
           .from('users')
           .update({ 
@@ -203,9 +324,6 @@ export async function assignUserToCluster(
             hopsworks_username: hopsworksUsername 
           })
           .eq('id', userId);
-      } catch (error) {
-        console.error('Failed to create Hopsworks user:', error);
-        // Continue with assignment even if Hopsworks user creation fails
       }
     }
 

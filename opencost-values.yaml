@@ -1,0 +1,8 @@
+opencost:
+  prometheus:
+    internal:
+      enabled: true
+      serviceName: hopsworks-release-prometheus-server
+      namespaceName: hopsworks
+      port: 80
+      scheme: http
