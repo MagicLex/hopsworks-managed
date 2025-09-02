@@ -14,7 +14,7 @@ interface HopsworksCredentials {
 
 /**
  * Add a user to a project with a specific role
- * Note: Hopsworks expects a MembersDTO with projectTeam array
+ * FOR OAUTH USERS: This uses group mappings which is the ONLY way that works
  */
 export async function addUserToProject(
   credentials: HopsworksCredentials,
@@ -22,74 +22,13 @@ export async function addUserToProject(
   username: string,
   role: 'Data owner' | 'Data scientist' | 'Observer' = 'Data scientist'
 ): Promise<void> {
-  // First, we need to find the user by username to get their email
-  // Since ProjectTeam expects email as the teamMember field
-  // For now, we'll try with the username as email (OAuth users often have email as username)
+  // OAuth users MUST use group mappings - individual user adds don't work
+  // Create a unique group for this specific user-project combination
+  const userGroup = `user_${username.replace(/[^a-zA-Z0-9]/g, '_')}`;
   
-  const response = await fetch(
-    `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${projectName}/projectMembers`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `ApiKey ${credentials.apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        projectTeam: [
-          {
-            teamMember: username, // This should be email in Hopsworks
-            teamRole: role,
-            // ProjectTeamPK is created server-side, we don't send it
-          }
-        ]
-      })
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Failed to add user to project:', errorText);
-    
-    // Try alternative endpoint or structure if the first one fails
-    // Some Hopsworks versions might accept different formats
-    if (errorText.includes('MembersDTO') || errorText.includes('projectTeam')) {
-      // Already tried the right format, it's a different error
-      throw new Error(`Failed to add user to project: ${response.statusText} - ${errorText}`);
-    }
-    
-    // Fallback: try simple format (some Hopsworks versions might accept this)
-    const fallbackResponse = await fetch(
-      `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${projectName}/projectMembers`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `ApiKey ${credentials.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          username,
-          projectRole: role
-        })
-      }
-    );
-    
-    if (!fallbackResponse.ok) {
-      const fallbackError = await fallbackResponse.text();
-      throw new Error(`Failed to add user to project (tried both formats): ${fallbackError}`);
-    }
-  }
-}
-
-/**
- * Create group mapping for OAuth users
- * This allows automatic project access based on OAuth groups
- */
-export async function createGroupMapping(
-  credentials: HopsworksCredentials,
-  projectName: string,
-  groupNames: string[],
-  role: 'Data owner' | 'Data scientist' | 'Observer' = 'Data scientist'
-): Promise<void> {
+  console.log(`Adding user ${username} to project ${projectName} via group mapping ${userGroup}`);
+  
+  // Use the group mapping endpoint - this is what actually works
   const response = await fetch(
     `${credentials.apiUrl}${ADMIN_API_BASE}/group/mapping/bulk`,
     {
@@ -100,7 +39,7 @@ export async function createGroupMapping(
       },
       body: JSON.stringify({
         projectName,
-        group: groupNames,
+        group: [userGroup], // Array of group names
         projectRole: role,
         groupType: 'OAUTH'
       })
@@ -109,9 +48,14 @@ export async function createGroupMapping(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to create group mapping: ${response.statusText} - ${errorText}`);
+    console.error(`Failed to create group mapping for ${username}:`, errorText);
+    throw new Error(`Failed to add user to project via group mapping: ${response.statusText} - ${errorText}`);
   }
+  
+  console.log(`Successfully added ${username} to ${projectName} as ${role} via group ${userGroup}`);
 }
+
+// createGroupMapping removed - use addUserToProject which now uses group mappings internally
 
 /**
  * Get all projects from the cluster
@@ -166,70 +110,6 @@ export async function getUserProjects(
   return [];
 }
 
-/**
- * Add team member to owner's default project
- */
-export async function addTeamMemberToOwnerProjects(
-  credentials: HopsworksCredentials,
-  teamMemberUsername: string,
-  ownerUsername: string,
-  role: 'Data scientist' | 'Observer' = 'Data scientist'
-): Promise<{ success: boolean; projects: string[] }> {
-  try {
-    // Get owner's projects
-    const ownerProjects = await getUserProjects(credentials, ownerUsername);
-    
-    if (ownerProjects.length === 0) {
-      console.log(`Owner ${ownerUsername} has no projects yet`);
-      return { success: false, projects: [] };
-    }
+// addTeamMemberToOwnerProjects removed - use addUserToProject directly
 
-    const addedToProjects: string[] = [];
-    
-    // Add team member to each of owner's projects
-    for (const project of ownerProjects) {
-      try {
-        await addUserToProject(credentials, project.name, teamMemberUsername, role);
-        addedToProjects.push(project.name);
-        console.log(`Added ${teamMemberUsername} to project ${project.name} as ${role}`);
-      } catch (error) {
-        console.error(`Failed to add ${teamMemberUsername} to project ${project.name}:`, error);
-      }
-    }
-
-    return { 
-      success: addedToProjects.length > 0, 
-      projects: addedToProjects 
-    };
-  } catch (error) {
-    console.error('Failed to add team member to owner projects:', error);
-    return { success: false, projects: [] };
-  }
-}
-
-/**
- * Create a shared team project
- */
-export async function createTeamProject(
-  credentials: HopsworksCredentials,
-  ownerUsername: string,
-  projectName: string,
-  teamMembers: { username: string; role?: string }[]
-): Promise<void> {
-  // First create the project (owner already has it from hopsworks-api.ts createHopsworksProject)
-  
-  // Then add all team members
-  for (const member of teamMembers) {
-    try {
-      await addUserToProject(
-        credentials, 
-        projectName, 
-        member.username, 
-        (member.role as any) || 'Data scientist'
-      );
-      console.log(`Added ${member.username} to team project ${projectName}`);
-    } catch (error) {
-      console.error(`Failed to add ${member.username} to team project:`, error);
-    }
-  }
-}
+// createTeamProject removed - use addUserToProject directly for each member

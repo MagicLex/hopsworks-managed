@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
-import { addUserToProject, createGroupMapping, getUserProjects } from '../../../lib/hopsworks-team';
+import { addUserToProject, getUserProjects } from '../../../lib/hopsworks-team';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -133,15 +133,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (action === 'add') {
-        // Add user to project with specified role
+        // Add user to project with specified role (now uses group mappings internally)
         await addUserToProject(credentials, projectName, hopsworksUsername, role as any);
-
-        // If this is a team member, also create group mapping for OAuth
-        if (user.account_owner_id) {
-          // Create a unique group name for this user's team access
-          const groupName = `team_${user.account_owner_id}_${userId}`;
-          await createGroupMapping(credentials, projectName, [groupName], role as any);
-        }
 
         return res.status(200).json({ 
           message: `User added to project ${projectName} as ${role}`,
