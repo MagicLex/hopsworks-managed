@@ -7,6 +7,9 @@ interface Project {
   id: number;
   namespace: string;
   role?: string;
+  synced?: boolean;
+  syncError?: string;
+  pending?: boolean;
 }
 
 interface TeamMemberProjectsProps {
@@ -254,6 +257,53 @@ export default function TeamMemberProjects({
             </Flex>
           ) : (
             <Box className="space-y-3">
+              {/* Show sync button if there are pending projects */}
+              {memberProjects.some(p => !p.synced) && isOwner && (
+                <Box className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                  <Flex justify="between" align="center">
+                    <Text className="text-sm text-yellow-800">
+                      {memberProjects.filter(p => !p.synced).length} project(s) pending sync to Hopsworks
+                    </Text>
+                    <Button
+                      size="sm"
+                      intent="primary"
+                      onClick={async () => {
+                        setSyncing(true);
+                        try {
+                          const response = await fetch('/api/team/sync-member-projects', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ memberId })
+                          });
+                          const data = await response.json();
+                          if (data.syncedCount > 0) {
+                            setMessage({ 
+                              type: 'success', 
+                              text: `Synced ${data.syncedCount} project(s)` 
+                            });
+                          }
+                          if (data.warning) {
+                            setMessage({ 
+                              type: 'error', 
+                              text: data.warning + (data.failedProjects ? `: ${data.failedProjects.map(f => f.project).join(', ')}` : '')
+                            });
+                          }
+                          await fetchProjects();
+                        } catch (error) {
+                          setMessage({ type: 'error', text: 'Failed to sync projects' });
+                        } finally {
+                          setSyncing(false);
+                        }
+                      }}
+                      disabled={syncing}
+                    >
+                      <RefreshCw size={14} className="mr-1" />
+                      Retry Sync
+                    </Button>
+                  </Flex>
+                </Box>
+              )}
+
               {/* Member's current projects */}
               {memberProjects.length > 0 && (
                 <Box>
@@ -261,18 +311,34 @@ export default function TeamMemberProjects({
                   <Box className="space-y-2">
                     {memberProjects.map(project => (
                 <Flex 
-                  key={project.namespace} 
+                  key={project.namespace || project.name} 
                   justify="between" 
                   align="center"
-                  className="p-2 bg-white rounded border border-gray-200"
+                  className={`p-2 bg-white rounded border ${
+                    !project.synced ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200'
+                  }`}
                 >
                   <Box>
-                    <Text className="text-sm font-medium">{project.name}</Text>
-                    <Text className="text-xs text-gray-500">ID: {project.id}</Text>
+                    <Flex align="center" gap={4}>
+                      <Text className="text-sm font-medium">{project.name}</Text>
+                      {!project.synced && (
+                        <Badge size="xs" variant="warning" className="text-xs">
+                          Pending Sync
+                        </Badge>
+                      )}
+                    </Flex>
+                    <Text className="text-xs text-gray-500">
+                      {project.id ? `ID: ${project.id}` : 'Not synced to Hopsworks'}
+                    </Text>
+                    {project.syncError && (
+                      <Text className="text-xs text-red-600 mt-1">
+                        Sync error: {project.syncError}
+                      </Text>
+                    )}
                   </Box>
                   <Flex gap={8} align="center">
                     {project.role && (
-                      <Badge size="sm" variant="default">
+                      <Badge size="sm" variant={project.synced ? "default" : "outline"}>
                         {project.role}
                       </Badge>
                     )}
