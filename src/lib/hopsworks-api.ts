@@ -1,15 +1,23 @@
 // Hopsworks API integration
 // Based on patterns from hopsworks-cloud
-import https from 'https';
 
 export const HOPSWORKS_API_BASE = '/hopsworks-api/api';
 export const ADMIN_API_BASE = '/hopsworks-api/api/admin';
 
-// Create HTTPS agent that accepts self-signed certificates
-// WARNING: Only use this if your Hopsworks cluster uses self-signed certificates
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: false
-});
+// For self-signed certificates in both dev and production
+// This is needed because Hopsworks uses self-signed certs
+if (typeof process !== 'undefined') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
+// Create HTTPS agent for environments that support it
+let httpsAgent: any = undefined;
+if (typeof process !== 'undefined' && process.versions?.node) {
+  const https = require('https');
+  httpsAgent = new https.Agent({
+    rejectUnauthorized: false
+  });
+}
 
 interface HopsworksCredentials {
   apiUrl: string;
