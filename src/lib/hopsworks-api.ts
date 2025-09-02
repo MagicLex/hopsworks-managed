@@ -1,15 +1,15 @@
 // Hopsworks API integration
 // Based on patterns from hopsworks-cloud
+import https from 'https';
 
 export const HOPSWORKS_API_BASE = '/hopsworks-api/api';
 export const ADMIN_API_BASE = '/hopsworks-api/api/admin';
 
-// For Node.js 18+ with self-signed certificates
+// Create HTTPS agent that accepts self-signed certificates
 // WARNING: Only use this if your Hopsworks cluster uses self-signed certificates
-// Only disable in development environment
-if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-}
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false
+});
 
 interface HopsworksCredentials {
   apiUrl: string;
@@ -90,7 +90,9 @@ export async function createHopsworksOAuthUser(
       surname: lastName,
       maxNumProjects: maxNumProjects,
       status: 'ACTIVATED'
-    })
+    }),
+    // @ts-ignore - Node.js fetch doesn't have proper agent typing
+    agent: httpsAgent
   });
 
   if (!response.ok) {
@@ -119,7 +121,9 @@ export async function createHopsworksProject(
       owner: username,
       projectName,
       services: ['JOBS', 'HIVE', 'KAFKA', 'FEATURESTORE', 'SERVING']
-    })
+    }),
+    // @ts-ignore
+    agent: httpsAgent
   });
 
   if (!response.ok) {
@@ -143,7 +147,9 @@ export async function getUserProjects(
     {
       headers: {
         'Authorization': `ApiKey ${credentials.apiKey}`
-      }
+      },
+      // @ts-ignore
+      agent: httpsAgent
     }
   );
 
@@ -175,7 +181,9 @@ export async function getProjectUsage(
     {
       headers: {
         'Authorization': `ApiKey ${credentials.apiKey}`
-      }
+      },
+      // @ts-ignore
+      agent: httpsAgent
     }
   );
 
@@ -215,7 +223,9 @@ export async function getHopsworksUserByAuth0Id(
     {
       headers: {
         'Authorization': `ApiKey ${credentials.apiKey}`
-      }
+      },
+      // @ts-ignore
+      agent: httpsAgent
     }
   );
 
@@ -252,7 +262,9 @@ export async function updateUserProjectLimit(
       },
       body: JSON.stringify({
         maxNumProjects
-      })
+      }),
+      // @ts-ignore
+      agent: httpsAgent
     }
   );
 
@@ -274,7 +286,9 @@ export async function getHopsworksUserByUsername(
       {
         headers: {
           'Authorization': `ApiKey ${credentials.apiKey}`
-        }
+        },
+        // @ts-ignore
+        agent: httpsAgent
       }
     );
 
@@ -305,7 +319,9 @@ export async function getAllUsers(
     {
       headers: {
         'Authorization': authToken
-      }
+      },
+      // @ts-ignore
+      agent: httpsAgent
     }
   );
 
@@ -329,7 +345,9 @@ export async function getAllProjects(
     {
       headers: {
         'Authorization': authToken
-      }
+      },
+      // @ts-ignore
+      agent: httpsAgent
     }
   );
 
@@ -353,7 +371,9 @@ export async function getAllProjects(
             {
               headers: {
                 'Authorization': authToken
-              }
+              },
+              // @ts-ignore
+              agent: httpsAgent
             }
           );
           if (userResponse.ok) {

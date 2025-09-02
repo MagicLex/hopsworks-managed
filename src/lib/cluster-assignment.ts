@@ -159,8 +159,7 @@ export async function assignUserToCluster(
           hopsworks_cluster_id: ownerAssignment.hopsworks_cluster_id,
           hopsworks_user_id: hopsworksUserId,
           hopsworks_username: hopsworksUsername,
-          assigned_at: new Date().toISOString(),
-          assigned_by: 'team_member_auto'
+          assigned_at: new Date().toISOString()
         });
 
       if (assignError) {
@@ -335,8 +334,7 @@ export async function assignUserToCluster(
         hopsworks_cluster_id: availableCluster.id,
         hopsworks_user_id: hopsworksUserId,
         hopsworks_username: hopsworksUsername,
-        assigned_at: new Date().toISOString(),
-        assigned_by: isManualAssignment ? 'admin' : 'system'
+        assigned_at: new Date().toISOString()
       });
 
     if (assignError) {
