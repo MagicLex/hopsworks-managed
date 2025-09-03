@@ -97,15 +97,18 @@ export async function assignUserToCluster(
               // Extract proper name from user data or email
               let firstName, lastName;
               if (user.name && user.name.trim()) {
-                const [first, ...lastParts] = user.name.trim().split(' ');
-                firstName = first;
-                lastName = lastParts.join(' ') || 'User';
+                const nameParts = user.name.trim().split(' ').filter(Boolean);
+                firstName = nameParts[0];
+                // If user only has one name, use a dot as surname (Hopsworks requires it)
+                lastName = nameParts.slice(1).join(' ') || '.';
               } else {
-                // Extract from email: lex+5@hopsworks.ai -> "Lex"
-                const emailName = user.email.split('@')[0].replace(/[+\d]/g, '').replace(/[._-]/g, ' ');
+                // Extract from email: lex+5@hopsworks.ai -> firstName: "Lex", lastName: "."
+                const emailParts = user.email.split('@');
+                const emailName = emailParts[0].replace(/[+\d]/g, '').replace(/[._-]/g, ' ');
                 const nameParts = emailName.split(' ').filter(Boolean);
                 firstName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : 'User';
-                lastName = nameParts[1] ? nameParts[1].charAt(0).toUpperCase() + nameParts[1].slice(1) : 'User';
+                // Use remaining name parts or just a dot for surname
+                lastName = nameParts.slice(1).join(' ') || '.';
               }
               
               console.log(`Attempt ${attempt}/${maxRetries}: Creating Hopsworks user for team member ${user.email}`);
@@ -280,15 +283,18 @@ export async function assignUserToCluster(
             // Extract proper name from user data or email
             let firstName, lastName;
             if (user.name && user.name.trim()) {
-              const [first, ...lastParts] = user.name.trim().split(' ');
-              firstName = first;
-              lastName = lastParts.join(' ') || 'User';
+              const nameParts = user.name.trim().split(' ').filter(Boolean);
+              firstName = nameParts[0];
+              // If user only has one name, use a dot as surname (Hopsworks requires it)
+              lastName = nameParts.slice(1).join(' ') || '.';
             } else {
-              // Extract from email: lex+5@hopsworks.ai -> "Lex"
-              const emailName = user.email.split('@')[0].replace(/[+\d]/g, '').replace(/[._-]/g, ' ');
+              // Extract from email: lex+5@hopsworks.ai -> firstName: "Lex", lastName: "."
+              const emailParts = user.email.split('@');
+              const emailName = emailParts[0].replace(/[+\d]/g, '').replace(/[._-]/g, ' ');
               const nameParts = emailName.split(' ').filter(Boolean);
               firstName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : 'User';
-              lastName = nameParts[1] ? nameParts[1].charAt(0).toUpperCase() + nameParts[1].slice(1) : 'User';
+              // Use remaining name parts or just a dot for surname
+              lastName = nameParts.slice(1).join(' ') || '.';
             }
             
             // Account owners with payment or prepaid get 5 projects
