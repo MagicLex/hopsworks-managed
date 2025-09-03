@@ -106,13 +106,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
       
+      // Extract proper names for new user
+      let givenName, familyName;
+      if (name && name.trim()) {
+        const nameParts = name.trim().split(' ').filter(Boolean);
+        givenName = nameParts[0];
+        familyName = nameParts.slice(1).join(' ') || '.';
+      } else {
+        // Extract from email
+        const emailName = email.split('@')[0].replace(/[+\d]/g, '').replace(/[._-]/g, ' ');
+        const nameParts = emailName.split(' ').filter(Boolean);
+        givenName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : 'User';
+        familyName = nameParts.slice(1).join(' ') || '.';
+      }
+      
       // Create new user
       const { error: userError } = await supabaseAdmin
         .from('users')
         .insert({
           id: userId,
           email,
-          name: name || null,
+          name: name || null, // Keep for backward compatibility
+          given_name: givenName,
+          family_name: familyName,
           registration_source: registrationSource,
           registration_ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress,
           status: 'active',
@@ -396,22 +412,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (!hopsworksUser) {
           console.log(`[Health Check] Hopsworks user not found for ${email} - attempting to create`);
           try {
-            // Extract proper name from user data or email
-            let firstName, lastName;
-            if (name && name.trim()) {
-              const nameParts = name.trim().split(' ').filter(Boolean);
-              firstName = nameParts[0];
-              // If user only has one name, use a dot or email domain as surname
-              lastName = nameParts.slice(1).join(' ') || '.';
-            } else {
-              // Extract from email: lex+5@hopsworks.ai -> firstName: "Lex", lastName: "."
-              const emailParts = email.split('@');
-              const emailName = emailParts[0].replace(/[+\d]/g, '').replace(/[._-]/g, ' ');
-              const nameParts = emailName.split(' ').filter(Boolean);
-              firstName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : 'User';
-              // Use remaining name parts or just a dot for surname (Hopsworks requires it)
-              lastName = nameParts.slice(1).join(' ') || '.';
-            }
+            // Use given_name and family_name from database
+            const firstName = existingUser.given_name || email.split('@')[0];
+            const lastName = existingUser.family_name || '.';
             const expectedMaxProjects = isTeamMember ? 0 : 
                                       (existingUser.stripe_customer_id || existingUser.billing_mode === 'prepaid') ? 5 : 0;
             

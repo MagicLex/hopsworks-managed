@@ -25,7 +25,7 @@ export async function assignUserToCluster(
     // Get user details including account owner
     const { data: user } = await supabaseAdmin
       .from('users')
-      .select('stripe_customer_id, account_owner_id, email, name, hopsworks_user_id, hopsworks_username, billing_mode')
+      .select('stripe_customer_id, account_owner_id, email, name, given_name, family_name, hopsworks_user_id, hopsworks_username, billing_mode')
       .eq('id', userId)
       .single();
 
@@ -94,22 +94,9 @@ export async function assignUserToCluster(
           
           for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-              // Extract proper name from user data or email
-              let firstName, lastName;
-              if (user.name && user.name.trim()) {
-                const nameParts = user.name.trim().split(' ').filter(Boolean);
-                firstName = nameParts[0];
-                // If user only has one name, use a dot as surname (Hopsworks requires it)
-                lastName = nameParts.slice(1).join(' ') || '.';
-              } else {
-                // Extract from email: lex+5@hopsworks.ai -> firstName: "Lex", lastName: "."
-                const emailParts = user.email.split('@');
-                const emailName = emailParts[0].replace(/[+\d]/g, '').replace(/[._-]/g, ' ');
-                const nameParts = emailName.split(' ').filter(Boolean);
-                firstName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : 'User';
-                // Use remaining name parts or just a dot for surname
-                lastName = nameParts.slice(1).join(' ') || '.';
-              }
+              // Use given_name and family_name from database
+              const firstName = user.given_name || user.email.split('@')[0];
+              const lastName = user.family_name || '.';
               
               console.log(`Attempt ${attempt}/${maxRetries}: Creating Hopsworks user for team member ${user.email}`);
               
@@ -280,22 +267,9 @@ export async function assignUserToCluster(
         
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            // Extract proper name from user data or email
-            let firstName, lastName;
-            if (user.name && user.name.trim()) {
-              const nameParts = user.name.trim().split(' ').filter(Boolean);
-              firstName = nameParts[0];
-              // If user only has one name, use a dot as surname (Hopsworks requires it)
-              lastName = nameParts.slice(1).join(' ') || '.';
-            } else {
-              // Extract from email: lex+5@hopsworks.ai -> firstName: "Lex", lastName: "."
-              const emailParts = user.email.split('@');
-              const emailName = emailParts[0].replace(/[+\d]/g, '').replace(/[._-]/g, ' ');
-              const nameParts = emailName.split(' ').filter(Boolean);
-              firstName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : 'User';
-              // Use remaining name parts or just a dot for surname
-              lastName = nameParts.slice(1).join(' ') || '.';
-            }
+            // Use given_name and family_name from database
+            const firstName = user.given_name || user.email.split('@')[0];
+            const lastName = user.family_name || '.';
             
             // Account owners with payment or prepaid get 5 projects
             const maxProjects = (user.stripe_customer_id || isPrepaid) ? 5 : 0;
