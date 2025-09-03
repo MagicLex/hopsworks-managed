@@ -113,8 +113,8 @@ async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {
     .single();
 
   if (user) {
-    // For postpaid users, create subscription if not exists
-    if (user.billing_mode === 'postpaid' && !user.stripe_subscription_id) {
+    // For postpaid users (or null billing_mode), create subscription if not exists
+    if ((!user.billing_mode || user.billing_mode === 'postpaid') && !user.stripe_subscription_id) {
       try {
         // Get stripe products for metered billing
         const { data: stripeProducts } = await supabaseAdmin

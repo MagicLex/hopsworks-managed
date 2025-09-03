@@ -184,17 +184,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const customer = await stripe.customers.retrieve(user.stripe_customer_id);
         const hasDefaultPaymentMethod = !!(customer as any).invoice_settings?.default_payment_method || !!(customer as any).default_source;
         
-        // Check if customer has any successful setup intents
-        const setupIntents = await stripe.setupIntents.list({
-          customer: user.stripe_customer_id,
-          limit: 1
-        });
-        const hasSuccessfulSetup = setupIntents.data.some(si => si.status === 'succeeded');
-        
+        // Only check actual payment methods, not setup intent history
         hasPaymentMethod = paymentMethods.data.length > 0 || 
                           allPaymentMethods.data.length > 0 || 
-                          hasDefaultPaymentMethod || 
-                          hasSuccessfulSetup;
+                          hasDefaultPaymentMethod;
         
         // Get payment method details if available
         if (paymentMethods.data.length > 0) {

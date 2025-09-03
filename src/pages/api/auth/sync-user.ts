@@ -116,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           registration_source: registrationSource,
           registration_ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress,
           status: 'active',
-          billing_mode: billingMode,
+          billing_mode: billingMode || 'postpaid', // Default to postpaid for non-corporate users
           metadata
         });
 
@@ -613,10 +613,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // Get current user state for payment check (important for new users)
+    const { data: currentUser } = await supabaseAdmin
+      .from('users')
+      .select('account_owner_id, stripe_customer_id, billing_mode')
+      .eq('id', userId)
+      .single();
+    
     // Check if user needs to set up payment (only for account owners)
-    const needsPayment = !existingUser?.account_owner_id && // Not a team member
-                        !existingUser?.stripe_customer_id && // No Stripe customer
-                        existingUser?.billing_mode !== 'prepaid'; // Not prepaid corporate
+    const needsPayment = !currentUser?.account_owner_id && // Not a team member
+                        !currentUser?.stripe_customer_id && // No Stripe customer
+                        currentUser?.billing_mode !== 'prepaid'; // Not prepaid corporate
 
     return res.status(200).json({ 
       success: true,
