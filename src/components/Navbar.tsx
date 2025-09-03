@@ -1,14 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Box, Flex, Button } from 'tailwind-quartz';
 import { UserProfile } from './UserProfile';
 import { useAuth } from '@/contexts/AuthContext';
-import { AuthModal } from './AuthModal';
 
 const Navbar: React.FC = () => {
   const { user, signIn } = useAuth();
-  const [showAuthModal, setShowAuthModal] = useState(false);
   
   return (
     <>
@@ -38,7 +36,7 @@ const Navbar: React.FC = () => {
                 <Button
                   intent="primary"
                   size="md"
-                  onClick={() => setShowAuthModal(true)}
+                  onClick={() => signIn(undefined, 'signup')}
                 >
                   Sign Up
                 </Button>
@@ -47,12 +45,6 @@ const Navbar: React.FC = () => {
           </Flex>
         </Box>
       </Box>
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onSuccess={() => setShowAuthModal(false)}
-        mode="signup"
-      />
     </>
   );
 };

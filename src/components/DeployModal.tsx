@@ -3,10 +3,9 @@ import { X, CreditCard, Zap, Globe, Terminal, User, Activity } from 'lucide-reac
 import { DeploymentOption } from '@/data/deployments';
 import { Modal, Button, Box, Flex, Title, Text, Labeling, Card, Badge, Input } from 'tailwind-quartz';
 import { useAuth } from '@/contexts/AuthContext';
-import { AuthModal } from './AuthModal';
 import { useRouter } from 'next/router';
 import { DEFAULT_RATES } from '@/config/billing-rates';
-import { usePricing } from '@/hooks/usePricing';
+import { usePricing } from '@/contexts/PricingContext';
 
 interface DeployModalProps {
   isOpen: boolean;
@@ -16,16 +15,16 @@ interface DeployModalProps {
 }
 
 export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, onClose, corporateRef }) => {
-  const { user } = useAuth();
+  const { user, signIn } = useAuth();
   const router = useRouter();
   const { pricing } = usePricing();
-  const [showAuthModal, setShowAuthModal] = useState(false);
   
   if (!deployment) return null;
 
   const handleStartNow = () => {
     if (!user) {
-      setShowAuthModal(true);
+      // Pass corporate ref if present, use signup mode
+      signIn(corporateRef || undefined, 'signup');
     } else {
       // Redirect to billing to add payment method
       router.push('/billing');
@@ -118,17 +117,6 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
           {user ? 'Add Payment Method' : 'Sign Up'}
         </Button>
       </Flex>
-
-      <AuthModal 
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onSuccess={() => {
-          setShowAuthModal(false);
-          // After successful auth, redirect to billing
-          router.push('/billing');
-        }}
-        corporateRef={corporateRef || undefined}
-      />
     </Modal>
   );
 };

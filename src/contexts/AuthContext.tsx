@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 interface AuthContextType {
   user: any; // Auth0's UserProfile type has nullable sub
   loading: boolean;
-  signIn: (corporateRef?: string) => void;
+  signIn: (corporateRef?: string, mode?: 'login' | 'signup') => void;
   signOut: () => void;
 }
 
@@ -20,6 +20,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Get corporate ref from sessionStorage if present
       const corporateRef = sessionStorage.getItem('corporate_ref');
       
+      // Check if we've already synced this session
+      const syncedThisSession = sessionStorage.getItem('user_synced_session');
+      if (syncedThisSession === user.sub) {
+        return; // Already synced this user in this session
+      }
+      
       // Sync user to Supabase when they log in
       fetch('/api/auth/sync-user', {
         method: 'POST',
@@ -28,6 +34,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .then(res => res.json())
       .then(data => {
+        // Mark as synced for this session
+        sessionStorage.setItem('user_synced_session', user.sub!);
+        
         // Clear corporate ref after successful sync
         sessionStorage.removeItem('corporate_ref');
         
@@ -41,14 +50,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .catch(err => console.error('Failed to sync user:', err));
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router.pathname]); // Only re-run if pathname changes to billing-setup
 
-  const signIn = (corporateRef?: string) => {
+  const signIn = (corporateRef?: string, mode: 'login' | 'signup' = 'login') => {
     if (corporateRef) {
       // Store corporate ref in sessionStorage to persist through auth flow
       sessionStorage.setItem('corporate_ref', corporateRef);
     }
-    router.push('/api/auth/login');
+    // Use the proper Auth0 route - signup or login
+    router.push(mode === 'signup' ? '/api/auth/signup' : '/api/auth/login');
   };
 
   const signOut = () => {
