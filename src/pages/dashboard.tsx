@@ -3,11 +3,12 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApiData } from '@/hooks/useApiData';
-import { Box, Flex, Title, Text, Button, Card, Badge, Tabs, TabsContent, TabsList, TabsTrigger, Modal, Input } from 'tailwind-quartz';
-import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle, UserPlus, Mail, Download, Calendar, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Box, Flex, Title, Text, Button, Card, Badge, Tabs, TabsContent, TabsList, TabsTrigger, Modal, Input, Select } from 'tailwind-quartz';
+import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle, UserPlus, Mail, Download, Calendar, AlertTriangle, TrendingUp, Clock, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import ClusterAccessStatus from '@/components/ClusterAccessStatus';
+import TeamMemberProjects from '@/components/team/TeamMemberProjects';
 import { DEFAULT_RATES } from '@/config/billing-rates';
 import { usePricing } from '@/hooks/usePricing';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -75,6 +76,14 @@ interface TeamData {
   is_owner: boolean;
 }
 
+interface TeamInvite {
+  id: string;
+  email: string;
+  token: string;
+  expires_at: string;
+  created_at: string;
+}
+
 interface BillingInfo {
   billingMode: 'prepaid' | 'postpaid' | 'team';
   hasPaymentMethod: boolean;
@@ -132,14 +141,17 @@ export default function Dashboard() {
   const { data: usage, loading: usageLoading } = useApiData<UsageData>('/api/usage');
   const { data: hopsworksInfo, loading: hopsworksLoading } = useApiData<HopsworksInfo>('/api/user/hopsworks-info');
   const { data: instance, loading: instanceLoading } = useApiData<InstanceData>('/api/instance');
-  const { data: teamData, loading: teamLoading } = useApiData<TeamData>('/api/team/members');
+  const { data: teamData, loading: teamLoading, refetch: refetchTeamData } = useApiData<TeamData>('/api/team/members');
   const { data: billing, loading: billingLoading } = useApiData<BillingInfo>('/api/billing');
   const [activeTab, setActiveTab] = useState('cluster');
   const [copied, setCopied] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('Data scientist');
+  const [autoAssignProjects, setAutoAssignProjects] = useState(true);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState('');
+  const [invites, setInvites] = useState<TeamInvite[]>([]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -153,6 +165,93 @@ export default function Dashboard() {
       setActiveTab(router.query.tab);
     }
   }, [router.query.tab]);
+
+  // Fetch team invites when user and team data is available
+  useEffect(() => {
+    if (user && teamData?.is_owner) {
+      fetchInvites();
+    }
+  }, [user, teamData]);
+
+  const fetchInvites = async () => {
+    try {
+      const response = await fetch('/api/team/invite');
+      if (!response.ok) throw new Error('Failed to fetch invites');
+      const data = await response.json();
+      setInvites(data.invites || []);
+    } catch (error) {
+      console.error('Error fetching invites:', error);
+    }
+  };
+
+  const handleInvite = async () => {
+    setInviteError('');
+    setInviteLoading(true);
+    
+    try {
+      const response = await fetch('/api/team/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: inviteEmail,
+          projectRole: inviteRole,
+          autoAssignProjects 
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send invite');
+      }
+
+      await fetchInvites();
+      setShowInviteModal(false);
+      setInviteEmail('');
+      setInviteRole('Data scientist');
+      setAutoAssignProjects(true);
+    } catch (error: any) {
+      setInviteError(error.message);
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!confirm('Are you sure you want to remove this team member?')) return;
+
+    try {
+      const response = await fetch(`/api/team/members?memberId=${memberId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to remove member');
+      
+      await refetchTeamData();
+    } catch (error) {
+      console.error('Error removing member:', error);
+    }
+  };
+
+  const handleCancelInvite = async (inviteId: string) => {
+    try {
+      const response = await fetch(`/api/team/invite?inviteId=${inviteId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to cancel invite');
+      
+      await fetchInvites();
+    } catch (error) {
+      console.error('Error canceling invite:', error);
+    }
+  };
+
+  const copyInviteLink = (token: string) => {
+    const inviteUrl = `${window.location.origin}/team/accept-invite?token=${token}`;
+    navigator.clipboard.writeText(inviteUrl);
+    alert('Invite link copied to clipboard!');
+  };
 
   if (authLoading) {
     return (
@@ -506,37 +605,188 @@ mr = project.get_model_registry()`;
             </TabsContent>
 
             <TabsContent value="team">
-              {teamData?.is_owner ? (
-                // Account owner view
-                <Card className="p-6">
-                  <Flex align="center" gap={12} className="mb-4">
-                    <Users size={20} className="text-[#1eb182]" />
-                    <Title as="h2" className="text-lg">Team Members</Title>
-                    <Badge variant="default">{(teamData.team_members?.length || 0) + 1}</Badge>
-                  </Flex>
-                  
-                  {teamLoading ? (
-                    <Text className="text-sm text-gray-600">Loading team members...</Text>
-                  ) : (
-                    <Box className="space-y-3">
-                      {/* Account Owner */}
-                      <Card variant="readOnly" className="p-4">
-                        <Flex justify="between" align="center">
-                          <Box>
-                            <Flex align="center" gap={8}>
-                              <Text className="font-medium">{teamData.account_owner.name || teamData.account_owner.email}</Text>
-                              <Badge variant="primary" size="sm">Owner</Badge>
-                            </Flex>
-                            <Text className="text-sm text-gray-600">{teamData.account_owner.email}</Text>
-                          </Box>
+              <Box className="space-y-6">
+                {teamData?.is_owner ? (
+                  <>
+                    {/* Team Members Card */}
+                    <Card className="p-6">
+                      <Flex align="center" gap={12} className="mb-4">
+                        <Users size={20} className="text-[#1eb182]" />
+                        <Title as="h2" className="text-lg">Team Members</Title>
+                        <Badge variant="default">{(teamData.team_members?.length || 0) + 1}</Badge>
+                      </Flex>
+
+                      <Flex direction="column" gap={12}>
+                        {/* Account Owner */}
+                        <Card variant="readOnly" className="p-4">
+                          <Flex justify="between" align="center">
+                            <Box>
+                              <Flex align="center" gap={8}>
+                                <Text className="font-medium">{teamData.account_owner.name || teamData.account_owner.email}</Text>
+                                <Badge variant="primary" size="sm">Owner</Badge>
+                              </Flex>
+                              <Text className="text-sm text-gray-600">{teamData.account_owner.email}</Text>
+                            </Box>
+                          </Flex>
+                        </Card>
+
+                        {/* Team Members */}
+                        {teamData.team_members?.map((member) => (
+                          <Card key={member.id} variant="readOnly" className="p-4">
+                            <Box>
+                              <Flex justify="between" align="center">
+                                <Box>
+                                  <Text className="font-medium">{member.name || member.email}</Text>
+                                  <Text className="text-sm text-gray-600">{member.email}</Text>
+                                  {member.hopsworks_username && (
+                                    <Text className="text-xs text-gray-500">
+                                      Hopsworks: {member.hopsworks_username}
+                                    </Text>
+                                  )}
+                                </Box>
+                                <Flex align="center" gap={12}>
+                                  {member.last_login_at && (
+                                    <Text className="text-xs text-gray-500">
+                                      Last login: {new Date(member.last_login_at).toLocaleDateString()}
+                                    </Text>
+                                  )}
+                                  <Button
+                                    intent="ghost"
+                                    size="md"
+                                    onClick={() => handleRemoveMember(member.id)}
+                                  >
+                                    <Trash2 size={16} className="text-red-500" />
+                                  </Button>
+                                </Flex>
+                              </Flex>
+                              {member.hopsworks_username && (
+                                <Box className="mt-4">
+                                  <TeamMemberProjects
+                                    memberId={member.id}
+                                    memberEmail={member.email}
+                                    memberName={member.name || member.email}
+                                    isOwner={true}
+                                    ownerId={teamData.account_owner.id}
+                                  />
+                                </Box>
+                              )}
+                            </Box>
+                          </Card>
+                        ))}
+                      </Flex>
+
+                      <Box className="mt-4">
+                        <Button
+                          intent="primary"
+                          size="md"
+                          onClick={() => setShowInviteModal(true)}
+                        >
+                          Invite Member
+                        </Button>
+                      </Box>
+                    </Card>
+
+                    {/* Pending Invites */}
+                    {invites.length > 0 && (
+                      <Card className="p-6">
+                        <Flex align="center" gap={12} className="mb-4">
+                          <Mail size={20} className="text-[#1eb182]" />
+                          <Title as="h2" className="text-lg">Pending Invites</Title>
+                          <Badge variant="default">{invites.length}</Badge>
+                        </Flex>
+
+                        <Flex direction="column" gap={12}>
+                          {invites.map((invite) => {
+                            const expiresAt = new Date(invite.expires_at);
+                            const isExpired = expiresAt < new Date();
+                            
+                            return (
+                              <Card key={invite.id} variant="readOnly" className="p-4">
+                                <Flex justify="between" align="center">
+                                  <Box>
+                                    <Text className="font-medium">{invite.email}</Text>
+                                    <Flex align="center" gap={8} className="mt-1">
+                                      <Clock size={12} className="text-gray-500" />
+                                      <Text className="text-xs text-gray-500">
+                                        {isExpired ? 'Expired' : `Expires ${expiresAt.toLocaleDateString()}`}
+                                      </Text>
+                                    </Flex>
+                                  </Box>
+                                  <Flex align="center" gap={8}>
+                                    <Button
+                                      intent="ghost"
+                                      size="md"
+                                      onClick={() => copyInviteLink(invite.token)}
+                                      disabled={isExpired}
+                                    >
+                                      <Copy size={16} />
+                                    </Button>
+                                    <Button
+                                      intent="ghost"
+                                      size="md"
+                                      onClick={() => handleCancelInvite(invite.id)}
+                                    >
+                                      <Trash2 size={16} className="text-red-500" />
+                                    </Button>
+                                  </Flex>
+                                </Flex>
+                              </Card>
+                            );
+                          })}
                         </Flex>
                       </Card>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* Team Member View */}
+                    <Card className="p-6 border-blue-200 bg-blue-50">
+                      <Text className="text-sm">
+                        You are part of <strong>{teamData?.account_owner.email}</strong>&apos;s team. 
+                        Your usage is billed to the account owner.
+                      </Text>
+                    </Card>
+                    
+                    {/* Show team member's own projects */}
+                    <Card className="p-6">
+                      <Flex align="center" gap={12} className="mb-4">
+                        <FolderOpen size={20} className="text-[#1eb182]" />
+                        <Title as="h2" className="text-lg">My Project Access</Title>
+                      </Flex>
+                      <TeamMemberProjects
+                        memberId={user?.sub || ''}
+                        memberEmail={user?.email || ''}
+                        memberName={user?.name || user?.email || ''}
+                        isOwner={false}
+                        ownerId={teamData?.account_owner.id || ''}
+                      />
+                    </Card>
 
-                      {/* Team Members */}
-                      {teamData.team_members && teamData.team_members.length > 0 ? (
-                        teamData.team_members.map(member => (
-                          <Card key={member.id} variant="readOnly" className="p-4">
+                    {/* Other Team Members */}
+                    {teamData?.team_members && teamData.team_members.length > 0 && (
+                      <Card className="p-6">
+                        <Flex align="center" gap={12} className="mb-4">
+                          <Users size={20} className="text-[#1eb182]" />
+                          <Title as="h2" className="text-lg">Team Members</Title>
+                        </Flex>
+                        
+                        <Flex direction="column" gap={12}>
+                          {/* Owner */}
+                          <Card variant="readOnly" className="p-4">
                             <Flex justify="between" align="center">
+                              <Box>
+                                <Flex align="center" gap={8}>
+                                  <Text className="font-medium">{teamData.account_owner.name || teamData.account_owner.email}</Text>
+                                  <Badge variant="primary" size="sm">Owner</Badge>
+                                </Flex>
+                                <Text className="text-sm text-gray-600">{teamData.account_owner.email}</Text>
+                              </Box>
+                            </Flex>
+                          </Card>
+
+                          {/* Other Members */}
+                          {teamData.team_members.map((member) => (
+                            <Card key={member.id} variant="readOnly" className="p-4">
                               <Box>
                                 <Text className="font-medium">{member.name || member.email}</Text>
                                 <Text className="text-sm text-gray-600">{member.email}</Text>
@@ -546,75 +796,14 @@ mr = project.get_model_registry()`;
                                   </Text>
                                 )}
                               </Box>
-                              <Flex align="center" gap={12}>
-                                {member.last_login_at && (
-                                  <Text className="text-xs text-gray-500">
-                                    Last login: {new Date(member.last_login_at).toLocaleDateString()}
-                                  </Text>
-                                )}
-                                <Badge variant={member.status === 'active' ? 'success' : 'default'} size="sm">
-                                  {member.status}
-                                </Badge>
-                              </Flex>
-                            </Flex>
-                          </Card>
-                        ))
-                      ) : (
-                        <Text className="text-sm text-gray-600 mt-4">No team members yet.</Text>
-                      )}
-                    </Box>
-                  )}
-                  
-                  <Flex gap={12} className="mt-6">
-                    <Button
-                      intent="primary"
-                      size="md"
-                      onClick={() => setShowInviteModal(true)}
-                    >
-                      Invite Member
-                    </Button>
-                    <Link href="/team">
-                      <Button intent="secondary" size="md">
-                        Manage Team
-                      </Button>
-                    </Link>
-                  </Flex>
-                </Card>
-              ) : (
-                // Team member view
-                <Card className="p-6">
-                  <Flex align="center" gap={12} className="mb-4">
-                    <Users size={20} className="text-[#1eb182]" />
-                    <Title as="h2" className="text-lg">Team Information</Title>
-                  </Flex>
-                  
-                  <Card className="p-4 border-blue-200 bg-blue-50">
-                    <Text className="text-sm text-blue-800">
-                      You are part of <strong>{teamData?.account_owner.name || teamData?.account_owner.email}</strong>&apos;s team.
-                    </Text>
-                    <Text className="text-xs text-blue-700 mt-2">
-                      Your usage is billed to the account owner. Contact them for billing or team management.
-                    </Text>
-                  </Card>
-
-                  {/* Show other team members */}
-                  {teamData?.team_members && teamData.team_members.length > 1 && (
-                    <Box className="mt-6">
-                      <Text className="text-sm font-medium mb-3">Other Team Members</Text>
-                      <Box className="space-y-2">
-                        {teamData.team_members.filter(m => m.id !== user?.sub).map(member => (
-                          <Card key={member.id} variant="readOnly" className="p-3">
-                            <Box>
-                              <Text className="text-sm font-medium">{member.name || member.email}</Text>
-                              <Text className="text-xs text-gray-600">{member.email}</Text>
-                            </Box>
-                          </Card>
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-                </Card>
-              )}
+                            </Card>
+                          ))}
+                        </Flex>
+                      </Card>
+                    )}
+                  </>
+                )}
+              </Box>
             </TabsContent>
 
             <TabsContent value="billing">
@@ -1030,65 +1219,94 @@ mr = project.get_model_registry()`;
       </Box>
       
       {/* Invite Modal */}
-      <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)}>
-        <Box className="p-6">
-          <Title as="h2" className="text-lg mb-4">Invite Team Member</Title>
-          <Text className="text-sm text-gray-600 mb-4">
-            They&apos;ll receive an email invitation to join your Hopsworks team.
+      <Modal
+        isOpen={showInviteModal}
+        onClose={() => {
+          setShowInviteModal(false);
+          setInviteEmail('');
+          setInviteRole('Data scientist');
+          setAutoAssignProjects(true);
+          setInviteError('');
+        }}
+        size="sm"
+        title="Invite Team Member"
+      >
+        <Flex direction="column" gap={16}>
+          <Text className="text-sm text-gray-600">
+            Invite a new member to join your team. They&apos;ll have access to Hopsworks 
+            and their usage will be billed to your account.
           </Text>
-          <Input
-            type="email"
-            placeholder="colleague@company.com"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            className="mb-4"
-          />
-          {inviteError && (
-            <Text className="text-sm text-red-500 mb-4">{inviteError}</Text>
-          )}
+          
+          <Box>
+            <Text className="text-sm font-medium mb-2">Email Address</Text>
+            <Input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="colleague@company.com"
+              disabled={inviteLoading}
+            />
+            {inviteError && (
+              <Text className="text-xs text-red-500 mt-1">{inviteError}</Text>
+            )}
+          </Box>
+
+          <Box>
+            <Text className="text-sm font-medium mb-2">Default Project Role</Text>
+            <Select
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value)}
+              disabled={inviteLoading}
+            >
+              <option value="Data scientist">Data scientist</option>
+              <option value="Data owner">Data owner</option>
+              <option value="Observer">Observer</option>
+            </Select>
+            <Text className="text-xs text-gray-500 mt-1">
+              Role they&apos;ll have when added to your projects
+            </Text>
+          </Box>
+
+          <Box>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={autoAssignProjects}
+                onChange={(e) => setAutoAssignProjects(e.target.checked)}
+                disabled={inviteLoading}
+                className="mr-2"
+              />
+              <Text className="text-sm">
+                Automatically add to all my existing projects
+              </Text>
+            </label>
+          </Box>
+
           <Flex gap={12} justify="end">
-            <Button
-              intent="ghost"
-              size="md"
+            <Button 
               onClick={() => {
                 setShowInviteModal(false);
                 setInviteEmail('');
+                setInviteRole('Data scientist');
+                setAutoAssignProjects(true);
                 setInviteError('');
               }}
+              intent="secondary"
+              size="md"
+              disabled={inviteLoading}
             >
               Cancel
             </Button>
-            <Button
+            <Button 
               intent="primary"
               size="md"
+              onClick={handleInvite}
               disabled={!inviteEmail || inviteLoading}
-              onClick={async () => {
-                setInviteError('');
-                setInviteLoading(true);
-                try {
-                  const response = await fetch('/api/team/invite', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: inviteEmail })
-                  });
-                  const data = await response.json();
-                  if (!response.ok) {
-                    throw new Error(data.error || 'Failed to send invite');
-                  }
-                  setShowInviteModal(false);
-                  setInviteEmail('');
-                  // Optionally refresh team members
-                } catch (error: any) {
-                  setInviteError(error.message || 'Failed to send invite');
-                } finally {
-                  setInviteLoading(false);
-                }
-              }}
             >
               {inviteLoading ? 'Sending...' : 'Send Invite'}
             </Button>
           </Flex>
-        </Box>
+        </Flex>
       </Modal>
     </>
   );
