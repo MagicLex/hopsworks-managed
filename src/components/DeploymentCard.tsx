@@ -2,7 +2,7 @@ import React from 'react';
 import { DeploymentOption } from '@/data/deployments';
 import { Button, Card, Title, Text, Labeling, Badge, Flex, Box } from 'tailwind-quartz';
 import { Server, HardDrive, Cpu, Cloud, Database, Activity, Zap, Shield, Terminal, MessageSquare, FileCode, Calendar, X, Globe } from 'lucide-react';
-import { usePricing } from '@/hooks/usePricing';
+import { usePricing } from '@/contexts/PricingContext';
 
 interface DeploymentCardProps {
   deployment: DeploymentOption;

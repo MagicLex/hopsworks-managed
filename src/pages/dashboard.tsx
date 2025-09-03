@@ -11,7 +11,7 @@ import ClusterAccessStatus from '@/components/ClusterAccessStatus';
 import TeamMemberProjects from '@/components/team/TeamMemberProjects';
 import CardSkeleton from '@/components/CardSkeleton';
 import { DEFAULT_RATES } from '@/config/billing-rates';
-import { usePricing } from '@/hooks/usePricing';
+import { usePricing } from '@/contexts/PricingContext';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface UsageData {

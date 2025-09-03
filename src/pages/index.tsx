@@ -9,7 +9,7 @@ import { DeployModal } from '@/components/DeployModal';
 import { Box, Title, Text, Flex } from 'tailwind-quartz';
 import { useAuth } from '@/contexts/AuthContext';
 import { DEFAULT_RATES } from '@/config/billing-rates';
-import { usePricing } from '@/hooks/usePricing';
+import { usePricing } from '@/contexts/PricingContext';
 
 export default function Home() {
   const { pricing } = usePricing();
