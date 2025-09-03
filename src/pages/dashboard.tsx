@@ -939,26 +939,20 @@ mr = project.get_model_registry()`;
                         <Box className="space-y-3">
                           <Card variant="readOnly" className="p-4">
                             <Flex justify="between">
-                              <Text className="text-sm text-gray-600">CPU Usage</Text>
-                              <Text className="text-sm font-medium">${DEFAULT_RATES.CPU_HOUR.toFixed(3)} / CPU hour</Text>
+                              <Text className="text-sm text-gray-600">Compute Credits</Text>
+                              <Text className="text-sm font-medium">${DEFAULT_RATES.CREDIT_VALUE.toFixed(2)} / credit</Text>
                             </Flex>
                           </Card>
                           <Card variant="readOnly" className="p-4">
                             <Flex justify="between">
-                              <Text className="text-sm text-gray-600">GPU Usage</Text>
-                              <Text className="text-sm font-medium">${DEFAULT_RATES.GPU_HOUR.toFixed(2)} / GPU hour</Text>
+                              <Text className="text-sm text-gray-600">Online Storage</Text>
+                              <Text className="text-sm font-medium">${DEFAULT_RATES.STORAGE_ONLINE_GB.toFixed(2)} / GB-month</Text>
                             </Flex>
                           </Card>
                           <Card variant="readOnly" className="p-4">
                             <Flex justify="between">
-                              <Text className="text-sm text-gray-600">Memory (RAM)</Text>
-                              <Text className="text-sm font-medium">${DEFAULT_RATES.RAM_GB_HOUR.toFixed(4)} / GB hour</Text>
-                            </Flex>
-                          </Card>
-                          <Card variant="readOnly" className="p-4">
-                            <Flex justify="between">
-                              <Text className="text-sm text-gray-600">Storage</Text>
-                              <Text className="text-sm font-medium">${DEFAULT_RATES.STORAGE_ONLINE_GB.toFixed(2)} / GB month</Text>
+                              <Text className="text-sm text-gray-600">Offline Storage</Text>
+                              <Text className="text-sm font-medium">${DEFAULT_RATES.STORAGE_OFFLINE_GB.toFixed(3)} / GB-month</Text>
                             </Flex>
                           </Card>
                           

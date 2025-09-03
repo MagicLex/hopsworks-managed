@@ -2,19 +2,19 @@
 // Postpaid users get these rates from Stripe
 export const DEFAULT_RATES = {
   // Compute (per hour)
-  CPU_HOUR: 0.125,           // 0.5 credits * $0.25
-  GPU_HOUR: 2.50,             // 10 credits * $0.25
-  RAM_GB_HOUR: 0.0125,        // 0.05 credits * $0.25
+  CPU_HOUR: 0.175,           // 0.5 credits * $0.35
+  GPU_HOUR: 3.50,             // 10 credits * $0.35
+  RAM_GB_HOUR: 0.0175,        // 0.05 credits * $0.35
   
-  // Storage (per GB per month)
+  // Storage (per GB per month) - from Stripe products table
   STORAGE_ONLINE_GB: 0.50,
   STORAGE_OFFLINE_GB: 0.03,
   
   // Network (per GB)
-  NETWORK_EGRESS_GB: 0.10,
+  NETWORK_EGRESS_GB: 0.14,     // 0.4 credits * $0.35
   
-  // Credit value
-  CREDIT_VALUE: 0.25
+  // Credit value - from Stripe products table
+  CREDIT_VALUE: 0.35
 } as const;
 
 // Credit conversion rates
