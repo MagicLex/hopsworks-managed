@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS users (
   billing_mode TEXT DEFAULT 'postpaid' CHECK (billing_mode IN ('prepaid', 'postpaid')),
   stripe_customer_id TEXT,
   stripe_test_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  stripe_subscription_status TEXT,
   
   -- Features
   is_admin BOOLEAN DEFAULT false,

@@ -19,8 +19,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  // This endpoint is now read-only for safety
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed - this endpoint is read-only' });
   }
 
   try {
@@ -31,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userId = session.user.sub;
     const email = session.user.email;
-    const autoFix = req.method === 'POST';
+    const autoFix = false; // Disabled auto-fix for safety
 
     // Get user data
     const { data: user, error: userError } = await supabaseAdmin
@@ -89,41 +90,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (user.billing_mode === 'postpaid' && !user.stripe_subscription_id) {
           billingStatus.issues.push('Postpaid user missing subscription ID in database');
           
-          if (autoFix && user.stripe_customer_id) {
+          // Check if subscription exists in Stripe (read-only)
+          if (user.stripe_customer_id) {
             try {
-              // FIRST: Check if subscription already exists in Stripe
               const existingSubscriptions = await stripe.subscriptions.list({
                 customer: user.stripe_customer_id,
                 limit: 10,
                 status: 'all'
               });
               
-              // Find active or trialing subscription
               const activeSubscription = existingSubscriptions.data.find(
                 sub => sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due'
               );
               
               if (activeSubscription) {
-                // Subscription exists in Stripe but not in our DB - sync it
-                await supabaseAdmin
-                  .from('users')
-                  .update({
-                    stripe_subscription_id: activeSubscription.id,
-                    stripe_subscription_status: activeSubscription.status
-                  })
-                  .eq('id', userId);
-                
-                billingStatus.fixes.push(`Synced existing subscription ${activeSubscription.id} from Stripe`);
-                billingStatus.hasSubscription = true;
-                billingStatus.subscriptionId = activeSubscription.id;
-                billingStatus.subscriptionStatus = activeSubscription.status;
+                billingStatus.issues.push(`Subscription ${activeSubscription.id} exists in Stripe but not synced to database`);
               } else {
-                // No active subscription - DO NOT auto-create
-                billingStatus.issues.push('No active subscription found in Stripe - manual setup required');
-                // Removed auto-creation logic - subscriptions should be created intentionally
+                billingStatus.issues.push('No active subscription found in Stripe');
               }
             } catch (error) {
-              billingStatus.issues.push(`Failed to check/sync subscription: ${error}`);
+              billingStatus.issues.push(`Failed to check subscription: ${error}`);
             }
           }
         }
@@ -134,45 +120,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (!user.billing_mode) {
           billingStatus.issues.push('Billing mode not set');
           
-          if (autoFix) {
-            // Default to postpaid for regular users
-            await supabaseAdmin
-              .from('users')
-              .update({ billing_mode: 'postpaid' })
-              .eq('id', userId);
-            
-            billingStatus.fixes.push('Set billing mode to postpaid');
-            billingStatus.billingMode = 'postpaid';
-          }
+          // Auto-fix disabled - manual intervention required
+          billingStatus.issues.push('Manual intervention required to set billing mode');
         }
         
         if (!user.stripe_customer_id && user.billing_mode !== 'prepaid') {
           billingStatus.issues.push('No Stripe customer ID');
           
-          if (autoFix) {
-            try {
-              const stripeCustomer = await stripe.customers.create({
-                email,
-                name: user.name || email,
-                metadata: {
-                  user_id: userId,
-                  auth0_id: userId
-                }
-              });
-              
-              await supabaseAdmin
-                .from('users')
-                .update({ stripe_customer_id: stripeCustomer.id })
-                .eq('id', userId);
-              
-              billingStatus.fixes.push(`Created Stripe customer ${stripeCustomer.id}`);
-              billingStatus.hasStripeCustomer = true;
-              billingStatus.stripeCustomerId = stripeCustomer.id;
-              billingStatus.billingEnabled = true;
-            } catch (error) {
-              billingStatus.issues.push(`Failed to create Stripe customer: ${error}`);
-            }
-          }
+          // Auto-fix disabled - manual intervention required
+          billingStatus.issues.push('Manual intervention required to create Stripe customer');
         }
       }
     }

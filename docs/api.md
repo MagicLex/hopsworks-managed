@@ -337,11 +337,11 @@ Collects cost data from OpenCost for all clusters.
 - Updates `usage_daily` with accumulated costs
 - Maps namespaces to users via `user_projects` table
 
-### GET /api/billing/sync-stripe
-Syncs OpenCost usage data to Stripe for billing.
-- Runs daily at 3 AM
-- Uses `opencost_total_cost` from `usage_daily`
-- Creates usage records in Stripe for postpaid customers
+### POST /api/billing/sync-stripe
+Reports daily usage data to Stripe for metered billing.
+- Runs daily at 3 AM via cron
+- Reports usage for postpaid customers with active subscriptions
+- Creates meter events in Stripe for CPU, storage, and API usage
 - Marks records as `reported_to_stripe = true`
 
 ## Error Handling

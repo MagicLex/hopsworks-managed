@@ -151,7 +151,7 @@ total_used DECIMAL(10,2)        -- Credits consumed
 
 ### Internal
 - `POST /api/usage/collect-opencost` - Collect usage (hourly cron)
-- `POST /api/billing/report-usage` - Report to Stripe (daily cron)
+- `POST /api/billing/sync-stripe` - Report usage to Stripe (daily cron)
 
 ### Admin
 - `GET /api/admin/users` - View all users with costs
@@ -186,7 +186,7 @@ await stripe.billing.meterEvents.create({
 ### Core Files
 - `src/config/billing-rates.ts` - Pricing configuration
 - `src/pages/api/usage/collect-opencost.ts` - Usage collection
-- `src/pages/api/billing/report-usage.ts` - Stripe reporting
+- `src/pages/api/billing/sync-stripe.ts` - Stripe usage reporting
 - `src/pages/api/billing.ts` - User billing API
 
 ### Admin Files
@@ -204,8 +204,8 @@ await stripe.billing.meterEvents.create({
       "schedule": "0 * * * *"  // Every hour
     },
     {
-      "path": "/api/billing/report-usage",
-      "schedule": "0 2 * * *"   // Daily at 2 AM
+      "path": "/api/billing/sync-stripe",
+      "schedule": "0 3 * * *"   // Daily at 3 AM
     }
   ]
 }
