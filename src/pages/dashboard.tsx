@@ -327,27 +327,33 @@ export default function Dashboard() {
                   <Box className="mb-6">
                     <Title as="h2" className="text-lg mb-4">Current Usage</Title>
                     <Flex gap={16} className="grid grid-cols-1 md:grid-cols-2">
-                      <Card className="p-4">
-                        <Flex align="center" gap={8} className="mb-2">
-                          <Cpu size={16} className="text-[#1eb182]" />
-                          <Text className="text-sm text-gray-600">Credits Used</Text>
-                        </Flex>
-                        <Text className="text-xl font-semibold">
-                          {usageLoading ? '...' : (usage?.cpuHours?.toFixed(0) || '0')}
-                        </Text>
-                        <Text className="text-xs text-gray-500">This month</Text>
-                      </Card>
-                      {hopsworksInfo?.hasHopsworksUser && (
+                      {usageLoading ? (
+                        <CardSkeleton rows={2} showIcon={false} />
+                      ) : (
+                        <Card className="p-4">
+                          <Flex align="center" gap={8} className="mb-2">
+                            <Cpu size={16} className="text-[#1eb182]" />
+                            <Text className="text-sm text-gray-600">Credits Used</Text>
+                          </Flex>
+                          <Text className="text-xl font-semibold">
+                            {usage?.cpuHours?.toFixed(0) || '0'}
+                          </Text>
+                          <Text className="text-xs text-gray-500">This month</Text>
+                        </Card>
+                      )}
+                      {hopsworksLoading ? (
+                        <CardSkeleton rows={2} showIcon={false} />
+                      ) : hopsworksInfo?.hasHopsworksUser ? (
                         <Card className="p-4">
                           <Flex align="center" gap={8} className="mb-2">
                             <Database size={16} className="text-[#1eb182]" />
                             <Text className="text-sm text-gray-600">Projects</Text>
                           </Flex>
                           <Text className="text-xl font-semibold">
-                            {hopsworksLoading ? '...' : (hopsworksInfo?.hopsworksUser?.numActiveProjects || '0')}
+                            {hopsworksInfo?.hopsworksUser?.numActiveProjects || '0'}
                           </Text>
                           <Text className="text-xs text-gray-500">Active projects</Text>
-                          {!hopsworksLoading && (
+                          {
                             <Box className="mt-3 pt-3 border-t border-gray-100">
                               {hopsworksInfo?.projects && hopsworksInfo.projects.length > 0 ? (
                                 <Flex gap={6} className="flex-wrap">
@@ -374,20 +380,23 @@ export default function Dashboard() {
                                 <Text className="text-xs text-gray-500">No projects yet</Text>
                               )}
                             </Box>
-                          )}
+                          }
                         </Card>
-                      )}
+                      ) : null}
                     </Flex>
                   </Box>
 
-                  <Card className="p-6 mb-6">
-                    <Flex align="center" gap={12} className="mb-4">
-                      <Server size={20} className="text-[#1eb182]" />
-                      <Title as="h2" className="text-lg">Your Hopsworks Instance</Title>
-                      <Badge variant={instance.status === 'active' ? 'success' : 'default'}>
-                        {instance.status || 'Unknown'}
-                      </Badge>
-                    </Flex>
+                  {instanceLoading ? (
+                    <CardSkeleton rows={4} className="mb-6" />
+                  ) : (
+                    <Card className="p-6 mb-6">
+                      <Flex align="center" gap={12} className="mb-4">
+                        <Server size={20} className="text-[#1eb182]" />
+                        <Title as="h2" className="text-lg">Your Hopsworks Instance</Title>
+                        <Badge variant={instance.status === 'active' ? 'success' : 'default'}>
+                          {instance.status || 'Unknown'}
+                        </Badge>
+                      </Flex>
                     
                     <Box className="space-y-3">
                       <Flex justify="between">
@@ -450,7 +459,8 @@ export default function Dashboard() {
                         {instance.endpoint ? 'Access Hopsworks' : 'No Cluster Assigned'}
                       </Button>
                     </Flex>
-                  </Card>
+                    </Card>
+                  )}
                   
                   {/* Quick Start Code */}
                   <Card className="p-6 mb-6">
@@ -607,7 +617,12 @@ mr = project.get_model_registry()`;
 
             <TabsContent value="team">
               <Box className="space-y-6">
-                {teamData?.is_owner ? (
+                {teamLoading ? (
+                  <>
+                    <CardSkeleton rows={4} />
+                    <CardSkeleton rows={3} />
+                  </>
+                ) : teamData?.is_owner ? (
                   <>
                     {/* Team Members Card */}
                     <Card className="p-6">
@@ -808,7 +823,14 @@ mr = project.get_model_registry()`;
             </TabsContent>
 
             <TabsContent value="billing">
-              {billing && (
+              {billingLoading ? (
+                <Box className="space-y-6">
+                  <CardSkeleton rows={4} className="border-[#1eb182] border-2" />
+                  <CardSkeleton rows={3} />
+                  <CardSkeleton rows={5} />
+                  <CardSkeleton rows={2} />
+                </Box>
+              ) : billing ? (
                 <>
                   {/* Team member billing notice */}
                   {billing.isTeamMember ? (
@@ -1186,7 +1208,7 @@ mr = project.get_model_registry()`;
                     </>
                   )}
                 </>
-              )}
+              ) : null}
             </TabsContent>
 
             <TabsContent value="settings">
