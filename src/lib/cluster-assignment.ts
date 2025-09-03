@@ -94,8 +94,19 @@ export async function assignUserToCluster(
           
           for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-              const [firstName, ...lastNameParts] = (user.name || user.email).split(' ');
-              const lastName = lastNameParts.join(' ') || firstName;
+              // Extract proper name from user data or email
+              let firstName, lastName;
+              if (user.name && user.name.trim()) {
+                const [first, ...lastParts] = user.name.trim().split(' ');
+                firstName = first;
+                lastName = lastParts.join(' ') || 'User';
+              } else {
+                // Extract from email: lex+5@hopsworks.ai -> "Lex"
+                const emailName = user.email.split('@')[0].replace(/[+\d]/g, '').replace(/[._-]/g, ' ');
+                const nameParts = emailName.split(' ').filter(Boolean);
+                firstName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : 'User';
+                lastName = nameParts[1] ? nameParts[1].charAt(0).toUpperCase() + nameParts[1].slice(1) : 'User';
+              }
               
               console.log(`Attempt ${attempt}/${maxRetries}: Creating Hopsworks user for team member ${user.email}`);
               
@@ -266,8 +277,19 @@ export async function assignUserToCluster(
         
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            const [firstName, ...lastNameParts] = (user.name || user.email).split(' ');
-            const lastName = lastNameParts.join(' ') || firstName;
+            // Extract proper name from user data or email
+            let firstName, lastName;
+            if (user.name && user.name.trim()) {
+              const [first, ...lastParts] = user.name.trim().split(' ');
+              firstName = first;
+              lastName = lastParts.join(' ') || 'User';
+            } else {
+              // Extract from email: lex+5@hopsworks.ai -> "Lex"
+              const emailName = user.email.split('@')[0].replace(/[+\d]/g, '').replace(/[._-]/g, ' ');
+              const nameParts = emailName.split(' ').filter(Boolean);
+              firstName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : 'User';
+              lastName = nameParts[1] ? nameParts[1].charAt(0).toUpperCase() + nameParts[1].slice(1) : 'User';
+            }
             
             // Account owners with payment or prepaid get 5 projects
             const maxProjects = (user.stripe_customer_id || isPrepaid) ? 5 : 0;

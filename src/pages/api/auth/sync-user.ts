@@ -396,8 +396,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (!hopsworksUser) {
           console.log(`[Health Check] Hopsworks user not found for ${email} - attempting to create`);
           try {
-            const [firstName, ...lastNameParts] = (name || email).split(' ');
-            const lastName = lastNameParts.join(' ') || firstName;
+            // Extract proper name from user data or email
+            let firstName, lastName;
+            if (name && name.trim()) {
+              const [first, ...lastParts] = name.trim().split(' ');
+              firstName = first;
+              lastName = lastParts.join(' ') || 'User';
+            } else {
+              // Extract from email: lex+5@hopsworks.ai -> "Lex"
+              const emailName = email.split('@')[0].replace(/[+\d]/g, '').replace(/[._-]/g, ' ');
+              const nameParts = emailName.split(' ').filter(Boolean);
+              firstName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : 'User';
+              lastName = nameParts[1] ? nameParts[1].charAt(0).toUpperCase() + nameParts[1].slice(1) : 'User';
+            }
             const expectedMaxProjects = isTeamMember ? 0 : 
                                       (existingUser.stripe_customer_id || existingUser.billing_mode === 'prepaid') ? 5 : 0;
             
