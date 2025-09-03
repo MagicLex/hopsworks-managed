@@ -69,7 +69,7 @@ export default function Home() {
     <>
       <Head>
         <title>Hopsworks - Pay-As-You-Go ML Platform | Feature Store & MLOps</title>
-        <meta name="description" content={`Start using Hopsworks instantly. Enterprise-grade feature store, ML pipelines, and model deployment. Pay only for what you use - $${DEFAULT_RATES.CPU_HOUR}/CPU hour. No upfront costs.`} />
+        <meta name="description" content={`Start using Hopsworks instantly. Enterprise-grade feature store, ML pipelines, and model deployment. Pay only for what you use - $${DEFAULT_RATES.CREDIT_VALUE}/credit. No upfront costs.`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         
         {/* Open Graph / Facebook */}
@@ -103,9 +103,9 @@ export default function Home() {
                 "priceSpecification": [
                   {
                     "@type": "UnitPriceSpecification",
-                    "price": String(DEFAULT_RATES.CPU_HOUR),
+                    "price": String(DEFAULT_RATES.CREDIT_VALUE),
                     "priceCurrency": "USD",
-                    "unitText": "CPU hour"
+                    "unitText": "credit"
                   }
                 ]
               },

@@ -86,8 +86,8 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
           <Title as="h3" className="font-mono text-sm uppercase text-gray-600 mb-3">Pricing</Title>
           <Flex direction="column" gap={8}>
             <Flex justify="between">
-              <Labeling className="font-mono">CPU Usage</Labeling>
-              <Text className="font-mono">${DEFAULT_RATES.CPU_HOUR}/hour</Text>
+              <Labeling className="font-mono">Compute Credits</Labeling>
+              <Text className="font-mono">${DEFAULT_RATES.CREDIT_VALUE}/credit</Text>
             </Flex>
             <Box className="pt-2 border-t border-grayShade2">
               <Text className="font-mono text-sm text-gray-600">
