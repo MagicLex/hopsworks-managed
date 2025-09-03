@@ -580,40 +580,6 @@ mr = project.get_model_registry()`;
                     </Box>
                   </Card>
 
-                  {hopsworksInfo?.projects && hopsworksInfo.projects.length > 0 && (
-                    <Card className="p-6">
-                      <Flex align="center" gap={12} className="mb-4">
-                        <Database size={20} className="text-[#1eb182]" />
-                        <Title as="h2" className="text-lg">Your Projects</Title>
-                      </Flex>
-                      <Box className="space-y-2">
-                        {hopsworksInfo.projects.map(project => {
-                          const projectData = usage?.projectBreakdown?.[project.name.replace(/_/g, '-')] || 
-                                             usage?.projectBreakdown?.[project.name];
-                          const dailyCost = projectData ? 
-                            (projectData.cpuHours * DEFAULT_RATES.CPU_HOUR + 
-                             projectData.gpuHours * DEFAULT_RATES.GPU_HOUR + 
-                             projectData.ramGBHours * DEFAULT_RATES.RAM_GB_HOUR) : 0;
-                          
-                          return (
-                            <Flex key={project.id} justify="between" align="center" className="py-2 border-b border-gray-100 last:border-0">
-                              <Box>
-                                <Text className="font-medium">{project.name}</Text>
-                                <Text className="text-xs text-gray-500">Created {new Date(project.created).toLocaleDateString()}</Text>
-                              </Box>
-                              <Box className="text-right">
-                                {dailyCost > 0 ? (
-                                  <Text className="font-mono text-sm font-medium">${dailyCost.toFixed(4)}</Text>
-                                ) : (
-                                  <Badge variant="default" size="sm">ID: {project.id}</Badge>
-                                )}
-                              </Box>
-                            </Flex>
-                          );
-                        })}
-                      </Box>
-                    </Card>
-                  )}
                 </>
               ) : (
                 <Card className="p-6">
