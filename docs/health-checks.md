@@ -25,9 +25,9 @@ The system performs these checks on every login (`/api/auth/sync-user`):
 
 #### Billing Types:
 **Postpaid (SaaS)**:
-- Requires Stripe customer ID
-- Auto-creates metered subscription
-- Payment method added later via billing page
+- Stripe customer created on first login
+- User redirected to payment setup if no payment method
+- Subscription created automatically after payment (via webhook)
 - Identified by: `billing_mode = 'postpaid'` or null
 
 **Prepaid (Corporate/Enterprise)**:
@@ -39,9 +39,9 @@ The system performs these checks on every login (`/api/auth/sync-user`):
 
 ### 2. Cluster Assignment
 - **Checks**: User assigned to an active Hopsworks cluster
-- **Auto-repair**: Assigns to available cluster with capacity
+- **Auto-repair**: Only for prepaid and team members
 - **Prerequisites**: 
-  - **Postpaid**: Must have Stripe customer (payment method optional)
+  - **Postpaid**: Requires verified payment method (assigned via webhook after payment)
   - **Prepaid**: Assigned immediately, no payment check
   - **Team members**: Assigned to same cluster as account owner
 

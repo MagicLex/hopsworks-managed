@@ -43,13 +43,16 @@ Offline Storage:  $0.03/GB/month
 
 #### Postpaid (SaaS/Self-Service)
 - **Registration**: Standard signup flow
-- **Payment**: Credit card via Stripe
-- **Stripe setup**: Automatic on first login
-  - Creates customer
-  - Creates metered subscription
-  - Payment method added later
-- **Cluster access**: After Stripe customer created
-- **Projects**: 5 projects once billing enabled
+- **Payment**: Credit card via Stripe (required for cluster access)
+- **First login flow**:
+  - Creates Stripe customer
+  - Redirects to payment setup if no payment method
+  - User adds payment method via Stripe Checkout
+- **After payment setup** (via webhook):
+  - Creates metered subscription automatically
+  - Assigns cluster immediately
+- **Cluster access**: Only after payment method verified
+- **Projects**: 5 projects once cluster assigned
 - **Usage tracking**: Reported to Stripe for billing
 - **Database**: `billing_mode = 'postpaid'` or null
 - **Metered products**:

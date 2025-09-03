@@ -168,20 +168,59 @@ async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {
   // Get user by Stripe customer ID
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, billing_mode')
+    .select('id, email, billing_mode, stripe_subscription_id')
     .eq('stripe_customer_id', customerId)
     .single();
 
   if (user) {
-    // For postpaid users without a cluster, assign one now
+    // For postpaid users, create subscription if not exists
+    if (user.billing_mode === 'postpaid' && !user.stripe_subscription_id) {
+      try {
+        // Get stripe products for metered billing
+        const { data: stripeProducts } = await supabaseAdmin
+          .from('stripe_products')
+          .select('*')
+          .eq('active', true);
+
+        if (stripeProducts && stripeProducts.length > 0) {
+          // Create subscription with metered prices
+          const subscription = await stripe.subscriptions.create({
+            customer: customerId,
+            items: stripeProducts.map(product => ({
+              price: product.stripe_price_id
+            })),
+            metadata: {
+              user_id: user.id,
+              email: user.email
+            }
+          });
+
+          // Update user with subscription ID
+          await supabaseAdmin
+            .from('users')
+            .update({
+              stripe_subscription_id: subscription.id,
+              stripe_subscription_status: subscription.status
+            })
+            .eq('id', user.id);
+
+          console.log(`Created subscription ${subscription.id} for user ${user.id} after payment setup`);
+        }
+      } catch (error) {
+        console.error(`Failed to create subscription for user ${user.id}:`, error);
+      }
+    }
+    
+    // After payment and subscription setup, assign cluster
     const { data: assignment } = await supabaseAdmin
       .from('user_hopsworks_assignments')
-      .select('cluster_id')
+      .select('id')
       .eq('user_id', user.id)
       .single();
     
     if (!assignment) {
-      const { success, error } = await assignUserToCluster(supabaseAdmin, user.id);
+      // Pass true for isManualAssignment since payment is now verified
+      const { success, error } = await assignUserToCluster(supabaseAdmin, user.id, true);
       if (success) {
         console.log(`Assigned cluster to user ${user.id} after payment method setup`);
       } else {
@@ -202,12 +241,21 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
     .single();
 
   if (user) {
-    // Assign cluster now that payment is set up
-    const { success, error } = await assignUserToCluster(supabaseAdmin, user.id);
-    if (success) {
-      console.log(`Assigned cluster to user ${user.id} after subscription creation`);
-    } else {
-      console.error(`Failed to assign cluster: ${error}`);
+    // Check if user already has cluster assignment
+    const { data: assignment } = await supabaseAdmin
+      .from('user_hopsworks_assignments')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (!assignment) {
+      // Assign cluster now that payment is verified via subscription
+      const { success, error } = await assignUserToCluster(supabaseAdmin, user.id, true);
+      if (success) {
+        console.log(`Assigned cluster to user ${user.id} after subscription creation`);
+      } else {
+        console.error(`Failed to assign cluster: ${error}`);
+      }
     }
 
     await supabaseAdmin

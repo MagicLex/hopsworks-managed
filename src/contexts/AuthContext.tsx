@@ -25,12 +25,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ corporateRef })
-      }).then(() => {
+      })
+      .then(res => res.json())
+      .then(data => {
         // Clear corporate ref after successful sync
         sessionStorage.removeItem('corporate_ref');
-      }).catch(err => console.error('Failed to sync user:', err));
+        
+        // Check if user needs to set up payment (new users, not team members)
+        if (data.needsPayment && router.pathname !== '/billing-setup') {
+          // Store flag to show payment setup is required
+          sessionStorage.setItem('payment_required', 'true');
+          // Redirect to billing setup
+          router.push('/billing-setup');
+        }
+      })
+      .catch(err => console.error('Failed to sync user:', err));
     }
-  }, [user, isLoading]);
+  }, [user, isLoading, router]);
 
   const signIn = (corporateRef?: string) => {
     if (corporateRef) {

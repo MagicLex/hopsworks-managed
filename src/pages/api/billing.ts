@@ -138,7 +138,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             if (invoice.lines && invoice.lines.data && invoice.lines.data.length > 0 && invoice.auto_advance) {
               try {
                 // Auto-finalize drafts that have items and auto_advance enabled
-                const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
+                const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id!);
                 processedInvoices.push(finalizedInvoice);
                 console.log(`Finalized draft invoice ${invoice.id}`);
               } catch (err) {

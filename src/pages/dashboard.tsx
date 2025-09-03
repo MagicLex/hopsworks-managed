@@ -167,9 +167,14 @@ export default function Dashboard() {
   // Handle tab query parameter
   useEffect(() => {
     if (router.query.tab && typeof router.query.tab === 'string') {
-      setActiveTab(router.query.tab);
+      // Redirect prepaid users away from billing tab
+      if (router.query.tab === 'billing' && billing?.billingMode === 'prepaid') {
+        setActiveTab('cluster');
+      } else {
+        setActiveTab(router.query.tab);
+      }
     }
-  }, [router.query.tab]);
+  }, [router.query.tab, billing?.billingMode]);
 
   // Fetch team invites when user and team data is available
   useEffect(() => {
@@ -297,7 +302,9 @@ export default function Dashboard() {
             <TabsList className="mb-6">
               <TabsTrigger value="cluster">Cluster</TabsTrigger>
               <TabsTrigger value="team">Team</TabsTrigger>
-              <TabsTrigger value="billing">Billing</TabsTrigger>
+              {billing?.billingMode !== 'prepaid' && (
+                <TabsTrigger value="billing">Billing</TabsTrigger>
+              )}
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
 
@@ -312,7 +319,7 @@ export default function Dashboard() {
                 />
               </Box>
 
-              {instance ? (
+              {instance && instance.endpoint ? (
                 <>
                   {/* Usage Metrics - moved to top */}
                   <Box className="mb-6">
@@ -426,16 +433,19 @@ export default function Dashboard() {
                     
                     <Flex gap={12} className="mt-6">
                       <Button 
-                        intent="primary"
+                        intent={instance.endpoint ? "primary" : "secondary"}
                         size="md"
                         className="uppercase flex-1"
+                        disabled={!instance.endpoint}
                         onClick={() => {
-                          // Redirect to auto-OAuth URL for automatic login with Auth0
-                          const autoOAuthUrl = `${instance.endpoint}/autoOAuth?providerName=Auth0`;
-                          window.open(autoOAuthUrl, '_blank');
+                          if (instance.endpoint) {
+                            // Redirect to auto-OAuth URL for automatic login with Auth0
+                            const autoOAuthUrl = `${instance.endpoint}/autoOAuth?providerName=Auth0`;
+                            window.open(autoOAuthUrl, '_blank');
+                          }
                         }}
                       >
-                        Access Hopsworks
+                        {instance.endpoint ? 'Access Hopsworks' : 'No Cluster Assigned'}
                       </Button>
                     </Flex>
                   </Card>
@@ -587,19 +597,9 @@ mr = project.get_model_registry()`;
 
                 </>
               ) : (
-                <Card className="p-6">
-                  <Title as="h2" className="text-lg mb-4">No Cluster Assigned</Title>
-                  <Text className="text-sm text-gray-600 mb-4">
-                    Please add a payment method to get started with your Hopsworks cluster.
-                  </Text>
-                  <Button
-                    intent="primary"
-                    size="md"
-                    onClick={() => setActiveTab('billing')}
-                  >
-                    Add Payment Method
-                  </Button>
-                </Card>
+                <Box>
+                  {/* Empty state - ClusterAccessStatus component above already shows the setup message */}
+                </Box>
               )}
             </TabsContent>
 
@@ -1087,7 +1087,30 @@ mr = project.get_model_registry()`;
                             </Button>
                           </Box>
                         ) : (
-                          <Text className="text-sm text-gray-600">No payment methods added yet.</Text>
+                          <Box className="space-y-3">
+                            <Text className="text-sm text-gray-600">No payment methods added yet.</Text>
+                            <Button
+                              intent="primary"
+                              size="md"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch('/api/billing/setup-payment', {
+                                    method: 'POST'
+                                  });
+                                  const data = await response.json();
+                                  if (data.checkoutUrl) {
+                                    window.location.href = data.checkoutUrl;
+                                  } else if (data.portalUrl) {
+                                    window.location.href = data.portalUrl;
+                                  }
+                                } catch (error) {
+                                  console.error('Failed to set up payment:', error);
+                                }
+                              }}
+                            >
+                              Add Payment Method
+                            </Button>
+                          </Box>
                         )}
                       </Card>
 

@@ -184,10 +184,15 @@ export async function assignUserToCluster(
 
     // For account owners, check payment method (skip for prepaid users)
     const isPrepaid = user.billing_mode === 'prepaid';
-    if (!isManualAssignment && !user.stripe_customer_id && !isPrepaid) {
+    
+    // IMPORTANT: Only allow cluster assignment for:
+    // 1. Prepaid users (corporate)
+    // 2. Manual assignment (admin action or after payment verification)
+    // DO NOT auto-assign based on stripe_customer_id alone!
+    if (!isManualAssignment && !isPrepaid) {
       return { 
         success: false, 
-        error: 'User must set up payment method before cluster assignment' 
+        error: 'Automatic cluster assignment requires payment verification or prepaid status' 
       };
     }
 

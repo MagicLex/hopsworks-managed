@@ -136,9 +136,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq('id', userId)
         .single();
 
-      // Assign cluster if user has payment method OR is prepaid corporate user
-      if (userData?.stripe_customer_id || userData?.billing_mode === 'prepaid') {
-        // User has payment method, check if they need cluster assignment
+      // DO NOT auto-assign cluster for new users - they need to set up payment first
+      // Only assign if prepaid corporate user
+      if (userData?.billing_mode === 'prepaid') {
+        // Prepaid users get immediate access, check if they need cluster assignment
         const { data: existingAssignment } = await supabaseAdmin
           .from('user_hopsworks_assignments')
           .select('id')
@@ -167,12 +168,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               cluster_id: availableCluster.id 
             });
 
-            const assignmentReason = userData?.billing_mode === 'prepaid' ? 'corporate prepaid' : 'payment setup';
-            console.log(`Assigned user ${userId} to cluster after ${assignmentReason}`);
+            console.log(`Assigned prepaid user ${userId} to cluster`);
           }
         }
       } else {
-        console.log(`User ${userId} has no payment method and is not prepaid - skipping cluster assignment`);
+        console.log(`User ${userId} is not prepaid - cluster assignment requires payment method setup`);
       }
     } else {
       healthCheckResults.userExists = true;
@@ -277,9 +277,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .single();
       
       if (!assignment) {
-        // Try to assign cluster
+        // Try to assign cluster - ONLY for team members or prepaid users
+        // DO NOT assign based on stripe_customer_id - that doesn't mean they have payment!
         const shouldAssign = isTeamMember || 
-                           existingUser.stripe_customer_id || 
                            existingUser.billing_mode === 'prepaid';
         
         if (shouldAssign) {
@@ -618,9 +618,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // Check if user needs to set up payment (only for account owners)
+    const needsPayment = !existingUser?.account_owner_id && // Not a team member
+                        !existingUser?.stripe_customer_id && // No Stripe customer
+                        existingUser?.billing_mode !== 'prepaid'; // Not prepaid corporate
+
     return res.status(200).json({ 
       success: true,
-      healthChecks: healthCheckResults
+      healthChecks: healthCheckResults,
+      needsPayment,
+      isTeamMember: !!existingUser?.account_owner_id,
+      hasBilling: !!existingUser?.stripe_customer_id || existingUser?.billing_mode === 'prepaid'
     });
   } catch (error) {
     console.error('User sync error:', error);
