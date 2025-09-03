@@ -9,6 +9,7 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import ClusterAccessStatus from '@/components/ClusterAccessStatus';
 import { DEFAULT_RATES } from '@/config/billing-rates';
+import { usePricing } from '@/hooks/usePricing';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface UsageData {
@@ -126,6 +127,7 @@ interface BillingInfo {
 
 export default function Dashboard() {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { pricing } = usePricing();
   const router = useRouter();
   const { data: usage, loading: usageLoading } = useApiData<UsageData>('/api/usage');
   const { data: hopsworksInfo, loading: hopsworksLoading } = useApiData<HopsworksInfo>('/api/user/hopsworks-info');
@@ -939,20 +941,20 @@ mr = project.get_model_registry()`;
                         <Box className="space-y-3">
                           <Card variant="readOnly" className="p-4">
                             <Flex justify="between">
-                              <Text className="text-sm text-gray-600">Compute Credits</Text>
-                              <Text className="text-sm font-medium">${DEFAULT_RATES.CREDIT_VALUE.toFixed(2)} / credit</Text>
+                              <Text className="text-sm text-gray-600">Hops Credits</Text>
+                              <Text className="text-sm font-medium">${pricing.compute_credits.toFixed(2)} / credit</Text>
                             </Flex>
                           </Card>
                           <Card variant="readOnly" className="p-4">
                             <Flex justify="between">
                               <Text className="text-sm text-gray-600">Online Storage</Text>
-                              <Text className="text-sm font-medium">${DEFAULT_RATES.STORAGE_ONLINE_GB.toFixed(2)} / GB-month</Text>
+                              <Text className="text-sm font-medium">${pricing.storage_online_gb.toFixed(2)} / GB-month</Text>
                             </Flex>
                           </Card>
                           <Card variant="readOnly" className="p-4">
                             <Flex justify="between">
                               <Text className="text-sm text-gray-600">Offline Storage</Text>
-                              <Text className="text-sm font-medium">${DEFAULT_RATES.STORAGE_OFFLINE_GB.toFixed(3)} / GB-month</Text>
+                              <Text className="text-sm font-medium">${pricing.storage_offline_gb.toFixed(3)} / GB-month</Text>
                             </Flex>
                           </Card>
                           

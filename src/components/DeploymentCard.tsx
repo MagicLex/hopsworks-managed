@@ -2,6 +2,7 @@ import React from 'react';
 import { DeploymentOption } from '@/data/deployments';
 import { Button, Card, Title, Text, Labeling, Badge, Flex, Box } from 'tailwind-quartz';
 import { Server, HardDrive, Cpu, Cloud, Database, Activity, Zap, Shield, Terminal, MessageSquare, FileCode, Calendar, X, Globe } from 'lucide-react';
+import { usePricing } from '@/hooks/usePricing';
 
 interface DeploymentCardProps {
   deployment: DeploymentOption;
@@ -15,6 +16,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
   onDeploy 
 }) => {
   const price = isYearly ? deployment.yearlyPrice : deployment.monthlyPrice;
+  const { pricing } = usePricing();
   
   const getButtonIntent = () => {
     switch (deployment.buttonStyle) {
@@ -49,8 +51,11 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
         <Flex justify="between" align="center">
           <Box>
             <Title as="h3" className="text-base mb-1">{deployment.name}</Title>
-            <Text className="text-sm text-gray-600 mb-2">Limited feature store access on shared infrastructure</Text>
+            <Text className="text-sm text-gray-600 mb-2">Feature store access on shared infrastructure</Text>
             <Flex gap={16} className="text-xs font-mono text-gray-500 mb-2">
+              <Flex align="center" gap={4}>
+                <span className="text-green-600 font-semibold text-sm">✓ Feature Store</span>
+              </Flex>
               <Flex align="center" gap={4}>
                 <X size={10} className="text-red-400" />
                 <span>No Jupyter</span>
@@ -59,13 +64,10 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
                 <X size={10} className="text-red-400" />
                 <span>No Orchestration</span>
               </Flex>
-              <Flex align="center" gap={4}>
-                <span>✓ Feature Store</span>
-              </Flex>
             </Flex>
             <Flex align="center" gap={4} className="text-xs text-gray-500">
-              <Globe size={10} />
-              <Labeling className="font-mono">US-EAST</Labeling>
+              <span>🇫🇷</span>
+              <Labeling className="font-mono">FRANCE (Lille)</Labeling>
             </Flex>
           </Box>
           <Button 
@@ -134,8 +136,8 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
                 <Badge variant="primary" size="sm" className="font-mono font-semibold">FREE</Badge>
               ) : deployment.id === 'payg' ? (
                 <Flex align="baseline" gap={4}>
-                  <Text className="font-mono font-semibold">$1</Text>
-                  <Labeling gray>/CPU hour</Labeling>
+                  <Text className="font-mono font-semibold">${pricing.compute_credits.toFixed(2)}</Text>
+                  <Labeling gray>/credit</Labeling>
                 </Flex>
               ) : (
                 <Flex align="baseline" gap={4}>

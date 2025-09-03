@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { AuthModal } from './AuthModal';
 import { useRouter } from 'next/router';
 import { DEFAULT_RATES } from '@/config/billing-rates';
+import { usePricing } from '@/hooks/usePricing';
 
 interface DeployModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ interface DeployModalProps {
 export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, onClose, corporateRef }) => {
   const { user } = useAuth();
   const router = useRouter();
+  const { pricing } = usePricing();
   const [showAuthModal, setShowAuthModal] = useState(false);
   
   if (!deployment) return null;
@@ -86,8 +88,8 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
           <Title as="h3" className="font-mono text-sm uppercase text-gray-600 mb-3">Pricing</Title>
           <Flex direction="column" gap={8}>
             <Flex justify="between">
-              <Labeling className="font-mono">Compute Credits</Labeling>
-              <Text className="font-mono">${DEFAULT_RATES.CREDIT_VALUE}/credit</Text>
+              <Labeling className="font-mono">Hops Credits</Labeling>
+              <Text className="font-mono">${pricing.compute_credits.toFixed(2)}/credit</Text>
             </Flex>
             <Box className="pt-2 border-t border-grayShade2">
               <Text className="font-mono text-sm text-gray-600">
