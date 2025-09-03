@@ -32,19 +32,9 @@ export default withApiAuthRequired(async function handler(
       .delete()
       .eq('user_id', userId);
 
-    await supabase
-      .from('user_credit_transactions')
-      .delete()
-      .eq('user_id', userId);
-
+    // Delete user credits if table exists
     await supabase
       .from('user_credits')
-      .delete()
-      .eq('user_id', userId);
-
-    // Delete pricing overrides
-    await supabase
-      .from('user_pricing_overrides')
       .delete()
       .eq('user_id', userId);
 

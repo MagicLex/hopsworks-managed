@@ -145,18 +145,7 @@ async function handleCreditPurchase(session: Stripe.Checkout.Session) {
       stripe_payment_intent_id: session.payment_intent as string
     });
 
-  // Update billing history
-  await supabaseAdmin
-    .from('billing_history')
-    .insert({
-      user_id: userId,
-      invoice_id: session.id,
-      amount: creditAmount,
-      status: 'paid',
-      description: `${creditAmount} credits purchased`,
-      stripe_payment_intent_id: session.payment_intent as string,
-      paid_at: new Date().toISOString()
-    });
+  // Credit purchase recorded
 
   console.log(`Successfully added $${creditAmount} credits for user ${userId}`);
 }

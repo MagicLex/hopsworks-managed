@@ -9,6 +9,7 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import ClusterAccessStatus from '@/components/ClusterAccessStatus';
 import TeamMemberProjects from '@/components/team/TeamMemberProjects';
+import CardSkeleton from '@/components/CardSkeleton';
 import { DEFAULT_RATES } from '@/config/billing-rates';
 import { usePricing } from '@/hooks/usePricing';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -314,6 +315,7 @@ export default function Dashboard() {
                 <ClusterAccessStatus 
                   hasCluster={hopsworksInfo?.hasCluster || false}
                   hasPaymentMethod={billing?.hasPaymentMethod || false}
+                  billingMode={billing?.billingMode}
                   clusterName={hopsworksInfo?.clusterName}
                   loading={hopsworksLoading || billingLoading}
                 />
@@ -993,48 +995,7 @@ mr = project.get_model_registry()`;
                       )}
 
 
-                      {/* Credit Balance for Prepaid Users */}
-                      {billing.billingMode === 'prepaid' && billing.prepaidEnabled && billing.creditBalance && (
-                        <Card className="p-6 mb-6">
-                          <Flex align="center" gap={12} className="mb-4">
-                            <CreditCard size={20} className="text-[#1eb182]" />
-                            <Title as="h2" className="text-lg">Credit Balance</Title>
-                          </Flex>
-                          
-                          <Flex gap={16} className="grid grid-cols-1 md:grid-cols-3 mb-4">
-                            <Box>
-                              <Text className="text-sm text-gray-600">Total Balance</Text>
-                              <Text className="text-xl font-semibold">${billing.creditBalance.total.toFixed(2)}</Text>
-                            </Box>
-                            <Box>
-                              <Text className="text-sm text-gray-600">Purchased Credits</Text>
-                              <Text className="text-xl font-semibold">${billing.creditBalance.purchased.toFixed(2)}</Text>
-                            </Box>
-                            <Box>
-                              <Text className="text-sm text-gray-600">Free Credits</Text>
-                              <Text className="text-xl font-semibold">${billing.creditBalance.free.toFixed(2)}</Text>
-                            </Box>
-                          </Flex>
-                          
-                          <Button 
-                            intent="primary"
-                            size="md"
-                            onClick={async () => {
-                              const response = await fetch('/api/billing/purchase-credits', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ amount: 50 })
-                              });
-                              const data = await response.json();
-                              if (data.checkoutUrl) {
-                                window.location.href = data.checkoutUrl;
-                              }
-                            }}
-                          >
-                            Purchase More Credits
-                          </Button>
-                        </Card>
-                      )}
+                      {/* Removed credit balance UI - prepaid uses invoicing, not credits */}
 
                       {/* Payment Method */}
                       <Card className="p-6 mb-6">

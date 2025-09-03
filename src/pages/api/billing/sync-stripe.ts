@@ -163,15 +163,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           })
           .eq('id', usage.id);
 
-        // Update detailed reports
-        await supabaseAdmin
-          .from('stripe_usage_reports')
-          .update({ 
-            status: 'reported',
-            reported_at: new Date().toISOString()
-          })
-          .eq('user_id', usage.user_id)
-          .eq('date', reportDate);
+        // Successfully reported to Stripe
 
         results.successful++;
       } catch (error) {
@@ -179,15 +171,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         results.failed++;
         results.errors.push(`User ${usage.users.email}: ${error instanceof Error ? error.message : String(error)}`);
 
-        // Mark as failed in our records
-        await supabaseAdmin
-          .from('stripe_usage_reports')
-          .update({ 
-            status: 'failed',
-            error: error instanceof Error ? error.message : String(error)
-          })
-          .eq('user_id', usage.user_id)
-          .eq('date', reportDate);
+        // Failed to report - error already logged
       }
     }
 

@@ -5,6 +5,7 @@ import Link from 'next/link';
 interface ClusterAccessStatusProps {
   hasCluster: boolean;
   hasPaymentMethod: boolean;
+  billingMode?: string;
   clusterName?: string;
   loading?: boolean;
 }
@@ -12,6 +13,7 @@ interface ClusterAccessStatusProps {
 export default function ClusterAccessStatus({ 
   hasCluster, 
   hasPaymentMethod, 
+  billingMode,
   clusterName,
   loading = false
 }: ClusterAccessStatusProps) {
@@ -39,6 +41,26 @@ export default function ClusterAccessStatus({
             <Text className="font-semibold text-green-800">Cluster Access Active</Text>
             <Text className="text-sm text-green-700">
               Connected to: {clusterName || 'Hopsworks Cluster'}
+            </Text>
+          </Box>
+        </Flex>
+      </Card>
+    );
+  }
+
+  // For prepaid users, show different message
+  if (billingMode === 'prepaid' && !hasCluster) {
+    return (
+      <Card className="p-4 border-blue-200 bg-blue-50">
+        <Flex align="start" gap={12}>
+          <AlertTriangle size={20} className="text-blue-600 mt-1" />
+          <Box className="flex-1">
+            <Text className="font-semibold text-blue-800 mb-2">
+              Cluster Setup In Progress
+            </Text>
+            <Text className="text-sm text-blue-700">
+              Your cluster is being provisioned. This typically takes a few minutes.
+              If you continue to see this message, please contact support.
             </Text>
           </Box>
         </Flex>
