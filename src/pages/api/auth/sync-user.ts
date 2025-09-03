@@ -215,39 +215,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         
         // Check subscription for postpaid users
-        if (existingUser.billing_mode === 'postpaid' && !existingUser.stripe_subscription_id) {
-          console.log(`[Health Check] User ${email} missing subscription - attempting to create`);
+        if (existingUser.billing_mode === 'postpaid' && !existingUser.stripe_subscription_id && existingUser.stripe_customer_id) {
+          console.log(`[Health Check] User ${email} missing subscription ID in DB - checking Stripe`);
           try {
-            const { data: stripeProducts } = await supabaseAdmin
-              .from('stripe_products')
-              .select('*')
-              .eq('active', true);
-
-            if (stripeProducts && stripeProducts.length > 0) {
-              const subscription = await stripe.subscriptions.create({
-                customer: existingUser.stripe_customer_id,
-                items: stripeProducts.map(product => ({
-                  price: product.stripe_price_id
-                })),
-                metadata: {
-                  user_id: userId
-                }
-              });
-
+            // FIRST: Check if subscription already exists in Stripe
+            const existingSubscriptions = await stripe.subscriptions.list({
+              customer: existingUser.stripe_customer_id,
+              limit: 10,
+              status: 'all'
+            });
+            
+            // Find active or trialing subscription
+            const activeSubscription = existingSubscriptions.data.find(
+              sub => sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due'
+            );
+            
+            if (activeSubscription) {
+              // Subscription exists in Stripe but not in our DB - sync it
+              console.log(`[Health Check] Found existing subscription ${activeSubscription.id} in Stripe - syncing to DB`);
               await supabaseAdmin
                 .from('users')
                 .update({
-                  stripe_subscription_id: subscription.id,
-                  stripe_subscription_status: subscription.status
+                  stripe_subscription_id: activeSubscription.id,
+                  stripe_subscription_status: activeSubscription.status
                 })
                 .eq('id', userId);
-              
-              console.log(`[Health Check] Created subscription ${subscription.id} for ${email}`);
+            } else {
+              // No active subscription found - check if we should create one
+              console.log(`[Health Check] No active subscription found for ${email} - NOT auto-creating`);
+              await logHealthCheckFailure(userId, email, 'missing_subscription', 
+                'User has no active subscription - requires manual setup', 
+                { customer_id: existingUser.stripe_customer_id });
+              // DO NOT AUTO-CREATE SUBSCRIPTIONS - this should be an intentional action
             }
           } catch (error) {
-            await logHealthCheckFailure(userId, email, 'subscription_creation', 
-              'Failed to create subscription', error);
-            console.error(`[Health Check] Failed to create subscription for ${email}:`, error);
+            await logHealthCheckFailure(userId, email, 'subscription_check', 
+              'Failed to check/sync subscription', error);
+            console.error(`[Health Check] Failed to check subscription for ${email}:`, error);
           }
         }
       } else {

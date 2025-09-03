@@ -87,42 +87,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         // For postpaid, check subscription
         if (user.billing_mode === 'postpaid' && !user.stripe_subscription_id) {
-          billingStatus.issues.push('Postpaid user missing subscription');
+          billingStatus.issues.push('Postpaid user missing subscription ID in database');
           
-          if (autoFix) {
+          if (autoFix && user.stripe_customer_id) {
             try {
-              // Get subscription products
-              const { data: stripeProducts } = await supabaseAdmin
-                .from('stripe_products')
-                .select('*')
-                .eq('active', true);
-
-              if (stripeProducts && stripeProducts.length > 0) {
-                const subscription = await stripe.subscriptions.create({
-                  customer: user.stripe_customer_id,
-                  items: stripeProducts.map(product => ({
-                    price: product.stripe_price_id
-                  })),
-                  metadata: {
-                    user_id: userId
-                  }
-                });
-
+              // FIRST: Check if subscription already exists in Stripe
+              const existingSubscriptions = await stripe.subscriptions.list({
+                customer: user.stripe_customer_id,
+                limit: 10,
+                status: 'all'
+              });
+              
+              // Find active or trialing subscription
+              const activeSubscription = existingSubscriptions.data.find(
+                sub => sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due'
+              );
+              
+              if (activeSubscription) {
+                // Subscription exists in Stripe but not in our DB - sync it
                 await supabaseAdmin
                   .from('users')
                   .update({
-                    stripe_subscription_id: subscription.id,
-                    stripe_subscription_status: subscription.status
+                    stripe_subscription_id: activeSubscription.id,
+                    stripe_subscription_status: activeSubscription.status
                   })
                   .eq('id', userId);
                 
-                billingStatus.fixes.push(`Created subscription ${subscription.id}`);
+                billingStatus.fixes.push(`Synced existing subscription ${activeSubscription.id} from Stripe`);
                 billingStatus.hasSubscription = true;
-                billingStatus.subscriptionId = subscription.id;
-                billingStatus.subscriptionStatus = subscription.status;
+                billingStatus.subscriptionId = activeSubscription.id;
+                billingStatus.subscriptionStatus = activeSubscription.status;
+              } else {
+                // No active subscription - DO NOT auto-create
+                billingStatus.issues.push('No active subscription found in Stripe - manual setup required');
+                // Removed auto-creation logic - subscriptions should be created intentionally
               }
             } catch (error) {
-              billingStatus.issues.push(`Failed to create subscription: ${error}`);
+              billingStatus.issues.push(`Failed to check/sync subscription: ${error}`);
             }
           }
         }

@@ -125,6 +125,10 @@ interface BillingInfo {
     amount: number;
     status: string;
     created_at: string;
+    invoice_url?: string;
+    pdf_url?: string;
+    total?: number;
+    currency?: string;
   }>;
   historicalUsage?: Array<{
     date: string;
@@ -143,7 +147,7 @@ export default function Dashboard() {
   const { data: hopsworksInfo, loading: hopsworksLoading } = useApiData<HopsworksInfo>('/api/user/hopsworks-info');
   const { data: instance, loading: instanceLoading } = useApiData<InstanceData>('/api/instance');
   const { data: teamData, loading: teamLoading, refetch: refetchTeamData } = useApiData<TeamData>('/api/team/members');
-  const { data: billing, loading: billingLoading } = useApiData<BillingInfo>('/api/billing');
+  const { data: billing, loading: billingLoading, refetch: refetchBilling } = useApiData<BillingInfo>('/api/billing');
   const [activeTab, setActiveTab] = useState('cluster');
   const [copied, setCopied] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -1097,20 +1101,68 @@ mr = project.get_model_registry()`;
                           
                           {billing.invoices && billing.invoices.length > 0 ? (
                             <Box className="space-y-2">
-                              {billing.invoices.slice(0, 5).map(invoice => (
-                                <Flex key={invoice.id} justify="between" align="center" className="py-2 border-b border-gray-100 last:border-0">
-                                  <Box>
-                                    <Text className="text-sm font-medium">{invoice.invoice_number}</Text>
-                                    <Text className="text-xs text-gray-500">
-                                      {new Date(invoice.created_at).toLocaleDateString()}
-                                    </Text>
-                                  </Box>
-                                  <Flex align="center" gap={12}>
-                                    <Text className="text-sm font-medium">${invoice.amount.toFixed(2)}</Text>
-                                    <Badge variant="success" size="sm">{invoice.status}</Badge>
+                              {billing.invoices.slice(0, 5).map(invoice => {
+                                const statusVariant = 
+                                  invoice.status === 'paid' ? 'success' : 
+                                  invoice.status === 'open' ? 'warning' :
+                                  invoice.status === 'draft' ? 'secondary' :
+                                  invoice.status === 'void' ? 'error' : 'secondary';
+                                
+                                // Check what we actually have
+                                console.log('Invoice data:', {
+                                  id: invoice.id,
+                                  invoice_number: invoice.invoice_number,
+                                  status: invoice.status,
+                                  invoice_url: invoice.invoice_url,
+                                  pdf_url: invoice.pdf_url,
+                                  amount: invoice.amount,
+                                  total: invoice.total
+                                });
+                                
+                                return (
+                                  <Flex key={invoice.id} justify="between" align="center" className="py-2 border-b border-gray-100 last:border-0">
+                                    <Box>
+                                      {invoice.invoice_url ? (
+                                        <a 
+                                          href={invoice.invoice_url} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                                        >
+                                          {invoice.invoice_number || 'View Invoice'}
+                                        </a>
+                                      ) : (
+                                        <Text className="text-sm font-medium">{invoice.invoice_number || invoice.id}</Text>
+                                      )}
+                                      <Text className="text-xs text-gray-500">
+                                        {new Date(invoice.created_at).toLocaleDateString()}
+                                      </Text>
+                                    </Box>
+                                    <Flex align="center" gap={12}>
+                                      <Text className="text-sm font-medium">
+                                        ${(invoice.total ?? invoice.amount ?? 0).toFixed(2)}
+                                      </Text>
+                                      <Badge variant={statusVariant as any} size="sm">
+                                        {invoice.status || 'Unknown'}
+                                      </Badge>
+                                      {invoice.pdf_url && (
+                                        <a 
+                                          href={invoice.pdf_url} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                                          title="Download PDF"
+                                        >
+                                          <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17h6M9 13h6M9 9h4" />
+                                          </svg>
+                                        </a>
+                                      )}
+                                    </Flex>
                                   </Flex>
-                                </Flex>
-                              ))}
+                                );
+                              })}
                             </Box>
                           ) : (
                             <Text className="text-sm text-gray-500">No invoices yet</Text>

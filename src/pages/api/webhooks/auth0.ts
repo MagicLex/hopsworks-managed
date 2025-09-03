@@ -126,40 +126,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (creditsError) throw creditsError;
 
-        // Create Stripe subscription for postpaid account owners
+        // DO NOT auto-create subscriptions - this should be done intentionally
+        // Subscriptions should be created through a proper billing setup flow
         if (stripeCustomerId) {
-          try {
-            // Get the subscription product price IDs from database
-            const { data: stripeProducts } = await supabaseAdmin
-              .from('stripe_products')
-              .select('*')
-              .eq('active', true);
-
-            if (stripeProducts && stripeProducts.length > 0) {
-              // Create subscription with metered prices
-              const subscription = await stripe.subscriptions.create({
-                customer: stripeCustomerId,
-                items: stripeProducts.map(product => ({
-                  price: product.stripe_price_id
-                })),
-                metadata: {
-                  user_id
-                }
-              });
-
-              // Update user with subscription ID
-              await supabaseAdmin
-                .from('users')
-                .update({
-                  stripe_subscription_id: subscription.id,
-                  stripe_subscription_status: subscription.status
-                })
-                .eq('id', user_id);
-            }
-          } catch (stripeError) {
-            console.error('Failed to create Stripe subscription:', stripeError);
-            // Don't fail user creation if Stripe fails
-          }
+          console.log(`Stripe customer ${stripeCustomerId} created for ${email} - subscription setup required`);
         }
       }
 

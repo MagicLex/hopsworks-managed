@@ -125,15 +125,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         const invoices = await stripe.invoices.list({
           customer: user.stripe_customer_id,
-          limit: 5
+          limit: 10, // Get more to filter out drafts
+          expand: ['data.subscription']
         });
         
-        billingHistory = invoices.data.map(invoice => ({
+        // Filter out draft invoices or finalize them if they're ready
+        const processedInvoices = [];
+        for (const invoice of invoices.data) {
+          // Skip draft invoices that are empty (no items)
+          if (invoice.status === 'draft') {
+            // Check if it has line items and should be finalized
+            if (invoice.lines && invoice.lines.data && invoice.lines.data.length > 0 && invoice.auto_advance) {
+              try {
+                // Auto-finalize drafts that have items and auto_advance enabled
+                const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
+                processedInvoices.push(finalizedInvoice);
+                console.log(`Finalized draft invoice ${invoice.id}`);
+              } catch (err) {
+                console.log(`Could not finalize draft invoice ${invoice.id}:`, err);
+                // Skip this draft
+              }
+            }
+            // Skip drafts - they're not real invoices yet
+            continue;
+          }
+          processedInvoices.push(invoice);
+        }
+        
+        console.log('Processed invoices:', processedInvoices.map(inv => ({
+          id: inv.id,
+          number: inv.number,
+          status: inv.status,
+          has_url: !!inv.hosted_invoice_url
+        })));
+        
+        billingHistory = processedInvoices.slice(0, 5).map(invoice => ({
           id: invoice.id,
           invoice_id: invoice.number || invoice.id,
-          amount: (invoice.amount_paid || 0) / 100,
-          status: invoice.status,
-          created_at: new Date(invoice.created * 1000).toISOString()
+          amount: (invoice.amount_paid || invoice.amount_due || 0) / 100,
+          status: invoice.status || 'unknown',
+          created_at: new Date(invoice.created * 1000).toISOString(),
+          invoice_url: invoice.hosted_invoice_url,
+          pdf_url: invoice.invoice_pdf,
+          total: (invoice.total || invoice.amount_due || 0) / 100,
+          currency: invoice.currency || 'usd'
         }));
       } catch (stripeError) {
         console.error('Error fetching Stripe invoices:', stripeError);
@@ -244,7 +279,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         invoice_number: bill.invoice_id,
         amount: bill.amount,
         status: bill.status,
-        created_at: bill.created_at
+        created_at: bill.created_at,
+        invoice_url: bill.invoice_url,
+        pdf_url: bill.pdf_url,
+        total: bill.total,
+        currency: bill.currency
       })) || [],
       historicalUsage: historicalData?.map(day => ({
         date: day.date,
