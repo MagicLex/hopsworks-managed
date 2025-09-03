@@ -1235,9 +1235,8 @@ mr = project.get_model_registry()`;
                   Permanently delete your account and all associated data. This action cannot be undone.
                 </Text>
                 <Button 
-                  intent="secondary"
+                  intent="destructive"
                   size="md"
-                  className="bg-red-500 hover:bg-red-600 text-white"
                   onClick={async () => {
                     if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
                       try {
