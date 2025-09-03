@@ -143,13 +143,37 @@ export async function createHopsworksProject(
 }
 
 /**
- * Get user's projects
+ * Get user's projects (both owned and member of)
  */
 export async function getUserProjects(
   credentials: HopsworksCredentials,
-  username: string
+  username: string,
+  userId?: number
 ): Promise<HopsworksProject[]> {
-  // Fetch all projects and filter by owner
+  try {
+    // First try to get projects where user is a member
+    const memberUrl = `${credentials.apiUrl}${ADMIN_API_BASE}/users/${username}/projects`;
+    
+    const memberResponse = await fetch(
+      memberUrl,
+      {
+        headers: {
+          'Authorization': `ApiKey ${credentials.apiKey}`
+        },
+        // @ts-ignore
+        agent: httpsAgent
+      }
+    );
+    
+    if (memberResponse.ok) {
+      const memberData = await memberResponse.json();
+      return memberData.items || [];
+    }
+  } catch (error) {
+    console.error('Error fetching user member projects:', error);
+  }
+
+  // Fallback: Fetch all projects and filter by owner
   const response = await fetch(
     `${credentials.apiUrl}${ADMIN_API_BASE}/projects`,
     {
@@ -160,7 +184,7 @@ export async function getUserProjects(
       agent: httpsAgent
     }
   );
-
+  
   if (!response.ok) {
     throw new Error(`Failed to fetch user projects: ${response.statusText}`);
   }
@@ -168,10 +192,21 @@ export async function getUserProjects(
   const data = await response.json();
   const allProjects = data.items || [];
   
-  // Filter projects by owner username
-  return allProjects.filter((project: any) => {
+  // Filter projects by creator - need to extract user ID from creator href
+  const userProjects = allProjects.filter((project: any) => {
+    // Project creator is an object with href like "https://54.36.114.178:28181/hopsworks-api/api/users/10181"
+    if (project.creator && project.creator.href) {
+      const creatorId = parseInt(project.creator.href.split('/').pop());
+      // Match by user ID if provided
+      if (userId && creatorId === userId) {
+        return true;
+      }
+    }
+    // Fallback to old owner field if it exists (for backward compatibility)
     return project.owner === username;
   });
+  
+  return userProjects;
 }
 
 /**

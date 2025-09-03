@@ -31,6 +31,7 @@ interface UsageData {
 interface HopsworksInfo {
   hasCluster: boolean;
   clusterName?: string;
+  clusterEndpoint?: string;
   hasHopsworksUser?: boolean;
   hopsworksUser?: {
     username: string;
@@ -306,9 +307,65 @@ export default function Dashboard() {
                 />
               </Box>
 
-
               {instance ? (
                 <>
+                  {/* Usage Metrics - moved to top */}
+                  <Box className="mb-6">
+                    <Title as="h2" className="text-lg mb-4">Current Usage</Title>
+                    <Flex gap={16} className="grid grid-cols-1 md:grid-cols-2">
+                      <Card className="p-4">
+                        <Flex align="center" gap={8} className="mb-2">
+                          <Cpu size={16} className="text-[#1eb182]" />
+                          <Text className="text-sm text-gray-600">Credits Used</Text>
+                        </Flex>
+                        <Text className="text-xl font-semibold">
+                          {usageLoading ? '...' : (usage?.cpuHours?.toFixed(0) || '0')}
+                        </Text>
+                        <Text className="text-xs text-gray-500">This month</Text>
+                      </Card>
+                      {hopsworksInfo?.hasHopsworksUser && (
+                        <Card className="p-4">
+                          <Flex align="center" gap={8} className="mb-2">
+                            <Database size={16} className="text-[#1eb182]" />
+                            <Text className="text-sm text-gray-600">Projects</Text>
+                          </Flex>
+                          <Text className="text-xl font-semibold">
+                            {hopsworksLoading ? '...' : (hopsworksInfo?.hopsworksUser?.numActiveProjects || '0')}
+                          </Text>
+                          <Text className="text-xs text-gray-500">Active projects</Text>
+                          {!hopsworksLoading && (
+                            <Box className="mt-3 pt-3 border-t border-gray-100">
+                              {hopsworksInfo?.projects && hopsworksInfo.projects.length > 0 ? (
+                                <Flex gap={6} className="flex-wrap">
+                                  {hopsworksInfo.projects.slice(0, 3).map(project => (
+                                    <a
+                                      key={project.id}
+                                      href={`${instance?.endpoint || hopsworksInfo?.clusterEndpoint || ''}/p/${project.id}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1eb182]/10 hover:bg-[#1eb182]/20 text-[#1eb182] rounded-full text-sm font-medium transition-colors"
+                                    >
+                                      <FolderOpen size={14} />
+                                      <span>{project.name}</span>
+                                      <ExternalLink size={12} />
+                                    </a>
+                                  ))}
+                                  {hopsworksInfo.projects.length > 3 && (
+                                    <span className="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-500 rounded-full text-sm">
+                                      +{hopsworksInfo.projects.length - 3} more
+                                    </span>
+                                  )}
+                                </Flex>
+                              ) : (
+                                <Text className="text-xs text-gray-500">No projects yet</Text>
+                              )}
+                            </Box>
+                          )}
+                        </Card>
+                      )}
+                    </Flex>
+                  </Box>
+
                   <Card className="p-6 mb-6">
                     <Flex align="center" gap={12} className="mb-4">
                       <Server size={20} className="text-[#1eb182]" />
@@ -522,35 +579,6 @@ mr = project.get_model_registry()`;
                       </pre>
                     </Box>
                   </Card>
-
-                  {/* Usage Metrics */}
-                  <Box className="mb-6">
-                    <Title as="h2" className="text-lg mb-4">Current Usage</Title>
-                    <Flex gap={16} className="grid grid-cols-1 md:grid-cols-2">
-                      <Card className="p-4">
-                        <Flex align="center" gap={8} className="mb-2">
-                          <Cpu size={16} className="text-[#1eb182]" />
-                          <Text className="text-sm text-gray-600">CPU Hours</Text>
-                        </Flex>
-                        <Text className="text-xl font-semibold">
-                          {usageLoading ? '...' : (usage?.cpuHours?.toFixed(0) || '0')}
-                        </Text>
-                        <Text className="text-xs text-gray-500">This month</Text>
-                      </Card>
-                      {hopsworksInfo?.hasHopsworksUser && (
-                        <Card className="p-4">
-                          <Flex align="center" gap={8} className="mb-2">
-                            <Database size={16} className="text-[#1eb182]" />
-                            <Text className="text-sm text-gray-600">Projects</Text>
-                          </Flex>
-                          <Text className="text-xl font-semibold">
-                            {hopsworksLoading ? '...' : (hopsworksInfo?.hopsworksUser?.numActiveProjects || '0')}
-                          </Text>
-                          <Text className="text-xs text-gray-500">Active projects</Text>
-                        </Card>
-                      )}
-                    </Flex>
-                  </Box>
 
                   {hopsworksInfo?.projects && hopsworksInfo.projects.length > 0 && (
                     <Card className="p-6">

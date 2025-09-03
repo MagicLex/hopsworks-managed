@@ -85,7 +85,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Get user's projects
       let projects: any[] = [];
       try {
-        projects = await getUserProjects(credentials, hopsworksUser.username);
+        projects = await getUserProjects(credentials, hopsworksUser.username, hopsworksUser.id);
       } catch (error) {
         console.error('Error fetching projects:', error);
       }
@@ -93,6 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({
         hasCluster: true,
         clusterName: cluster.name,
+        clusterEndpoint: cluster.api_url.replace('/hopsworks-api/api', ''),
         hasHopsworksUser: true,
         hopsworksUser: {
           username: hopsworksUser.username,
