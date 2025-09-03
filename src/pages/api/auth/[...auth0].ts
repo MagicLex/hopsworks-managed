@@ -20,9 +20,15 @@ export default handleAuth({
     }
   }),
   callback: handleCallback({
-    afterCallback: async (req: NextApiRequest, session: any) => {
+    afterCallback: async (req: NextApiRequest, session: any, state: any) => {
       try {
-        const userId = session.user.sub;
+        // The session structure in afterCallback is different - user info is directly on session
+        const userId = session?.sub;
+        
+        if (!userId) {
+          console.log('No user ID in session, returning default redirect');
+          return session;
+        }
         
         // Check if user exists and needs payment setup
         const { data: user } = await supabaseAdmin
