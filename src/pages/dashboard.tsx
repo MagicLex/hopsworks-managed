@@ -304,6 +304,7 @@ export default function Dashboard() {
                   hasCluster={hopsworksInfo?.hasCluster || false}
                   hasPaymentMethod={billing?.hasPaymentMethod || false}
                   clusterName={hopsworksInfo?.clusterName}
+                  loading={hopsworksLoading || billingLoading}
                 />
               </Box>
 

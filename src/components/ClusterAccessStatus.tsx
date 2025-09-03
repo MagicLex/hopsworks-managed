@@ -6,13 +6,30 @@ interface ClusterAccessStatusProps {
   hasCluster: boolean;
   hasPaymentMethod: boolean;
   clusterName?: string;
+  loading?: boolean;
 }
 
 export default function ClusterAccessStatus({ 
   hasCluster, 
   hasPaymentMethod, 
-  clusterName 
+  clusterName,
+  loading = false
 }: ClusterAccessStatusProps) {
+  // Show skeleton loader while loading
+  if (loading) {
+    return (
+      <Card className="p-4">
+        <Flex align="center" gap={12}>
+          <Box className="w-5 h-5 bg-gray-200 rounded animate-pulse" />
+          <Box className="flex-1">
+            <Box className="h-5 bg-gray-200 rounded w-40 mb-2 animate-pulse" />
+            <Box className="h-4 bg-gray-200 rounded w-56 animate-pulse" />
+          </Box>
+        </Flex>
+      </Card>
+    );
+  }
+  
   if (hasCluster) {
     return (
       <Card className="p-4 border-green-200 bg-green-50">
