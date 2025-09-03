@@ -95,24 +95,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
       .order('date', { ascending: true });
 
-    // For prepaid users, get credit balance
+    // Prepaid users use invoicing, not credits
     let creditBalance = null;
-    if (user?.billing_mode === 'prepaid' && user?.feature_flags?.prepaid_enabled) {
-      const { data: credits } = await supabaseAdmin
-        .from('user_credits')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-      
-      if (credits) {
-        creditBalance = {
-          total: (credits.total_purchased - credits.total_used) + 
-                 (credits.free_credits_granted - credits.free_credits_used),
-          purchased: credits.total_purchased - credits.total_used,
-          free: credits.free_credits_granted - credits.free_credits_used
-        };
-      }
-    }
 
     // Get billing history from Stripe
     let billingHistory: any[] = [];

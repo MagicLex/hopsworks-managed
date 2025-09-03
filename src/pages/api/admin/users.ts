@@ -15,13 +15,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .from('users')
         .select(`
           *,
-          user_credits (
-            total_purchased,
-            total_used,
-            cpu_hours_used,
-            gpu_hours_used,
-            storage_gb_months
-          ),
           user_hopsworks_assignments (
             hopsworks_cluster_id,
             hopsworks_clusters (

@@ -32,12 +32,6 @@ export default withApiAuthRequired(async function handler(
       .delete()
       .eq('user_id', userId);
 
-    // Delete user credits if table exists
-    await supabase
-      .from('user_credits')
-      .delete()
-      .eq('user_id', userId);
-
     // Delete cluster assignments
     await supabase
       .from('user_hopsworks_assignments')

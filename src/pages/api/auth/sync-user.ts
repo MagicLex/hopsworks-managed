@@ -124,11 +124,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         throw userError;
       }
 
-      // Create user credits record
-      await supabaseAdmin
-        .from('user_credits')
-        .insert({ user_id: userId });
-
       // Check if user has payment method set up or is prepaid
       const { data: userData } = await supabaseAdmin
         .from('users')

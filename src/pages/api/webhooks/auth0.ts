@@ -116,21 +116,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (userError) throw userError;
 
-      // Only create user credits record for account owners
-      if (!accountOwnerId) {
-        const { error: creditsError } = await supabaseAdmin
-          .from('user_credits')
-          .insert({
-            user_id
-          });
-
-        if (creditsError) throw creditsError;
-
-        // DO NOT auto-create subscriptions - this should be done intentionally
-        // Subscriptions should be created through a proper billing setup flow
-        if (stripeCustomerId) {
-          console.log(`Stripe customer ${stripeCustomerId} created for ${email} - subscription setup required`);
-        }
+      // DO NOT auto-create subscriptions - this should be done intentionally
+      // Subscriptions should be created through a proper billing setup flow
+      if (!accountOwnerId && stripeCustomerId) {
+        console.log(`Stripe customer ${stripeCustomerId} created for ${email} - subscription setup required`);
       }
 
       // Do NOT auto-assign cluster - user needs to set up payment first

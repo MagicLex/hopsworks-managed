@@ -52,10 +52,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         
-        // Handle credit purchase
-        if (session.metadata?.credit_amount) {
-          await handleCreditPurchase(session);
-        }
         
         // Handle payment method setup
         if (session.mode === 'setup' && session.customer) {
@@ -103,51 +99,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error('Error processing webhook:', error);
     return res.status(500).json({ error: 'Webhook processing failed' });
   }
-}
-
-async function handleCreditPurchase(session: Stripe.Checkout.Session) {
-  const userId = session.metadata!.user_id;
-  const creditAmount = parseFloat(session.metadata!.credit_amount);
-  
-  console.log(`Processing credit purchase: $${creditAmount} for user ${userId}`);
-
-  // Get current balance
-  const { data: currentCredits } = await supabaseAdmin
-    .from('user_credits')
-    .select('total_purchased')
-    .eq('user_id', userId)
-    .single();
-
-  const balanceBefore = currentCredits?.total_purchased || 0;
-  const balanceAfter = balanceBefore + creditAmount;
-
-  // Update user credits
-  await supabaseAdmin
-    .from('user_credits')
-    .upsert({
-      user_id: userId,
-      total_purchased: balanceAfter,
-      last_purchase_at: new Date().toISOString()
-    }, {
-      onConflict: 'user_id'
-    });
-
-  // Record transaction
-  await supabaseAdmin
-    .from('credit_transactions')
-    .insert({
-      user_id: userId,
-      type: 'purchase',
-      amount: creditAmount,
-      balance_before: balanceBefore,
-      balance_after: balanceAfter,
-      description: `Credit purchase via Stripe`,
-      stripe_payment_intent_id: session.payment_intent as string
-    });
-
-  // Credit purchase recorded
-
-  console.log(`Successfully added $${creditAmount} credits for user ${userId}`);
 }
 
 async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {

@@ -28,13 +28,6 @@ interface User {
     gpu_hours: number;
     ram_gb_hours: number;
   }[];
-  user_credits?: {
-    total_purchased: number;
-    total_used: number;
-    cpu_hours_used: number;
-    gpu_hours_used: number;
-    storage_gb_months: number;
-  };
   user_hopsworks_assignments?: {
     hopsworks_cluster_id: string;
     hopsworks_clusters: {
@@ -140,7 +133,7 @@ export default function AdminPage() {
 
   // Calculate total PAYG amount for a user
   const getUserTotalPayg = (user: User) => {
-    return user.user_credits?.total_used || 0;
+    return 0; // Credits system removed - using Stripe metered billing
   };
 
   // Get today's cost for a user
@@ -393,7 +386,7 @@ export default function AdminPage() {
               <Box className="mt-6 pt-4 border-t border-grayShade2">
                 <Flex justify="between" align="center">
                   <Text className="text-sm text-gray">
-                    Total Users: {users.length} | With Activity: {users.filter(u => (u.projects && u.projects.length > 0) || (u.user_credits && u.user_credits.total_used > 0)).length}
+                    Total Users: {users.length} | With Activity: {users.filter(u => (u.projects && u.projects.length > 0)).length}
                   </Text>
                   <Box className="text-right">
                     <Text className="text-sm text-gray">Total Today&apos;s Cost</Text>
