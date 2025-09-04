@@ -453,6 +453,21 @@ export default function Dashboard() {
                             // Redirect to auto-OAuth URL for automatic login with Auth0
                             const autoOAuthUrl = `${instance.endpoint}/autoOAuth?providerName=Auth0`;
                             window.open(autoOAuthUrl, '_blank');
+                            
+                            // Trigger sync-user after 10 seconds to fix maxNumProjects
+                            // This allows time for OAuth2 to create the user in Hopsworks
+                            setTimeout(async () => {
+                              try {
+                                await fetch('/api/auth/sync-user', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({})
+                                });
+                                console.log('Triggered sync-user after Hopsworks access');
+                              } catch (error) {
+                                console.error('Failed to trigger sync-user:', error);
+                              }
+                            }, 10000);
                           }
                         }}
                       >
