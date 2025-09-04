@@ -498,14 +498,6 @@ export default function TeamMemberProjects({
               </Flex>
             </Box>
           )}
-          
-          {isOwner && (
-            <Box className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
-              <Text className="text-xs text-blue-800">
-                <strong>Tip:</strong> Select role changes and click Save to apply them.
-              </Text>
-            </Box>
-          )}
         </Card>
       )}
     </Box>
