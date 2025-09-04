@@ -10,6 +10,10 @@ The health check system ensures user accounts remain functional by automatically
 User Login → sync-user.ts → Health Checks → Auto-Repair → Log Failures
                                 ↓
                         health_check_failures table
+
+Additional Trigger:
+Access Hopsworks Button → 2 second delay → sync-user.ts
+(Only triggers if user needs sync)
 ```
 
 ## Health Checks Performed
@@ -48,10 +52,11 @@ The system performs these checks on every login (`/api/auth/sync-user`):
 ### 3. Hopsworks User
 - **Checks**: Hopsworks user exists with correct settings
 - **Auto-repair**: 
-  - Creates Hopsworks OAuth user if missing
-  - Retrieves user ID if only username is known
-  - Searches by email as fallback
-- **Retry logic**: 3 attempts with exponential backoff
+  - Finds OAuth2 auto-created user by email
+  - Updates database with Hopsworks user ID and username
+  - Fixes maxNumProjects based on payment status
+- **Note**: OAuth2 users are auto-created when logging into Hopsworks, not via API
+- **Timing**: sync-user also triggered 2 seconds after "Access Hopsworks" button click
 
 ### 4. Project Limits (maxNumProjects)
 - **Checks**: Correct project limit set in Hopsworks
@@ -61,6 +66,7 @@ The system performs these checks on every login (`/api/auth/sync-user`):
   - **Prepaid/Corporate account owners**: 5 projects (always)
   - **Team members**: 0 projects (use owner's projects)
   - **Users without billing**: 0 projects (trial/restricted)
+- **Important**: Users with payment method get 5 projects even without active subscription
 
 ### 5. Team Membership
 - **Checks**: Team members on same cluster as account owner
@@ -162,7 +168,7 @@ GROUP BY check_type;
 | SSL certificate errors | Self-signed certs | Fixed with `NODE_TLS_REJECT_UNAUTHORIZED` |
 | Missing Stripe subscription | Price IDs incorrect | Update `stripe_products` table |
 | No Hopsworks user ID | Only username stored | System retrieves ID on login |
-| Can't create projects | maxNumProjects = 0 | Auto-fixed on login for paying users |
+| Can't create projects | maxNumProjects = 0 | Auto-fixed 2 seconds after clicking "Access Hopsworks" |
 | Team member no cluster | Owner not assigned yet | Owner must login first |
 
 ## Manual Verification
