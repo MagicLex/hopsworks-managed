@@ -617,6 +617,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Get current user state for payment check (important for new users)
+    // CRITICAL: Sync user projects for billing accuracy
+    // This ensures we have accurate project data for billing calculations
+    let projectSyncResult: any = { success: false, projectsFound: 0, projectsSynced: 0 };
+    try {
+      const { syncUserProjects } = await import('../../../lib/project-sync');
+      projectSyncResult = await syncUserProjects(userId);
+      
+      if (projectSyncResult.success) {
+        console.log(`[Project Sync] Synced ${projectSyncResult.projectsSynced} of ${projectSyncResult.projectsFound} projects for ${email}`);
+      } else if (projectSyncResult.error) {
+        console.error(`[Project Sync] Failed for ${email}: ${projectSyncResult.error}`);
+      }
+    } catch (error) {
+      console.error(`[Project Sync] Error for ${email}:`, error);
+    }
+    
     const { data: currentUser } = await supabaseAdmin
       .from('users')
       .select('account_owner_id, stripe_customer_id, billing_mode')
@@ -633,7 +649,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       healthChecks: healthCheckResults,
       needsPayment,
       isTeamMember: !!existingUser?.account_owner_id,
-      hasBilling: !!existingUser?.stripe_customer_id || existingUser?.billing_mode === 'prepaid'
+      hasBilling: !!existingUser?.stripe_customer_id || existingUser?.billing_mode === 'prepaid',
+      projectSync: projectSyncResult
     });
   } catch (error) {
     console.error('User sync error:', error);

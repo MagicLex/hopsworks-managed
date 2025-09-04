@@ -82,12 +82,56 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
-      // Get user's projects
+      // Get user's projects - FIRST try from cache, then fallback to API
       let projects: any[] = [];
-      try {
-        projects = await getUserProjects(credentials, hopsworksUser.username, hopsworksUser.id);
-      } catch (error) {
-        console.error('Error fetching projects:', error);
+      let projectSource = 'cache';
+      
+      // Try to get projects from our database cache first (for billing accuracy)
+      const { data: cachedProjects } = await supabaseAdmin
+        .from('user_projects')
+        .select('project_id, project_name, namespace')
+        .eq('user_id', userId)
+        .eq('status', 'active');
+      
+      if (cachedProjects && cachedProjects.length > 0) {
+        // Use cached projects
+        projects = cachedProjects.map(p => ({
+          id: p.project_id,
+          name: p.project_name,
+          namespace: p.namespace,
+          owner: hopsworksUser.username,
+          created: new Date().toISOString() // We don't store creation date
+        }));
+        console.log(`Using ${projects.length} cached projects for ${userData.email}`);
+      } else {
+        // Fallback to API if no cached projects
+        try {
+          projectSource = 'api';
+          const apiProjects = await getUserProjects(credentials, hopsworksUser.username, hopsworksUser.id);
+          projects = apiProjects;
+          
+          // Cache these projects for next time
+          if (apiProjects.length > 0) {
+            const projectsToCache = apiProjects.map((p: any) => ({
+              user_id: userId,
+              project_id: p.id,
+              project_name: p.name,
+              namespace: `project-${p.name}`,
+              status: 'active'
+            }));
+            
+            await supabaseAdmin
+              .from('user_projects')
+              .upsert(projectsToCache, { 
+                onConflict: 'user_id,project_id',
+                ignoreDuplicates: false 
+              });
+            
+            console.log(`Cached ${apiProjects.length} projects for ${userData.email}`);
+          }
+        } catch (error) {
+          console.error('Error fetching projects from API:', error);
+        }
       }
 
       return res.status(200).json({

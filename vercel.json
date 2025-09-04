@@ -7,6 +7,10 @@
     {
       "path": "/api/billing/sync-stripe", 
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/sync-projects",
+      "schedule": "*/30 * * * *"
     }
   ],
   "functions": {
@@ -14,6 +18,9 @@
       "maxDuration": 60
     },
     "src/pages/api/billing/sync-stripe.ts": {
+      "maxDuration": 60
+    },
+    "src/pages/api/cron/sync-projects.ts": {
       "maxDuration": 60
     }
   }

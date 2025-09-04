@@ -46,6 +46,8 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [checkingOpenCost, setCheckingOpenCost] = useState(false);
   const [checkingDatabase, setCheckingDatabase] = useState(false);
+  const [syncingProjects, setSyncingProjects] = useState(false);
+  const [syncingUserProjects, setSyncingUserProjects] = useState<string | null>(null);
   const [openCostData, setOpenCostData] = useState<any | null>(null);
   const [databaseData, setDatabaseData] = useState<any | null>(null);
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
@@ -121,6 +123,53 @@ export default function AdminPage() {
     }
   };
 
+  const syncProjects = async () => {
+    setSyncingProjects(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/admin/sync-projects', { method: 'POST' });
+      const data = await response.json();
+      
+      if (response.ok) {
+        console.log('Project sync result:', data);
+        alert(`Projects synced!\n- Found ${data.stats.projectsInHopsworks} projects in Hopsworks\n- Deleted ${data.stats.deletedProjects} stale projects\n- Updated ${data.stats.updatedProjects} projects`);
+        // Refresh users to show updated projects
+        fetchUsers();
+      } else {
+        setError(`Sync failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to sync projects:', error);
+      setError('Failed to sync projects');
+    } finally {
+      setSyncingProjects(false);
+    }
+  };
+
+  const syncUserProjects = async (userId: string, userEmail: string) => {
+    setSyncingUserProjects(userId);
+    try {
+      const response = await fetch('/api/admin/sync-user-projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert(`Synced projects for ${userEmail}:\n- Found: ${data.projectsFound}\n- Synced: ${data.projectsSynced}`);
+        fetchUsers();
+      } else {
+        alert(`Failed to sync: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to sync user projects:', error);
+      alert('Failed to sync user projects');
+    } finally {
+      setSyncingUserProjects(null);
+    }
+  };
+
   const toggleUserExpanded = (userId: string) => {
     const newExpanded = new Set(expandedUsers);
     if (newExpanded.has(userId)) {
@@ -170,6 +219,14 @@ export default function AdminPage() {
             <Flex justify="between" align="center" className="mb-6">
               <Title as="h2" className="text-lg">User Billing Overview</Title>
               <Flex gap={8}>
+                <Button
+                  onClick={syncProjects}
+                  disabled={syncingProjects}
+                  intent="primary"
+                  size="md"
+                >
+                  {syncingProjects ? 'Syncing...' : 'Sync Projects'}
+                </Button>
                 <Button
                   onClick={checkOpenCost}
                   disabled={checkingOpenCost}
@@ -296,15 +353,27 @@ export default function AdminPage() {
                               )}
                             </td>
                             <td className="py-3 text-center">
-                              {(user.hopsworks_username || user.user_hopsworks_assignments?.[0]) && (
-                                <Button
-                                  onClick={() => toggleUserExpanded(user.id)}
-                                  size="sm"
-                                  intent="secondary"
-                                >
-                                  {isExpanded ? 'Hide' : 'Show'} Details
-                                </Button>
-                              )}
+                              <Flex gap={8} justify="center">
+                                {user.hopsworks_username && (
+                                  <Button
+                                    onClick={() => syncUserProjects(user.id, user.email)}
+                                    size="sm"
+                                    intent="primary"
+                                    disabled={syncingUserProjects === user.id}
+                                  >
+                                    {syncingUserProjects === user.id ? 'Syncing...' : 'Sync'}
+                                  </Button>
+                                )}
+                                {(user.hopsworks_username || user.user_hopsworks_assignments?.[0]) && (
+                                  <Button
+                                    onClick={() => toggleUserExpanded(user.id)}
+                                    size="sm"
+                                    intent="secondary"
+                                  >
+                                    {isExpanded ? 'Hide' : 'Show'}
+                                  </Button>
+                                )}
+                              </Flex>
                             </td>
                           </tr>
                           
@@ -321,52 +390,17 @@ export default function AdminPage() {
                                     accountOwnerId={user.account_owner_id}
                                   />
                                   
-                                  {/* Project breakdown */}
+                                  {/* Simple project list */}
                                   {user.projects && user.projects.length > 0 && (
                                     <Box>
-                                      <Text className="text-sm font-semibold mb-3">Usage Breakdown</Text>
-                                  <Box className="space-y-2">
-                                    {user.projects.map(project => (
-                                      <Card key={project.namespace} className="border border-grayShade2 p-3">
-                                        <Flex justify="between" align="start">
-                                          <Box>
-                                            <Text className="font-medium">{project.name}</Text>
-                                            <Text className="text-xs text-gray">
-                                              Namespace: {project.namespace} | ID: {project.id}
-                                            </Text>
-                                          </Box>
-                                          <Box className="text-right">
-                                            <Text className="font-mono font-semibold">
-                                              ${project.total_cost.toFixed(4)}
-                                            </Text>
-                                            <Text className="text-xs text-gray">today</Text>
-                                          </Box>
-                                        </Flex>
-                                        
-                                        {project.total_cost > 0 && (
-                                          <Box className="mt-3 grid grid-cols-3 gap-4 text-xs">
-                                            <Box>
-                                              <Text className="text-gray">CPU</Text>
-                                              <Text className="text-gray">{project.cpu_hours.toFixed(2)}h</Text>
-                                              <Text className="font-mono">${(project.cpu_hours * 0.125).toFixed(4)}</Text>
-                                            </Box>
-                                            {project.gpu_hours > 0 && (
-                                              <Box>
-                                                <Text className="text-gray">GPU</Text>
-                                                <Text className="text-gray">{project.gpu_hours.toFixed(2)}h</Text>
-                                                <Text className="font-mono">${(project.gpu_hours * 2.50).toFixed(4)}</Text>
-                                              </Box>
-                                            )}
-                                            <Box>
-                                              <Text className="text-gray">Memory</Text>
-                                              <Text className="text-gray">{project.ram_gb_hours.toFixed(2)} GB·h</Text>
-                                              <Text className="font-mono">${(project.ram_gb_hours * 0.0125).toFixed(4)}</Text>
-                                            </Box>
-                                          </Box>
-                                        )}
-                                      </Card>
-                                    ))}
-                                  </Box>
+                                      <Text className="text-sm font-semibold mb-3">Projects ({user.projects.length})</Text>
+                                      <Flex gap={8} className="flex-wrap">
+                                        {user.projects.map(project => (
+                                          <Badge key={project.id || project.namespace} size="sm" variant="default">
+                                            {project.name}
+                                          </Badge>
+                                        ))}
+                                      </Flex>
                                     </Box>
                                   )}
                                 </Box>
