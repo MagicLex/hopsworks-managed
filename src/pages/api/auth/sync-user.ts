@@ -106,19 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
       
-      // Extract proper names for new user
-      let givenName, familyName;
-      if (name && name.trim()) {
-        const nameParts = name.trim().split(' ').filter(Boolean);
-        givenName = nameParts[0];
-        familyName = nameParts.slice(1).join(' ') || '.';
-      } else {
-        // Extract from email
-        const emailName = email.split('@')[0].replace(/[+\d]/g, '').replace(/[._-]/g, ' ');
-        const nameParts = emailName.split(' ').filter(Boolean);
-        givenName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : 'User';
-        familyName = nameParts.slice(1).join(' ') || '.';
-      }
+      // Names are now handled by Auth0 Action with prompt
       
       // Create new user
       const { error: userError } = await supabaseAdmin
@@ -127,8 +115,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id: userId,
           email,
           name: name || null, // Keep for backward compatibility
-          given_name: givenName,
-          family_name: familyName,
           registration_source: registrationSource,
           registration_ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress,
           status: 'active',
@@ -412,9 +398,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (!hopsworksUser) {
           console.log(`[Health Check] Hopsworks user not found for ${email} - attempting to create`);
           try {
-            // Use given_name and family_name from database
-            const firstName = existingUser.given_name || email.split('@')[0];
-            const lastName = existingUser.family_name || '.';
+            // Get names from Auth0 token (guaranteed by Auth0 Action)
+            const firstName = (session.user as any).given_name || email.split('@')[0];
+            const lastName = (session.user as any).family_name || '.';
             const expectedMaxProjects = isTeamMember ? 0 : 
                                       (existingUser.stripe_customer_id || existingUser.billing_mode === 'prepaid') ? 5 : 0;
             

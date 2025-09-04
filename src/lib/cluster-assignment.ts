@@ -25,7 +25,7 @@ export async function assignUserToCluster(
     // Get user details including account owner
     const { data: user } = await supabaseAdmin
       .from('users')
-      .select('stripe_customer_id, account_owner_id, email, name, given_name, family_name, hopsworks_user_id, hopsworks_username, billing_mode')
+      .select('stripe_customer_id, account_owner_id, email, name, hopsworks_user_id, hopsworks_username, billing_mode')
       .eq('id', userId)
       .single();
 
@@ -94,9 +94,10 @@ export async function assignUserToCluster(
           
           for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-              // Use given_name and family_name from database
-              const firstName = user.given_name || user.email.split('@')[0];
-              const lastName = user.family_name || '.';
+              // Get names from Auth0 token (guaranteed by Auth0 Action)
+              // For now, fallback to email parsing until we pass Auth0 claims
+              const firstName = user.email.split('@')[0];
+              const lastName = '.';
               
               console.log(`Attempt ${attempt}/${maxRetries}: Creating Hopsworks user for team member ${user.email}`);
               
@@ -267,9 +268,10 @@ export async function assignUserToCluster(
         
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            // Use given_name and family_name from database
-            const firstName = user.given_name || user.email.split('@')[0];
-            const lastName = user.family_name || '.';
+            // Get names from Auth0 token (guaranteed by Auth0 Action)
+            // For now, fallback to email parsing until we pass Auth0 claims
+            const firstName = user.email.split('@')[0];
+            const lastName = '.';
             
             // Account owners with payment or prepaid get 5 projects
             const maxProjects = (user.stripe_customer_id || isPrepaid) ? 5 : 0;
