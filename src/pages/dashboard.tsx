@@ -454,7 +454,7 @@ export default function Dashboard() {
                             const autoOAuthUrl = `${instance.endpoint}/autoOAuth?providerName=Auth0`;
                             window.open(autoOAuthUrl, '_blank');
                             
-                            // Trigger sync-user after 10 seconds to fix maxNumProjects
+                            // Trigger sync-user after 2 seconds to fix maxNumProjects
                             // This allows time for OAuth2 to create the user in Hopsworks
                             setTimeout(async () => {
                               try {
@@ -467,7 +467,7 @@ export default function Dashboard() {
                               } catch (error) {
                                 console.error('Failed to trigger sync-user:', error);
                               }
-                            }, 10000);
+                            }, 2000);
                           }
                         }}
                       >
