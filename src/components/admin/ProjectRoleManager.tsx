@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Flex, Text, Button, Card, Badge, Select } from 'tailwind-quartz';
+import { Box, Flex, Text, Card, Badge } from 'tailwind-quartz';
 
 interface Project {
   name: string;
@@ -8,24 +8,22 @@ interface Project {
   role?: string;
 }
 
-interface ProjectRoleManagerProps {
+interface UserProjectsViewerProps {
   userId: string;
   userEmail: string;
   isTeamMember: boolean;
   accountOwnerId?: string;
 }
 
-export default function ProjectRoleManager({ 
+export default function UserProjectsViewer({ 
   userId, 
   userEmail, 
   isTeamMember,
   accountOwnerId 
-}: ProjectRoleManagerProps) {
+}: UserProjectsViewerProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [updating, setUpdating] = useState<string | null>(null);
-  const [bulkAssigning, setBulkAssigning] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -48,67 +46,6 @@ export default function ProjectRoleManager({
     }
   };
 
-  const updateProjectRole = async (projectName: string, role: string, action: 'add' | 'remove') => {
-    try {
-      setUpdating(projectName);
-      const response = await fetch('/api/admin/project-roles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          projectName,
-          role,
-          action
-        })
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update project role');
-      }
-
-      // Refresh projects
-      await fetchProjects();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update role');
-    } finally {
-      setUpdating(null);
-    }
-  };
-
-  const bulkAssignToOwnerProjects = async () => {
-    if (!isTeamMember || !accountOwnerId) return;
-
-    try {
-      setBulkAssigning(true);
-      const response = await fetch('/api/admin/project-roles', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teamMemberId: userId,
-          ownerId: accountOwnerId,
-          defaultRole: 'Data scientist'
-        })
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to assign to owner projects');
-      }
-
-      const result = await response.json();
-      if (result.addedToProjects?.length > 0) {
-        console.log(`Added to projects: ${result.addedToProjects.join(', ')}`);
-      }
-      
-      // Refresh projects
-      await fetchProjects();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to bulk assign');
-    } finally {
-      setBulkAssigning(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -120,22 +57,10 @@ export default function ProjectRoleManager({
 
   return (
     <Card className="p-4">
-      <Flex justify="between" align="center" className="mb-4">
-        <Box>
-          <Text className="font-semibold">Project Access</Text>
-          <Text className="text-xs text-gray">{userEmail}</Text>
-        </Box>
-        {isTeamMember && (
-          <Button
-            onClick={bulkAssignToOwnerProjects}
-            disabled={bulkAssigning}
-            size="sm"
-            intent="primary"
-          >
-            {bulkAssigning ? 'Assigning...' : 'Auto-Assign to Owner Projects'}
-          </Button>
-        )}
-      </Flex>
+      <Box className="mb-4">
+        <Text className="font-semibold">User&apos;s Hopsworks Projects</Text>
+        <Text className="text-xs text-gray">{userEmail}</Text>
+      </Box>
 
       {error && (
         <Box className="mb-4 p-2 bg-dangerShade1 border border-dangerDefault rounded">
@@ -144,59 +69,32 @@ export default function ProjectRoleManager({
       )}
 
       {projects.length === 0 ? (
-        <Text className="text-sm text-gray">No projects found</Text>
+        <Text className="text-sm text-gray">No projects found for this user</Text>
       ) : (
         <Box className="space-y-2">
+          <Text className="text-xs text-gray mb-2">Total: {projects.length} project{projects.length !== 1 ? 's' : ''}</Text>
           {projects.map(project => (
             <Box 
-              key={project.namespace} 
-              className="p-3 border border-grayShade2 rounded hover:bg-grayShade1/30"
+              key={project.id} 
+              className="p-3 border border-grayShade2 rounded"
             >
               <Flex justify="between" align="center">
                 <Box>
                   <Text className="font-medium">{project.name}</Text>
                   <Text className="text-xs text-gray">
-                    Namespace: {project.namespace} | ID: {project.id}
+                    Project ID: {project.id} | Namespace: {project.name}
                   </Text>
                 </Box>
-                <Flex gap={2} align="center">
-                  {project.role && (
-                    <Badge size="sm" variant="default">
-                      {project.role}
-                    </Badge>
-                  )}
-                  <Select
-                    value={project.role || 'add'}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === 'remove') {
-                        updateProjectRole(project.name, '', 'remove');
-                      } else if (value !== project.role) {
-                        updateProjectRole(project.name, value, 'add');
-                      }
-                    }}
-                    disabled={updating === project.name}
-                    className="w-40"
-                  >
-                    <option value="add" disabled>Add Role</option>
-                    <option value="Data owner">Data owner</option>
-                    <option value="Data scientist">Data scientist</option>
-                    <option value="Observer">Observer</option>
-                    <option value="remove">Remove Access</option>
-                  </Select>
-                </Flex>
+                {project.role && (
+                  <Badge size="sm" variant="default">
+                    {project.role}
+                  </Badge>
+                )}
               </Flex>
             </Box>
           ))}
         </Box>
       )}
-
-      <Box className="mt-4 p-3 bg-infoShade1 border border-infoDefault rounded">
-        <Text className="text-xs text-infoDefault">
-          <strong>Note:</strong> Changes are applied immediately in Hopsworks. 
-          Team members will get access on their next login through the health check system.
-        </Text>
-      </Box>
     </Card>
   );
 }

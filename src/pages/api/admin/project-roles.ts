@@ -1,7 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
-import { addUserToProject, getUserProjects } from '../../../lib/hopsworks-team';
+import { addUserToProject } from '../../../lib/hopsworks-team';
+import { getUserProjects, getHopsworksUserByAuth0Id } from '../../../lib/hopsworks-api';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -71,8 +72,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'User has no Hopsworks username' });
       }
 
-      // Get user's projects from Hopsworks
-      const projects = await getUserProjects(credentials, hopsworksUsername);
+      // Get user's Hopsworks user ID first
+      const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, user.email);
+      
+      // Get user's projects from Hopsworks (properly filtered by user)
+      const projects = await getUserProjects(credentials, hopsworksUsername, hopsworksUser?.id);
 
       return res.status(200).json({ projects });
 
@@ -205,8 +209,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         apiKey: cluster.api_key
       };
 
-      // Get owner's projects
-      const ownerProjects = await getUserProjects(credentials, owner.hopsworks_username!);
+      // Get owner's Hopsworks user info
+      const ownerHopsworksUser = await getHopsworksUserByAuth0Id(credentials, ownerId, '');
+      
+      // Get owner's projects (properly filtered)
+      const ownerProjects = await getUserProjects(credentials, owner.hopsworks_username!, ownerHopsworksUser?.id);
 
       const addedToProjects: string[] = [];
       const errors: string[] = [];

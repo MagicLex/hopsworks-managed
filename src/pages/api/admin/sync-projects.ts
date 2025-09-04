@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import { getAllProjects } from '../../../lib/hopsworks-validation';
+import { getUserProjects } from '../../../lib/hopsworks-api';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -67,7 +68,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       rolesInDb: dbRoles?.length || 0,
       deletedProjects: 0,
       deletedRoles: 0,
-      updatedProjects: 0
+      updatedProjects: 0,
+      userProjectsSynced: 0,
+      usersProcessed: 0
     };
 
     // Clean up user_projects table
@@ -123,6 +126,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (!updateError1 || !updateError2) {
         stats.updatedProjects++;
+      }
+    }
+
+    // Now sync user-project relationships for all users with Hopsworks usernames
+    const { data: usersWithHopsworks } = await supabaseAdmin
+      .from('users')
+      .select('id, email, hopsworks_username, account_owner_id')
+      .not('hopsworks_username', 'is', null)
+      .is('account_owner_id', null); // Only sync account owners, not team members
+
+    if (usersWithHopsworks) {
+      for (const user of usersWithHopsworks) {
+        try {
+          console.log(`Syncing projects for user ${user.email} (${user.hopsworks_username})`);
+          const userProjects = await getUserProjects(credentials, user.hopsworks_username!);
+          console.log(`Found ${userProjects.length} projects for ${user.email}`);
+          
+          if (userProjects.length > 0) {
+            // Prepare projects for upsert
+            // Note: Kubernetes namespaces are just the project name (e.g., 'hellomot', not 'project-hellomot')
+            const projectsToUpsert = userProjects.map(p => ({
+              user_id: user.id,
+              project_id: p.id,
+              project_name: p.name,
+              namespace: p.name, // Use actual K8s namespace name
+              status: 'active' as const,
+              last_seen_at: new Date().toISOString()
+            }));
+
+            // Upsert user's projects
+            const { error: upsertError } = await supabaseAdmin
+              .from('user_projects')
+              .upsert(projectsToUpsert, { 
+                onConflict: 'user_id,project_id',
+                ignoreDuplicates: false 
+              });
+
+            if (!upsertError) {
+              stats.userProjectsSynced += userProjects.length;
+            } else {
+              console.error(`Failed to upsert projects for ${user.email}:`, upsertError);
+            }
+          } else {
+            // No projects found - could be legitimate or API failure
+            console.log(`No projects returned for ${user.email}`);
+          }
+
+          stats.usersProcessed++;
+        } catch (error) {
+          console.error(`Failed to sync projects for user ${user.email}:`, error);
+        }
       }
     }
 

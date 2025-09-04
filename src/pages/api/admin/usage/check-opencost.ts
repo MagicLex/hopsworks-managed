@@ -29,8 +29,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const opencost = new OpenCostDirect(cluster.kubeconfig);
 
     try {
-      // Get current hour's data from OpenCost
-      const allocations = await opencost.getOpenCostAllocations('1h');
+      // Get 24 hour window to see more projects with activity
+      const allocations = await opencost.getOpenCostAllocations('24h');
       
       // Convert to readable format
       const namespaces = [];
@@ -48,7 +48,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       return res.status(200).json({
         timestamp: new Date().toISOString(),
-        window: 'Last hour',
+        window: 'Last 24 hours',
         totalNamespaces: namespaces.length,
         totalCost: namespaces.reduce((sum, ns) => sum + ns.totalCost, 0),
         namespaces: namespaces.sort((a, b) => b.totalCost - a.totalCost)

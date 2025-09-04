@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Box, Flex, Title, Text, Button, Card, Badge } from 'tailwind-quartz';
 import Navbar from '@/components/Navbar';
-import ProjectRoleManager from '@/components/admin/ProjectRoleManager';
+import UserProjectsViewer from '@/components/admin/ProjectRoleManager';
 
 interface User {
   id: string;
@@ -51,6 +51,8 @@ export default function AdminPage() {
   const [openCostData, setOpenCostData] = useState<any | null>(null);
   const [databaseData, setDatabaseData] = useState<any | null>(null);
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const usersPerPage = 20;
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -199,8 +201,11 @@ export default function AdminPage() {
     );
   }
 
-  // Show all users, not just those with activity
-  const activeUsers = users;
+  // Pagination
+  const totalPages = Math.ceil(users.length / usersPerPage);
+  const startIndex = (currentPage - 1) * usersPerPage;
+  const endIndex = startIndex + usersPerPage;
+  const paginatedUsers = users.slice(startIndex, endIndex);
 
   return (
     <>
@@ -249,7 +254,7 @@ export default function AdminPage() {
             {/* OpenCost Check Result */}
             {openCostData && (
               <Card className="mb-4 border border-infoDefault bg-infoShade1">
-                <Text className="text-infoDefault font-semibold mb-2">OpenCost Data (Last Hour)</Text>
+                <Text className="text-infoDefault font-semibold mb-2">OpenCost Data ({openCostData?.window || 'Last 24 hours'})</Text>
                 <Text className="text-sm mb-1">
                   Namespaces: {openCostData.totalNamespaces} | Total Cost: ${openCostData.totalCost?.toFixed(4)}
                 </Text>
@@ -294,14 +299,14 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.length === 0 ? (
+                  {paginatedUsers.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-gray">
                         No users found in the system.
                       </td>
                     </tr>
                   ) : (
-                    users.map(user => {
+                    paginatedUsers.map(user => {
                       const totalPayg = getUserTotalPayg(user);
                       const todayCost = getUserTodayCost(user);
                       const isExpanded = expandedUsers.has(user.id);
@@ -382,27 +387,13 @@ export default function AdminPage() {
                             <tr key={`${user.id}-expanded`}>
                               <td colSpan={6} className="bg-grayShade1/20 p-4">
                                 <Box className="ml-8 space-y-4">
-                                  {/* Project Role Manager */}
-                                  <ProjectRoleManager
+                                  {/* User's Projects Viewer */}
+                                  <UserProjectsViewer
                                     userId={user.id}
                                     userEmail={user.email}
                                     isTeamMember={!!user.account_owner_id}
                                     accountOwnerId={user.account_owner_id}
                                   />
-                                  
-                                  {/* Simple project list */}
-                                  {user.projects && user.projects.length > 0 && (
-                                    <Box>
-                                      <Text className="text-sm font-semibold mb-3">Projects ({user.projects.length})</Text>
-                                      <Flex gap={8} className="flex-wrap">
-                                        {user.projects.map(project => (
-                                          <Badge key={project.id || project.namespace} size="sm" variant="default">
-                                            {project.name}
-                                          </Badge>
-                                        ))}
-                                      </Flex>
-                                    </Box>
-                                  )}
                                 </Box>
                               </td>
                             </tr>
@@ -415,15 +406,41 @@ export default function AdminPage() {
               </table>
             </Box>
             
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <Flex justify="center" align="center" className="mt-4 gap-2">
+                <Button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  size="sm"
+                  intent="secondary"
+                >
+                  Previous
+                </Button>
+                <Text className="text-sm px-4">
+                  Page {currentPage} of {totalPages}
+                </Text>
+                <Button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  size="sm"
+                  intent="secondary"
+                >
+                  Next
+                </Button>
+              </Flex>
+            )}
+            
             {/* Summary */}
             {users.length > 0 && (
               <Box className="mt-6 pt-4 border-t border-grayShade2">
                 <Flex justify="between" align="center">
                   <Text className="text-sm text-gray">
                     Total Users: {users.length} | With Activity: {users.filter(u => (u.projects && u.projects.length > 0)).length}
+                    {totalPages > 1 && ` | Showing ${startIndex + 1}-${Math.min(endIndex, users.length)}`}
                   </Text>
                   <Box className="text-right">
-                    <Text className="text-sm text-gray">Total Today&apos;s Cost</Text>
+                    <Text className="text-sm text-gray">Total Today&apos;s Cost (All Users)</Text>
                     <Text className="font-mono font-semibold text-lg">
                       ${users.reduce((sum, u) => sum + getUserTodayCost(u), 0).toFixed(2)}
                     </Text>
