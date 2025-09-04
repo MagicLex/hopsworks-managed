@@ -454,20 +454,26 @@ export default function Dashboard() {
                             const autoOAuthUrl = `${instance.endpoint}/autoOAuth?providerName=Auth0`;
                             window.open(autoOAuthUrl, '_blank');
                             
-                            // Trigger sync-user after 2 seconds to fix maxNumProjects
-                            // This allows time for OAuth2 to create the user in Hopsworks
-                            setTimeout(async () => {
-                              try {
-                                await fetch('/api/auth/sync-user', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({})
-                                });
-                                console.log('Triggered sync-user after Hopsworks access');
-                              } catch (error) {
-                                console.error('Failed to trigger sync-user:', error);
-                              }
-                            }, 2000);
+                            // Only trigger sync if user needs it (missing Hopsworks info or payment but no projects)
+                            const needsSync = !hopsworksInfo?.hopsworksUserId || 
+                                            (billing?.hasPaymentMethod && (!hopsworksInfo?.projects || hopsworksInfo.projects.length === 0));
+                            
+                            if (needsSync) {
+                              // Trigger sync-user after 2 seconds to fix maxNumProjects
+                              // This allows time for OAuth2 to create the user in Hopsworks
+                              setTimeout(async () => {
+                                try {
+                                  await fetch('/api/auth/sync-user', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({})
+                                  });
+                                  console.log('Triggered sync-user after Hopsworks access');
+                                } catch (error) {
+                                  console.error('Failed to trigger sync-user:', error);
+                                }
+                              }, 2000);
+                            }
                           }
                         }}
                       >
