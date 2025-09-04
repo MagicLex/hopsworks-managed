@@ -255,20 +255,12 @@ export async function getProjectUsage(
 }
 
 /**
- * Get user by Auth0 ID
- * @deprecated Use getHopsworksUserByUsername instead when username is known
+ * Get user by email (works for OAuth2 users)
  */
-export async function getHopsworksUserByAuth0Id(
+export async function getHopsworksUserByEmail(
   credentials: HopsworksCredentials,
-  auth0Id: string,
-  userEmail?: string
+  email: string
 ): Promise<HopsworksUser | null> {
-  // Hopsworks doesn't store Auth0 IDs, so we need to match by email
-  // This requires passing the user's email from our database
-  if (!userEmail) {
-    return null;
-  }
-
   const response = await fetch(
     `${credentials.apiUrl}${ADMIN_API_BASE}/users`,
     {
@@ -287,12 +279,27 @@ export async function getHopsworksUserByAuth0Id(
   const data = await response.json();
   const users = data.items || [];
   
-  // Find user by email and OAuth2 account type
+  // Find user by email - OAuth2 or REMOTE_ACCOUNT_TYPE
   const user = users.find((u: any) => 
-    u.email === userEmail && u.accountType === 'OAUTH2'
+    u.email === email && (u.accountType === 'OAUTH2' || u.accountType === 'REMOTE_ACCOUNT_TYPE')
   );
   
   return user || null;
+}
+
+/**
+ * Get user by Auth0 ID
+ * @deprecated Use getHopsworksUserByEmail instead
+ */
+export async function getHopsworksUserByAuth0Id(
+  credentials: HopsworksCredentials,
+  auth0Id: string,
+  userEmail?: string
+): Promise<HopsworksUser | null> {
+  if (!userEmail) {
+    return null;
+  }
+  return getHopsworksUserByEmail(credentials, userEmail);
 }
 
 /**
