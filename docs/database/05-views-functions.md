@@ -14,7 +14,6 @@ SELECT
   tm.name as member_name,
   tm.created_at as joined_at,
   tm.hopsworks_username,
-  tm.hopsworks_project_id,
   tm.last_login_at,
   owner.id as owner_id,
   owner.email as owner_email,

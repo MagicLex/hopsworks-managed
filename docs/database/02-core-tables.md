@@ -26,14 +26,10 @@ CREATE TABLE users (
   
   -- Features
   is_admin BOOLEAN DEFAULT false,           -- Platform admin flag
-  auto_refill_enabled BOOLEAN DEFAULT false,
-  auto_refill_amount DECIMAL(10,2) DEFAULT 50.00,
-  auto_refill_threshold DECIMAL(10,2) DEFAULT 10.00,
   feature_flags JSONB DEFAULT '{}'::jsonb,  -- Feature toggles
   
   -- Hopsworks
   hopsworks_username TEXT,                  -- Username in Hopsworks system
-  hopsworks_project_id INTEGER,             -- Assigned project (for team members)
   
   -- Metadata
   registration_source TEXT,                 -- How user found us

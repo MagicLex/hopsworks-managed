@@ -19,13 +19,9 @@ export interface Database {
           stripe_customer_id?: string | null;
           stripe_test_customer_id?: string | null;
           is_admin?: boolean;
-          auto_refill_enabled?: boolean;
-          auto_refill_amount?: number;
-          auto_refill_threshold?: number;
           feature_flags?: any;
           hopsworks_username?: string | null;
           hopsworks_user_id?: number | null;
-          hopsworks_project_id?: number | null;
         };
         Insert: Omit<Database['public']['Tables']['users']['Row'], 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['users']['Insert']>;

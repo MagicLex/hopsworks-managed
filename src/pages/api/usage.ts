@@ -84,7 +84,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .from('users')
       .select(`
         email,
-        hopsworks_project_id,
         user_hopsworks_assignments (
           hopsworks_clusters (
             id,
@@ -106,7 +105,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const cluster = Array.isArray(clusterData) ? clusterData[0] : clusterData;
       
       if (!cluster) {
-        projectsCount = userData?.hopsworks_project_id ? 1 : 0;
+        projectsCount = 0;
       } else {
         try {
           const { getHopsworksUserByAuth0Id, getUserProjects } = await import('../../lib/hopsworks-api');
@@ -129,12 +128,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } catch (error) {
           console.error('Error fetching Hopsworks data:', error);
           // Fall back to database values
-          projectsCount = userData?.hopsworks_project_id ? 1 : 0;
+          projectsCount = 0;
         }
       }
     } else {
       // No cluster assigned, use database values
-      projectsCount = userData?.hopsworks_project_id ? 1 : 0;
+      projectsCount = 0;
     }
 
     return res.status(200).json({

@@ -29,14 +29,10 @@ CREATE TABLE IF NOT EXISTS users (
   
   -- Features
   is_admin BOOLEAN DEFAULT false,
-  auto_refill_enabled BOOLEAN DEFAULT false,
-  auto_refill_amount DECIMAL(10,2) DEFAULT 50.00,
-  auto_refill_threshold DECIMAL(10,2) DEFAULT 10.00,
   feature_flags JSONB DEFAULT '{}'::jsonb,
   
   -- Hopsworks
   hopsworks_username TEXT,
-  hopsworks_project_id INTEGER,
   
   -- Metadata
   registration_source TEXT,
@@ -207,7 +203,6 @@ SELECT
   tm.name as member_name,
   tm.created_at as joined_at,
   tm.hopsworks_username,
-  tm.hopsworks_project_id,
   tm.last_login_at,
   owner.id as owner_id,
   owner.email as owner_email,

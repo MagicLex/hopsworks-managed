@@ -72,7 +72,6 @@ interface TeamData {
     created_at: string;
     last_login_at: string;
     hopsworks_username: string;
-    hopsworks_project_id: number;
     status: string;
   }>;
   is_owner: boolean;
@@ -455,7 +454,7 @@ export default function Dashboard() {
                             window.open(autoOAuthUrl, '_blank');
                             
                             // Only trigger sync if user needs it (missing Hopsworks info or payment but no projects)
-                            const needsSync = !hopsworksInfo?.hopsworksUserId || 
+                            const needsSync = !hopsworksInfo?.hopsworksUser || 
                                             (billing?.hasPaymentMethod && (!hopsworksInfo?.projects || hopsworksInfo.projects.length === 0));
                             
                             if (needsSync) {

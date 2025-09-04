@@ -42,7 +42,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           created_at,
           last_login_at,
           hopsworks_username,
-          hopsworks_project_id,
           status
         `)
         .eq('account_owner_id', accountOwnerId)
@@ -116,8 +115,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { error } = await supabase
         .from('users')
         .update({ 
-          account_owner_id: null,
-          hopsworks_project_id: null 
+          account_owner_id: null
         })
         .eq('id', memberId);
 
@@ -133,52 +131,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Internal server error' });
     }
   } else if (req.method === 'PATCH') {
-    try {
-      const { memberId, hopsworks_project_id } = req.body;
-
-      if (!memberId || typeof memberId !== 'string') {
-        return res.status(400).json({ error: 'Member ID is required' });
-      }
-
-      // Only account owners can update team members
-      const { data: currentUser } = await supabase
-        .from('users')
-        .select('account_owner_id')
-        .eq('id', userId)
-        .single();
-
-      if (currentUser?.account_owner_id !== null) {
-        return res.status(403).json({ error: 'Only account owners can update team members' });
-      }
-
-      // Verify the member belongs to this account
-      const { data: member, error: memberError } = await supabase
-        .from('users')
-        .select('account_owner_id')
-        .eq('id', memberId)
-        .single();
-
-      if (memberError || !member || member.account_owner_id !== userId) {
-        return res.status(404).json({ error: 'Team member not found' });
-      }
-
-      // Update team member's project ID
-      const { error } = await supabase
-        .from('users')
-        .update({ hopsworks_project_id })
-        .eq('id', memberId);
-
-      if (error) {
-        console.error('Failed to update team member:', error);
-        return res.status(500).json({ error: 'Failed to update team member' });
-      }
-
-      return res.status(200).json({ message: 'Team member updated successfully' });
-
-    } catch (error) {
-      console.error('Update team member error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
-    }
+    // PATCH endpoint removed - team member project assignment should be handled via user_projects table
+    return res.status(501).json({ error: 'Team member project assignment has been deprecated' });
   } else {
     return res.status(405).json({ error: 'Method not allowed' });
   }

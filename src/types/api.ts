@@ -81,7 +81,6 @@ export interface HopsworksTestResult {
     user: {
       id: string;
       email: string;
-      hopsworks_project_id: string;
     };
     hopsworksData: Record<string, unknown>;
     kubernetesMetrics?: {
