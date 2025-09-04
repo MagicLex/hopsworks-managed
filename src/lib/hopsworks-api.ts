@@ -82,29 +82,37 @@ export async function createHopsworksOAuthUser(
   auth0Id: string,
   maxNumProjects: number = 0
 ): Promise<HopsworksUser> {
-  const response = await fetch(`${credentials.apiUrl}${HOPSWORKS_API_BASE}/admin/users`, {
+  // Build query parameters - accountType must be in query string
+  const params = new URLSearchParams({
+    accountType: 'REMOTE_ACCOUNT_TYPE',
+    type: 'OAUTH2',
+    clientId: process.env.AUTH0_CLIENT_ID!,
+    subject: auth0Id,
+    email,
+    givenName: firstName,
+    surname: lastName,
+    maxNumProjects: maxNumProjects.toString(),
+    status: 'ACTIVATED'
+  });
+  
+  const response = await fetch(`${credentials.apiUrl}${HOPSWORKS_API_BASE}/admin/users?${params.toString()}`, {
     method: 'POST',
     headers: {
-      'Authorization': `ApiKey ${credentials.apiKey}`,
-      'Content-Type': 'application/json'
+      'Authorization': `ApiKey ${credentials.apiKey}`
     },
-    body: JSON.stringify({
-      accountType: 'REMOTE_ACCOUNT_TYPE',
-      type: 'OAUTH2',
-      clientId: process.env.AUTH0_CLIENT_ID,
-      subject: auth0Id,
-      email,
-      givenName: firstName,
-      surname: lastName,
-      maxNumProjects: maxNumProjects,
-      status: 'ACTIVATED'
-    }),
     // @ts-ignore - Node.js fetch doesn't have proper agent typing
     agent: httpsAgent
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to create Hopsworks user: ${response.statusText}`);
+    let errorDetails = response.statusText;
+    try {
+      const errorBody = await response.text();
+      errorDetails = errorBody || response.statusText;
+    } catch (e) {
+      // Keep original error if can't parse response
+    }
+    throw new Error(`Failed to create Hopsworks user: ${errorDetails}`);
   }
 
   const data = await response.json();
