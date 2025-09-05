@@ -152,6 +152,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .filter(Boolean)
     );
 
+    // Always allow hopsworks.ai domain for testing
+    authorizedDomains.add('hopsworks.ai');
+
     // Check if user's email domain matches any authorized domain
     const userDomain = email.toLowerCase().split('@')[1];
     const isValidEmail = authorizedDomains.has(userDomain);
