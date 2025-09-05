@@ -1,4 +1,4 @@
-import { handleAuth, handleLogin, handleCallback } from '@auth0/nextjs-auth0';
+import { handleAuth, handleLogin, handleCallback, handleLogout } from '@auth0/nextjs-auth0';
 import { NextApiRequest } from 'next';
 import { createClient } from '@supabase/supabase-js';
 
@@ -18,5 +18,8 @@ export default handleAuth({
     authorizationParams: {
       screen_hint: 'signup'
     }
+  }),
+  logout: handleLogout({
+    returnTo: process.env.AUTH0_BASE_URL
   })
 });

@@ -16,7 +16,6 @@ export const UserProfile: React.FC = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    setIsDropdownOpen(false);
   };
 
   const handleNavigation = (path: string) => {
