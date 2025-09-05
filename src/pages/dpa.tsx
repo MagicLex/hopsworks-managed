@@ -21,8 +21,8 @@ export default function DataProcessingAgreement() {
             <Box>
               <Title className="text-xl font-semibold mb-4">1. Introduction and Scope</Title>
               <Text className="text-gray-700 leading-relaxed">
-                This Data Processing Agreement ("DPA") forms part of the Terms of Service between you ("Controller") 
-                and Hopsworks AB ("Processor") and governs the processing of personal data in connection with the 
+                This Data Processing Agreement (&ldquo;DPA&rdquo;) forms part of the Terms of Service between you (&ldquo;Controller&rdquo;) 
+                and Hopsworks AB (&ldquo;Processor&rdquo;) and governs the processing of personal data in connection with the 
                 Hopsworks Managed platform. This DPA applies where and only to the extent that Hopsworks processes 
                 personal data on behalf of the Controller.
               </Text>
@@ -74,7 +74,7 @@ export default function DataProcessingAgreement() {
                 <Box>
                   <Text className="font-medium text-gray-900 mb-2">Categories of Data Subjects:</Text>
                   <Text className="text-gray-700 leading-relaxed">
-                    End users of Controller's systems, employees, customers, and other individuals whose 
+                    End users of Controller&apos;s systems, employees, customers, and other individuals whose 
                     personal data is processed through the platform.
                   </Text>
                 </Box>
@@ -190,7 +190,7 @@ export default function DataProcessingAgreement() {
               <Title className="text-xl font-semibold mb-4">13. Liability and Indemnification</Title>
               <Text className="text-gray-700 leading-relaxed">
                 Each party is liable for damages caused by its infringement of applicable data protection 
-                laws. The Controller will indemnify Hopsworks against claims arising from the Controller's 
+                laws. The Controller will indemnify Hopsworks against claims arising from the Controller&apos;s 
                 violation of data protection laws or processing instructions.
               </Text>
             </Box>

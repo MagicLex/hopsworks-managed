@@ -21,7 +21,7 @@ export default function AcceptableUsePolicy() {
             <Box>
               <Title className="text-xl font-semibold mb-4">1. Purpose</Title>
               <Text className="text-gray-700 leading-relaxed">
-                This Acceptable Use Policy ("AUP") governs your use of the Hopsworks Managed platform 
+                This Acceptable Use Policy (&ldquo;AUP&rdquo;) governs your use of the Hopsworks Managed platform 
                 and services provided by Hopsworks AB. This policy is designed to ensure the security, 
                 availability, and integrity of our services for all users.
               </Text>
@@ -156,7 +156,7 @@ export default function AcceptableUsePolicy() {
               <Title className="text-xl font-semibold mb-4">9. Appeals Process</Title>
               <Text className="text-gray-700 leading-relaxed">
                 If you believe your account was suspended or terminated in error, you may appeal by 
-                contacting us at info@hopsworks.ai with "AUP Appeal" in the subject line. Include 
+                contacting us at info@hopsworks.ai with &ldquo;AUP Appeal&rdquo; in the subject line. Include 
                 your account information and explanation of why you believe the action was taken in error.
               </Text>
             </Box>

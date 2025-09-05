@@ -21,9 +21,9 @@ export default function Terms() {
             <Box>
               <Title className="text-xl font-semibold mb-4">1. Agreement Overview</Title>
               <Text className="text-gray-700 leading-relaxed">
-                This Terms of Service agreement ("Agreement") governs your use of the Hopsworks Managed 
-                platform-as-a-service ("Service") provided by Hopsworks AB ("Company", "we", "us", or "our").
-                By accessing or using our Service, you ("Customer", "you", or "your") agree to be bound by these terms.
+                This Terms of Service agreement (&ldquo;Agreement&rdquo;) governs your use of the Hopsworks Managed 
+                platform-as-a-service (&ldquo;Service&rdquo;) provided by Hopsworks AB (&ldquo;Company&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;).
+                By accessing or using our Service, you (&ldquo;Customer&rdquo;, &ldquo;you&rdquo;, or &ldquo;your&rdquo;) agree to be bound by these terms.
               </Text>
             </Box>
 
@@ -67,7 +67,7 @@ export default function Terms() {
             <Box>
               <Title className="text-xl font-semibold mb-4">5. Data and Privacy</Title>
               <Text className="text-gray-700 leading-relaxed">
-                You retain ownership of all data you upload to the Service ("Customer Data"). 
+                You retain ownership of all data you upload to the Service (&ldquo;Customer Data&rdquo;). 
                 We process your data solely to provide the Service and in accordance with our 
                 Privacy Policy and Data Processing Agreement. We implement industry-standard 
                 security measures to protect your data.
@@ -81,7 +81,7 @@ export default function Terms() {
               </Text>
               <Box className="ml-6">
                 <Text className="text-gray-700 leading-relaxed">• Use the Service for illegal activities or violate applicable laws</Text>
-                <Text className="text-gray-700 leading-relaxed">• Attempt to gain unauthorized access to our systems or other users' data</Text>
+                <Text className="text-gray-700 leading-relaxed">• Attempt to gain unauthorized access to our systems or other users&apos; data</Text>
                 <Text className="text-gray-700 leading-relaxed">• Use the Service to develop competing products or services</Text>
                 <Text className="text-gray-700 leading-relaxed">• Reverse engineer, decompile, or disassemble any part of the Service</Text>
                 <Text className="text-gray-700 leading-relaxed">• Process sensitive data (PHI, PCI data) without explicit authorization</Text>
@@ -110,7 +110,7 @@ export default function Terms() {
             <Box>
               <Title className="text-xl font-semibold mb-4">9. Termination</Title>
               <Text className="text-gray-700 leading-relaxed">
-                Either party may terminate this Agreement with 30 days' notice. We may terminate 
+                Either party may terminate this Agreement with 30 days&apos; notice. We may terminate 
                 immediately for material breach of these terms. Upon termination, you will retain 
                 access to export your data for a reasonable period.
               </Text>

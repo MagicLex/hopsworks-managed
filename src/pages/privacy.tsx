@@ -21,9 +21,9 @@ export default function Privacy() {
             <Box>
               <Title className="text-xl font-semibold mb-4">1. Introduction</Title>
               <Text className="text-gray-700 leading-relaxed">
-                Hopsworks AB ("we", "us", or "our") respects your privacy and is committed to protecting 
+                Hopsworks AB (&ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;) respects your privacy and is committed to protecting 
                 your personal data. This Privacy Policy explains how we collect, use, and protect your 
-                information when you use the Hopsworks Managed platform ("Service").
+                information when you use the Hopsworks Managed platform (&ldquo;Service&rdquo;).
               </Text>
             </Box>
 
@@ -139,7 +139,7 @@ export default function Privacy() {
             </Box>
 
             <Box>
-              <Title className="text-xl font-semibold mb-4">10. Children's Privacy</Title>
+              <Title className="text-xl font-semibold mb-4">10. Children&apos;s Privacy</Title>
               <Text className="text-gray-700 leading-relaxed">
                 Our Service is not intended for children under 16 years of age. We do not knowingly collect 
                 personal information from children under 16. If we become aware of such data, we will delete 
