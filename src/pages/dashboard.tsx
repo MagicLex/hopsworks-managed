@@ -457,7 +457,7 @@ export default function Dashboard() {
                                             (billing?.hasPaymentMethod && (!hopsworksInfo?.projects || hopsworksInfo.projects.length === 0));
                             
                             if (needsSync) {
-                              // Trigger sync-user after 2 seconds to fix maxNumProjects
+                              // Trigger sync-user after 5 seconds to fix maxNumProjects
                               // This allows time for OAuth2 to create the user in Hopsworks
                               setTimeout(async () => {
                                 try {
@@ -470,7 +470,7 @@ export default function Dashboard() {
                                 } catch (error) {
                                   console.error('Failed to trigger sync-user:', error);
                                 }
-                              }, 2000);
+                              }, 5000);
                             }
                           }
                         }}
