@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 import { BillingToggle } from '@/components/BillingToggle';
 import { DeploymentCard } from '@/components/DeploymentCard';
 import { deploymentOptions, DeploymentOption } from '@/data/deployments';
-import Navbar from '@/components/Navbar';
+import Layout from '@/components/Layout';
 import { DeployModal } from '@/components/DeployModal';
 import { Box, Title, Text, Flex } from 'tailwind-quartz';
 import { useAuth } from '@/contexts/AuthContext';
@@ -133,9 +133,7 @@ export default function Home() {
         />
       </Head>
       
-      <Navbar />
-      
-      <Box as="main" className="min-h-screen py-10 px-5">
+      <Layout className="py-10 px-5">
         <Box className="max-w-6xl mx-auto">
           {corporateError && (
             <Box className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -163,7 +161,7 @@ export default function Home() {
             ))}
           </Flex>
         </Box>
-      </Box>
+      </Layout>
       
       <DeployModal 
         isOpen={isModalOpen}

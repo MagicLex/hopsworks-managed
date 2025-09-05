@@ -6,7 +6,7 @@ import { useApiData } from '@/hooks/useApiData';
 import { Box, Flex, Title, Text, Button, Card, Badge, Tabs, TabsContent, TabsList, TabsTrigger, Modal, Input, Select } from 'tailwind-quartz';
 import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle, UserPlus, Mail, Download, Calendar, AlertTriangle, TrendingUp, Clock, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
-import Navbar from '@/components/Navbar';
+import Layout from '@/components/Layout';
 import ClusterAccessStatus from '@/components/ClusterAccessStatus';
 import TeamMemberProjects from '@/components/team/TeamMemberProjects';
 import CardSkeleton from '@/components/CardSkeleton';
@@ -280,8 +280,7 @@ export default function Dashboard() {
         <meta name="description" content="Manage your Hopsworks instance, monitor usage, and access your ML platform resources." />
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      <Navbar />
-      <Box className="min-h-screen py-10 px-5">
+      <Layout className="py-10 px-5">
         <Box className="max-w-6xl mx-auto">
           {/* Team Member Banner */}
           {billing?.isTeamMember && (
@@ -1289,7 +1288,7 @@ mr = project.get_model_registry()`;
             </TabsContent>
           </Tabs>
         </Box>
-      </Box>
+      </Layout>
       
       {/* Invite Modal */}
       <Modal
