@@ -50,51 +50,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'This invite is for a different email address' });
     }
 
-    // Check if user already exists
-    const { data: existingUser } = await supabase
+    // Use upsert to handle race conditions
+    const { data: existingUser, error: fetchError } = await supabase
       .from('users')
       .select('id, account_owner_id')
       .eq('id', userId)
       .single();
 
-    if (existingUser) {
-      // User exists - check if they're already part of a team
-      if (existingUser.account_owner_id) {
-        return res.status(400).json({ error: 'You are already part of a team' });
-      }
+    if (existingUser?.account_owner_id) {
+      return res.status(400).json({ error: 'You are already part of a team' });
+    }
 
-      // Update existing user to be part of the team
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ 
-          account_owner_id: invite.account_owner_id,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
-
-      if (updateError) {
-        console.error('Failed to update user:', updateError);
-        return res.status(500).json({ error: 'Failed to join team' });
-      }
-    } else {
-      // Create new user as team member
-      const { error: createError } = await supabase
-        .from('users')
-        .insert({
-          id: userId,
-          email: userEmail,
-          name: session.user.name || null,
-          account_owner_id: invite.account_owner_id,
-          status: 'active',
+    // Upsert user - either create new or update existing
+    const { error: upsertError } = await supabase
+      .from('users')
+      .upsert({
+        id: userId,
+        email: userEmail,
+        name: session.user.name || null,
+        account_owner_id: invite.account_owner_id,
+        status: 'active',
+        updated_at: new Date().toISOString(),
+        // Only set these on insert, not update
+        ...(!existingUser && {
           login_count: 1,
           last_login_at: new Date().toISOString(),
           metadata: {}
-        });
+        })
+      }, {
+        onConflict: 'id'
+      });
 
-      if (createError) {
-        console.error('Failed to create user:', createError);
-        return res.status(500).json({ error: 'Failed to join team' });
-      }
+    if (upsertError) {
+      console.error('Failed to upsert user:', upsertError);
+      return res.status(500).json({ error: 'Failed to join team' });
     }
 
     // Mark invite as accepted

@@ -162,7 +162,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               });
               
             await supabaseAdmin.rpc('increment_cluster_users', { 
-              cluster_id: availableCluster.id 
+              p_cluster_id: availableCluster.id 
             });
 
             console.log(`Assigned prepaid user ${userId} to cluster`);

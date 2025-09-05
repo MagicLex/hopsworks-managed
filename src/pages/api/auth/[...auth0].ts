@@ -17,6 +17,12 @@ export default handleAuth({
   signup: handleLogin({
     authorizationParams: {
       screen_hint: 'signup'
+    },
+    getLoginState: (req: NextApiRequest) => {
+      // Preserve returnTo parameter for signup flow
+      return {
+        returnTo: req.query.returnTo as string || '/'
+      };
     }
   }),
   logout: handleLogout({

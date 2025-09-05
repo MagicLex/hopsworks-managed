@@ -153,15 +153,17 @@ export async function assignUserToCluster(
         }
       }
 
-      // Assign team member to same cluster as owner
+      // Assign team member to same cluster as owner (upsert to handle race conditions)
       const { error: assignError } = await supabaseAdmin
         .from('user_hopsworks_assignments')
-        .insert({
+        .upsert({
           user_id: userId,
           hopsworks_cluster_id: ownerAssignment.hopsworks_cluster_id,
           hopsworks_user_id: hopsworksUserId,
           hopsworks_username: hopsworksUsername,
           assigned_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,hopsworks_cluster_id'
         });
 
       if (assignError) {
@@ -170,7 +172,7 @@ export async function assignUserToCluster(
 
       // Increment cluster user count
       const { error: rpcError } = await supabaseAdmin.rpc('increment_cluster_users', {
-        cluster_id: ownerAssignment.hopsworks_cluster_id
+        p_cluster_id: ownerAssignment.hopsworks_cluster_id
       });
 
       if (rpcError) {
@@ -352,7 +354,7 @@ export async function assignUserToCluster(
 
     // Increment cluster user count
     const { error: rpcError } = await supabaseAdmin.rpc('increment_cluster_users', {
-      cluster_id: availableCluster.id
+      p_cluster_id: availableCluster.id
     });
 
     if (rpcError) {

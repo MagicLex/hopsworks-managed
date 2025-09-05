@@ -104,6 +104,8 @@ export async function createHopsworksOAuthUser(
   });
 
   if (!response.ok) {
+    const errorBody = await response.text();
+    console.error(`Hopsworks OAuth user creation failed: ${response.status} ${response.statusText}`, errorBody);
     throw new Error(`Failed to create Hopsworks user: ${response.statusText}`);
   }
 

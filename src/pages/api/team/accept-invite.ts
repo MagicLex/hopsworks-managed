@@ -42,13 +42,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(410).json({ error: 'Invite has expired' });
     }
 
+    // Check if user exists to determine signup vs login
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', invite.email.toLowerCase())
+      .single();
+
+    // Use signup for new users, login for existing
+    const authEndpoint = existingUser ? '/api/auth/login' : '/api/auth/signup';
+    
     // Return invite details for display on acceptance page
     return res.status(200).json({
       email: invite.email,
       invitedBy: invite.account_owner?.name || invite.account_owner?.email,
       expiresAt: invite.expires_at,
-      // Construct Auth0 login URL with the invite email pre-filled
-      loginUrl: `/api/auth/login?` + new URLSearchParams({
+      // Construct Auth0 URL with the invite email pre-filled
+      loginUrl: `${authEndpoint}?` + new URLSearchParams({
         returnTo: `/team/joining?token=${token}`,
         login_hint: invite.email
       }).toString()
