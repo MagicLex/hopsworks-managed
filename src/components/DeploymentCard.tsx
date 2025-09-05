@@ -65,10 +65,9 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
                 <span>No Orchestration</span>
               </Flex>
             </Flex>
-            <Flex align="center" gap={4} className="text-xs text-gray-500">
-              <span>🇫🇷</span>
-              <Labeling className="font-mono">FRANCE (Lille)</Labeling>
-            </Flex>
+            <Box className="inline-flex items-center px-2 py-0.5 bg-gray-700 text-white text-xs font-mono font-semibold uppercase tracking-wider rounded">
+              EU-WEST
+            </Box>
           </Box>
           <Button 
             onClick={() => onDeploy(deployment)}
@@ -146,10 +145,9 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
                 </Flex>
               )}
             </Box>
-            <Flex align="center" gap={4} className="text-[10px] text-gray-500">
-              <Globe size={10} />
-              <Labeling className="font-mono">US-EAST</Labeling>
-            </Flex>
+            <Box className="inline-flex items-center px-2 py-0.5 bg-black text-white text-xs font-mono font-semibold uppercase tracking-wider rounded">
+              US-EAST
+            </Box>
           </Box>
       
           <Flex className="flex-1 p-5" gap={32}>
@@ -159,7 +157,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
                 <Box key={category} className="flex-1">
                   <Flex align="center" gap={6} className="mb-2">
                     <Icon size={12} className="text-[#1eb182]" />
-                    <Labeling className="text-[10px] uppercase tracking-wider font-mono" gray>
+                    <Labeling className="text-xs uppercase tracking-wider font-mono" gray>
                       {category}
                     </Labeling>
                   </Flex>
