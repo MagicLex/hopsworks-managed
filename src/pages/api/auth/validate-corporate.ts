@@ -36,13 +36,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       const dealData = await dealResponse.json();
       
-      // Try to get company name
+      // Try to get company details
       let companyName = null;
+      let companyLogo = null;
+      let companyDomain = null;
       if (dealData.associations?.companies?.results?.length > 0) {
         const companyId = dealData.associations.companies.results[0].id;
         try {
           const companyResponse = await fetch(
-            `${HUBSPOT_API_URL}/crm/v3/objects/companies/${companyId}`,
+            `${HUBSPOT_API_URL}/crm/v3/objects/companies/${companyId}?properties=name,company,logo,website,domain`,
             {
               headers: {
                 'Authorization': `Bearer ${HUBSPOT_API_KEY}`,
@@ -53,6 +55,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           if (companyResponse.ok) {
             const companyData = await companyResponse.json();
             companyName = companyData.properties?.name || companyData.properties?.company;
+            companyLogo = companyData.properties?.logo;
+            companyDomain = companyData.properties?.domain || companyData.properties?.website;
           }
         } catch (err) {
           console.error('Failed to fetch company:', err);
@@ -62,7 +66,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ 
         valid: true, 
         dealName: dealData.properties?.dealname,
-        companyName: companyName 
+        companyName: companyName,
+        companyLogo: companyLogo,
+        companyDomain: companyDomain
       });
     } catch (error) {
       console.error('Deal validation error:', error);
@@ -123,7 +129,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'No contacts associated with deal' });
     }
 
-    // Fetch contact details to get emails
+    // Fetch contact details to get email domains
     const contactPromises = contactIds.map((id: string) =>
       fetch(`${HUBSPOT_API_URL}/crm/v3/objects/contacts/${id}?properties=email`, {
         headers: {
@@ -139,13 +145,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .filter(Boolean)
       .map((e: string) => e.toLowerCase());
 
-    // Check if user email matches any contact email
-    const isValidEmail = contactEmails.includes(email.toLowerCase());
+    // Extract unique domains from contact emails
+    const authorizedDomains = new Set(
+      contactEmails
+        .map(email => email.split('@')[1])
+        .filter(Boolean)
+    );
+
+    // Check if user's email domain matches any authorized domain
+    const userDomain = email.toLowerCase().split('@')[1];
+    const isValidEmail = authorizedDomains.has(userDomain);
 
     if (!isValidEmail) {
-      console.log(`Email ${email} not found in deal ${dealId} contacts: ${contactEmails.join(', ')}`);
+      console.log(`Email domain ${userDomain} not authorized for deal ${dealId}. Authorized domains: ${Array.from(authorizedDomains).join(', ')}`);
       return res.status(403).json({ 
-        error: 'Email not authorized for this corporate account',
+        error: 'Email domain not authorized for this corporate account',
         valid: false 
       });
     }

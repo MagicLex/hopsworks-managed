@@ -18,6 +18,7 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [corporateRef, setCorporateRef] = useState<string | null>(null);
   const [corporateCompanyName, setCorporateCompanyName] = useState<string | null>(null);
+  const [corporateLogo, setCorporateLogo] = useState<string | null>(null);
   const [corporateError, setCorporateError] = useState<string | null>(null);
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -42,6 +43,7 @@ export default function Home() {
           } else if (ok && data.valid) {
             setCorporateRef(ref);
             setCorporateCompanyName(data.companyName || data.dealName);
+            setCorporateLogo(data.companyLogo || (data.companyDomain ? `https://logo.clearbit.com/${data.companyDomain}` : null));
             // Store in sessionStorage for persistence
             sessionStorage.setItem('corporate_ref', ref);
           }
@@ -149,18 +151,23 @@ export default function Home() {
                   ❌ {corporateError}
                 </Text>
               ) : (
-                <Flex direction="column" gap={4}>
-                  <Text className="text-green-700 font-mono text-sm font-semibold">
-                    ✓ Corporate Registration
-                  </Text>
-                  {corporateCompanyName && (
-                    <Text className="text-green-600 font-mono text-xs">
-                      Company: {corporateCompanyName}
-                    </Text>
+                <Flex align="center" gap={12}>
+                  {corporateLogo && (
+                    <img 
+                      src={corporateLogo} 
+                      alt={corporateCompanyName || ''} 
+                      className="h-10 w-10 object-contain rounded"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
                   )}
-                  <Text className="text-green-600 font-mono text-xs">
-                    Sign up with your corporate email to get immediate access.
-                  </Text>
+                  <Flex direction="column" gap={4}>
+                    <Text className="text-green-700 font-mono text-sm font-semibold">
+                      ✓ Welcome {corporateCompanyName}
+                    </Text>
+                    <Text className="text-green-600 font-mono text-xs">
+                      Full platform access unlocked. Sign in with your {corporateCompanyName && (corporateCompanyName.toLowerCase().includes('inc') || corporateCompanyName.toLowerCase().includes('corp') || corporateCompanyName.toLowerCase().includes('ltd')) ? 'company' : corporateCompanyName} email.
+                    </Text>
+                  </Flex>
                 </Flex>
               )}
             </Box>
@@ -190,6 +197,7 @@ export default function Home() {
                   deployment={deployment}
                   isYearly={isYearly}
                   onDeploy={handleDeploy}
+                  isCorporate={!!corporateRef}
                 />
               ))}
           </Flex>

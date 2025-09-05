@@ -8,12 +8,14 @@ interface DeploymentCardProps {
   deployment: DeploymentOption;
   isYearly: boolean;
   onDeploy: (deployment: DeploymentOption) => void;
+  isCorporate?: boolean;
 }
 
 export const DeploymentCard: React.FC<DeploymentCardProps> = ({ 
   deployment, 
   isYearly, 
-  onDeploy 
+  onDeploy,
+  isCorporate = false 
 }) => {
   const price = isYearly ? deployment.yearlyPrice : deployment.monthlyPrice;
   const { pricing } = usePricing();
@@ -128,16 +130,20 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
               <Box className="w-1.5 h-1.5 bg-[#1eb182] rounded-full animate-pulse" />
             </Box>
             <Title as="h4" className="text-base mb-1">
-              {deployment.name}
+              {isCorporate && deployment.id === 'payg' ? 'Corporate' : deployment.name}
             </Title>
             <Box className="text-sm text-gray-600 mb-2">
               {price === 0 && deployment.id === 'serverless' ? (
                 <Badge variant="primary" size="sm" className="font-mono font-semibold">FREE</Badge>
               ) : deployment.id === 'payg' ? (
-                <Flex align="baseline" gap={4}>
-                  <Text className="font-mono font-semibold">${pricing.compute_credits.toFixed(2)}</Text>
-                  <Labeling gray>/credit</Labeling>
-                </Flex>
+                isCorporate ? (
+                  <Badge variant="primary" size="sm" className="font-mono font-semibold">PREPAID</Badge>
+                ) : (
+                  <Flex align="baseline" gap={4}>
+                    <Text className="font-mono font-semibold">${pricing.compute_credits.toFixed(2)}</Text>
+                    <Labeling gray>/credit</Labeling>
+                  </Flex>
+                )
               ) : (
                 <Flex align="baseline" gap={4}>
                   <Text className="font-mono font-semibold">${price}</Text>
