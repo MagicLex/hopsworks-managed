@@ -75,7 +75,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
             onClick={() => onDeploy(deployment)}
             intent="secondary"
             size="md"
-            className="font-mono uppercase tracking-wide"
+            className="font-mono uppercase tracking-wide w-[150px] justify-center"
           >
             Join Free
           </Button>
@@ -96,7 +96,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
             onClick={() => onDeploy(deployment)}
             intent="secondary"
             size="md"
-            className="font-mono uppercase tracking-wide"
+            className="font-mono uppercase tracking-wide w-[150px] justify-center"
           >
             Contact Sales
           </Button>
@@ -189,14 +189,12 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
             })}
           </Flex>
       
-          <Box className="flex-none w-36 p-5 border-l border-grayShade2 flex items-center">
+          <Box className="flex-none px-6 flex items-center">
             <Button
               onClick={() => onDeploy(deployment)}
               intent={deployment.id === 'payg' || deployment.isRecommended ? 'primary' : 'secondary'}
               size="md"
-              icon="BoltIcon"
-              iconPosition="left"
-              className="w-full font-mono uppercase tracking-wide"
+              className="font-mono uppercase tracking-wide whitespace-nowrap w-[150px] justify-center"
             >
               {getButtonText()}
             </Button>
