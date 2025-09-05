@@ -65,7 +65,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
                 <span>No Orchestration</span>
               </Flex>
             </Flex>
-            <Box className="inline-flex items-center px-2 py-0.5 bg-gray-700 text-white text-xs font-mono font-semibold uppercase tracking-wider rounded">
+            <Box className="inline-flex items-center px-2 py-0.5 bg-gray-700 text-white text-xs font-mono font-semibold uppercase tracking-wider">
               EU-WEST
             </Box>
           </Box>
@@ -145,7 +145,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
                 </Flex>
               )}
             </Box>
-            <Box className="inline-flex items-center px-2 py-0.5 bg-black text-white text-xs font-mono font-semibold uppercase tracking-wider rounded">
+            <Box className="inline-flex items-center px-2 py-0.5 bg-black text-white text-xs font-mono font-semibold uppercase tracking-wider">
               US-EAST
             </Box>
           </Box>
