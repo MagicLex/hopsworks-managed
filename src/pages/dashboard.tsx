@@ -457,20 +457,49 @@ export default function Dashboard() {
                                             (billing?.hasPaymentMethod && (!hopsworksInfo?.projects || hopsworksInfo.projects.length === 0));
                             
                             if (needsSync) {
-                              // Trigger sync-user after 5 seconds to fix maxNumProjects
-                              // This allows time for OAuth2 to create the user in Hopsworks
-                              setTimeout(async () => {
+                              // Start retrying immediately with exponential backoff
+                              let retryCount = 0;
+                              const maxRetries = 5;
+                              const baseDelay = 1000; // Start with 1 second
+                              
+                              const attemptSync = async () => {
                                 try {
-                                  await fetch('/api/auth/sync-user', {
+                                  const response = await fetch('/api/auth/sync-user', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({})
                                   });
-                                  console.log('Triggered sync-user after Hopsworks access');
+                                  
+                                  if (response.ok) {
+                                    console.log('Successfully synced user after Hopsworks access');
+                                    // Refresh the page data
+                                    mutate('/api/user/hopsworks-info');
+                                    return;
+                                  }
+                                  
+                                  // If not OK, maybe retry
+                                  if (retryCount < maxRetries) {
+                                    retryCount++;
+                                    const delay = baseDelay * Math.pow(2, retryCount - 1); // Exponential backoff
+                                    console.log(`Sync failed, retrying in ${delay}ms (attempt ${retryCount}/${maxRetries})`);
+                                    setTimeout(attemptSync, delay);
+                                  } else {
+                                    console.error('Failed to sync after max retries');
+                                  }
                                 } catch (error) {
-                                  console.error('Failed to trigger sync-user:', error);
+                                  if (retryCount < maxRetries) {
+                                    retryCount++;
+                                    const delay = baseDelay * Math.pow(2, retryCount - 1);
+                                    console.log(`Sync error, retrying in ${delay}ms (attempt ${retryCount}/${maxRetries})`, error);
+                                    setTimeout(attemptSync, delay);
+                                  } else {
+                                    console.error('Failed to sync after max retries:', error);
+                                  }
                                 }
-                              }, 5000);
+                              };
+                              
+                              // Start immediately
+                              attemptSync();
                             }
                           }
                         }}
