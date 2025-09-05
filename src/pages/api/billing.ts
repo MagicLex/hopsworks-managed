@@ -9,6 +9,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    const { month } = req.query;
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -84,15 +85,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     { cpuHours: 0, gpuHours: 0, storageGB: 0, totalCost: 0 };
 
 
-    // Get last 30 days of usage for chart
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Get usage data for the requested period
+    let startDate: Date;
+    let endDate: Date;
+    
+    if (month && typeof month === 'string' && month !== 'current') {
+      // Specific month requested (YYYY-MM format)
+      startDate = new Date(month + '-01');
+      endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0); // Last day of month
+    } else {
+      // Default: last 30 days
+      endDate = new Date();
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+    }
     
     const { data: historicalData } = await supabaseAdmin
       .from('usage_daily')
       .select('date, opencost_cpu_hours, opencost_gpu_hours, online_storage_gb, offline_storage_gb, total_cost')
       .eq('user_id', userId)
-      .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
+      .gte('date', startDate.toISOString().split('T')[0])
+      .lte('date', endDate.toISOString().split('T')[0])
       .order('date', { ascending: true });
 
     // Prepaid users use invoicing, not credits

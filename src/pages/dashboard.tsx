@@ -143,11 +143,13 @@ export default function Dashboard() {
   const { user, loading: authLoading, signOut } = useAuth();
   const { pricing } = usePricing();
   const router = useRouter();
+  const [selectedMonth, setSelectedMonth] = useState('current');
   const { data: usage, loading: usageLoading } = useApiData<UsageData>('/api/usage');
   const { data: hopsworksInfo, loading: hopsworksLoading } = useApiData<HopsworksInfo>('/api/user/hopsworks-info');
   const { data: instance, loading: instanceLoading } = useApiData<InstanceData>('/api/instance');
   const { data: teamData, loading: teamLoading, refetch: refetchTeamData } = useApiData<TeamData>('/api/team/members');
-  const { data: billing, loading: billingLoading, refetch: refetchBilling } = useApiData<BillingInfo>('/api/billing');
+  const [billing, setBilling] = useState<BillingInfo | null>(null);
+  const [billingLoading, setBillingLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('cluster');
   const [copied, setCopied] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -157,6 +159,31 @@ export default function Dashboard() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [invites, setInvites] = useState<TeamInvite[]>([]);
+
+  // Fetch billing data based on selected month
+  const fetchBillingData = async () => {
+    setBillingLoading(true);
+    try {
+      const url = selectedMonth === 'current' 
+        ? '/api/billing' 
+        : `/api/billing?month=${selectedMonth}`;
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setBilling(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch billing data:', error);
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      fetchBillingData();
+    }
+  }, [selectedMonth, authLoading, user]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -893,13 +920,16 @@ mr = project.get_model_registry()`;
                     </Card>
                   ) : (
                     <>
-                      {/* 30-Day Total Summary */}
+                      {/* Period Total Summary */}
                       {billing.historicalUsage && billing.historicalUsage.length > 0 && (
                         <Card className="p-6 mb-6 border-[#1eb182] border-2">
                           <Flex justify="between" align="center">
                             <Box>
-                              <Title as="h2" className="text-2xl">Total (30d)</Title>
-                              <Text className="text-sm text-gray-600">Rolling 30-day usage cost</Text>
+                              <Title as="h2" className="text-2xl">Total</Title>
+                              <Text className="text-sm text-gray-600">
+                                {selectedMonth === 'current' ? 'Last 30 days' : 
+                                  new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                              </Text>
                             </Box>
                             <Text className="text-3xl font-bold text-[#1eb182]">
                               ${billing.historicalUsage.reduce((sum, day) => sum + day.total_cost, 0).toFixed(2)}
@@ -991,7 +1021,7 @@ mr = project.get_model_registry()`;
                         {/* Usage collection info */}
                         <Box className="mt-3 pt-3 border-t border-gray-100">
                           <Text className="text-xs text-gray-500">
-                            Usage collected hourly from Kubernetes clusters • Last update: {usage?.lastUpdate ? new Date(usage.lastUpdate).toLocaleTimeString() : 'Never'}
+                            Last update: {usage?.lastUpdate ? new Date(usage.lastUpdate).toLocaleTimeString() : 'Never'}
                           </Text>
                         </Box>
                       </Card>
@@ -999,9 +1029,25 @@ mr = project.get_model_registry()`;
                       {/* Usage Trend Chart */}
                       {billing.historicalUsage && billing.historicalUsage.length > 0 && (
                         <Card className="p-6 mb-6">
-                          <Flex align="center" gap={12} className="mb-4">
-                            <TrendingUp size={20} className="text-[#1eb182]" />
-                            <Title as="h2" className="text-lg">Usage Trend (30 Days)</Title>
+                          <Flex justify="between" align="center" className="mb-4">
+                            <Flex align="center" gap={12}>
+                              <TrendingUp size={20} className="text-[#1eb182]" />
+                              <Title as="h2" className="text-lg">Usage Trend</Title>
+                            </Flex>
+                            <Select
+                              value={selectedMonth}
+                              onChange={(e) => setSelectedMonth(e.target.value)}
+                              className="w-48"
+                            >
+                              <option value="current">Last 30 days</option>
+                              {Array.from({ length: 6 }, (_, i) => {
+                                const date = new Date();
+                                date.setMonth(date.getMonth() - i);
+                                const value = date.toISOString().slice(0, 7);
+                                const label = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                                return <option key={value} value={value}>{label}</option>;
+                              })}
+                            </Select>
                           </Flex>
                           
                           <Box className="h-64">
