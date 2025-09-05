@@ -328,8 +328,14 @@ export default function Dashboard() {
             <TabsList className="mb-6">
               <TabsTrigger value="cluster">Cluster</TabsTrigger>
               <TabsTrigger value="team">Team</TabsTrigger>
-              {billing?.billingMode !== 'prepaid' && (
-                <TabsTrigger value="billing">Billing</TabsTrigger>
+              {billingLoading ? (
+                <TabsTrigger value="billing" disabled className="opacity-50">
+                  Billing
+                </TabsTrigger>
+              ) : (
+                billing?.billingMode !== 'prepaid' && (
+                  <TabsTrigger value="billing">Billing</TabsTrigger>
+                )
               )}
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
