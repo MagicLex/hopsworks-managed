@@ -472,8 +472,6 @@ export default function Dashboard() {
                                   
                                   if (response.ok) {
                                     console.log('Successfully synced user after Hopsworks access');
-                                    // Refresh the page data
-                                    mutate('/api/user/hopsworks-info');
                                     return;
                                   }
                                   
