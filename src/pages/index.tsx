@@ -17,6 +17,7 @@ export default function Home() {
   const [selectedDeployment, setSelectedDeployment] = useState<DeploymentOption | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [corporateRef, setCorporateRef] = useState<string | null>(null);
+  const [corporateCompanyName, setCorporateCompanyName] = useState<string | null>(null);
   const [corporateError, setCorporateError] = useState<string | null>(null);
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -32,13 +33,15 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dealId: ref, checkDealOnly: true }) // Just checking if deal exists
       })
-        .then(res => {
-          if (res.status === 404) {
-            setCorporateError(`Invalid corporate reference: ${ref}. Please contact your Hopsworks representative or use the regular sign-up.`);
+        .then(res => res.json().then(data => ({ ok: res.ok, status: res.status, data })))
+        .then(({ ok, status, data }) => {
+          if (status === 404) {
+            setCorporateError(`Invalid corporate reference: ${ref}`);
             // Remove invalid ref from URL
             window.history.replaceState({}, '', window.location.pathname);
-          } else if (res.ok) {
+          } else if (ok && data.valid) {
             setCorporateRef(ref);
+            setCorporateCompanyName(data.companyName || data.dealName);
             // Store in sessionStorage for persistence
             sessionStorage.setItem('corporate_ref', ref);
           }
@@ -133,14 +136,36 @@ export default function Home() {
         />
       </Head>
       
-      <Layout className="py-10 px-5">
+      <Layout className="py-16 px-5">
         <Box className="max-w-6xl mx-auto">
-          {corporateError && (
-            <Box className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <Text className="text-red-700">{corporateError}</Text>
+          {(corporateRef || corporateError) && (
+            <Box className={`mb-6 p-4 rounded-lg border ${
+              corporateError 
+                ? 'bg-red-50 border-red-200' 
+                : 'bg-green-50 border-green-200'
+            }`}>
+              {corporateError ? (
+                <Text className="text-red-700 font-mono text-sm">
+                  ❌ {corporateError}
+                </Text>
+              ) : (
+                <Flex direction="column" gap={4}>
+                  <Text className="text-green-700 font-mono text-sm font-semibold">
+                    ✓ Corporate Registration
+                  </Text>
+                  {corporateCompanyName && (
+                    <Text className="text-green-600 font-mono text-xs">
+                      Company: {corporateCompanyName}
+                    </Text>
+                  )}
+                  <Text className="text-green-600 font-mono text-xs">
+                    Sign up with your corporate email to get immediate access.
+                  </Text>
+                </Flex>
+              )}
             </Box>
           )}
-          <Box className="mb-8">
+          <Box className="mb-12">
             <Title className="text-2xl mb-2">
               Start with Hopsworks
             </Title>
@@ -150,15 +175,23 @@ export default function Home() {
           </Box>
           
           
-          <Flex direction="column" gap={16}>
-            {deploymentOptions.map((deployment) => (
-              <DeploymentCard
-                key={deployment.id}
-                deployment={deployment}
-                isYearly={isYearly}
-                onDeploy={handleDeploy}
-              />
-            ))}
+          <Flex direction="column" gap={20}>
+            {deploymentOptions
+              .filter(deployment => {
+                // Hide serverless option when corporate ref is present
+                if (corporateRef && deployment.id === 'serverless') {
+                  return false;
+                }
+                return true;
+              })
+              .map((deployment) => (
+                <DeploymentCard
+                  key={deployment.id}
+                  deployment={deployment}
+                  isYearly={isYearly}
+                  onDeploy={handleDeploy}
+                />
+              ))}
           </Flex>
         </Box>
       </Layout>

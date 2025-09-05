@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (checkDealOnly) {
     try {
       const dealResponse = await fetch(
-        `${HUBSPOT_API_URL}/crm/v3/objects/deals/${dealId}`,
+        `${HUBSPOT_API_URL}/crm/v3/objects/deals/${dealId}?associations=company`,
         {
           headers: {
             'Authorization': `Bearer ${HUBSPOT_API_KEY}`,
@@ -35,7 +35,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       
       const dealData = await dealResponse.json();
-      return res.status(200).json({ valid: true, dealName: dealData.properties?.dealname });
+      
+      // Try to get company name
+      let companyName = null;
+      if (dealData.associations?.companies?.results?.length > 0) {
+        const companyId = dealData.associations.companies.results[0].id;
+        try {
+          const companyResponse = await fetch(
+            `${HUBSPOT_API_URL}/crm/v3/objects/companies/${companyId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${HUBSPOT_API_KEY}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          if (companyResponse.ok) {
+            const companyData = await companyResponse.json();
+            companyName = companyData.properties?.name || companyData.properties?.company;
+          }
+        } catch (err) {
+          console.error('Failed to fetch company:', err);
+        }
+      }
+      
+      return res.status(200).json({ 
+        valid: true, 
+        dealName: dealData.properties?.dealname,
+        companyName: companyName 
+      });
     } catch (error) {
       console.error('Deal validation error:', error);
       return res.status(500).json({ error: 'Failed to validate deal' });
