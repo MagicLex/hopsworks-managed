@@ -490,10 +490,10 @@ export default function Dashboard() {
                                             (billing?.hasPaymentMethod && (!hopsworksInfo?.projects || hopsworksInfo.projects.length === 0));
                             
                             if (needsSync) {
-                              // Start retrying after 1s with exponential backoff
+                              // Start retrying after 2s with exponential backoff
                               let retryCount = 0;
                               const maxRetries = 5;
-                              const baseDelay = 1000; // 1 second base
+                              const baseDelay = 2000; // 2 seconds base
                               
                               const attemptSync = async () => {
                                 try {
