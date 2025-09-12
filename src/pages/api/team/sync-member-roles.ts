@@ -7,6 +7,15 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Create HTTPS agent for self-signed certificates
+let httpsAgent: any = undefined;
+if (typeof process !== 'undefined' && process.versions?.node) {
+  const https = require('https');
+  httpsAgent = new https.Agent({
+    rejectUnauthorized: false
+  });
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getSession(req, res);
   
@@ -73,7 +82,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       {
         headers: {
           'Authorization': `ApiKey ${credentials.apiKey}`
-        }
+        },
+        // @ts-ignore
+        agent: httpsAgent
       }
     );
 
@@ -95,7 +106,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           {
             headers: {
               'Authorization': `ApiKey ${credentials.apiKey}`
-            }
+            },
+            // @ts-ignore
+            agent: httpsAgent
           }
         );
 
