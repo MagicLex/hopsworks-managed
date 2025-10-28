@@ -63,7 +63,6 @@ PGPASSWORD='your-password' psql -h aws-0-us-east-1.pooler.supabase.com -p 5432 -
 ### Row Level Security (RLS)
 - Currently disabled for simplicity
 - All access controlled via service role key in API layer
-- Future consideration for enabling RLS
 
 ### Authentication
 - Users authenticated via Auth0

@@ -1,6 +1,6 @@
-# Hopsworks Managed Service
+# Hopsworks Managed SaaS Bridge
 
-A Next.js application providing managed Hopsworks clusters with usage-based billing through Stripe.
+A Next.js application that manages SaaS users, billing, and cluster access before handing them off to shared Hopsworks environments.
 
 ## Quick Start
 
@@ -17,12 +17,15 @@ npm run dev
 
 ## Documentation
 
-- **[Architecture Overview](docs/architecture.md)** - System design and tech stack
-- **[Database Documentation](docs/database/)** - Complete schema documentation
-- **[Billing System](docs/billing.md)** - Usage tracking and Stripe integration
-- **[API Reference](docs/api.md)** - Endpoints and integration patterns
-- **[Deployment Guide](docs/deployment.md)** - Production setup and configuration
-- **[Known Issues](docs/known-issues.md)** - Common problems and solutions
+- **[Architecture Overview](docs/ARCHITECTURE.md)** – System design, SaaS/Hopsworks boundary, and integrations
+- **[Database Documentation](docs/database/)** – Schema, migrations, and stored procedures
+- **[Billing System](docs/billing.md)** – OpenCost ingestion and Stripe metered billing
+- **[Stripe Setup](docs/stripe-setup.md)** – Stripe products, price IDs, and webhook configuration
+- **[HubSpot Integration](docs/hubspot.md)** – Corporate deal validation and prepaid onboarding
+- **[Resend Integration](docs/resend.md)** – Team invite delivery workflow
+- **[API Reference](docs/api.md)** – Endpoints and admin tools
+- **[Deployment Guide](docs/deployment.md)** – Environment configuration and rollout steps
+- **[Known Issues](docs/known-issues.md)** – Common problems and mitigations
 
 ## Admin Interface
 
@@ -44,4 +47,4 @@ npm run lint
 
 ## Deployment
 
-This project is configured for Vercel deployment. See [Deployment Guide](docs/DEPLOYMENT.md) for details.
+This project is configured for Vercel deployment. See [Deployment Guide](docs/deployment.md) for details.

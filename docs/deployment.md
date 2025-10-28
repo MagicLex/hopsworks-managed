@@ -8,6 +8,8 @@
 4. **Stripe Account** - For billing
 5. **Hopsworks Cluster** - With admin access
 6. **OpenCost** - Installed in Kubernetes cluster
+7. **HubSpot Private App Token** - Required for corporate/prepaid onboarding
+8. **Resend Account** (or SMTP alternative) - Delivers team invites
 
 ## Initial Setup
 
@@ -60,38 +62,79 @@ Configure Hopsworks to accept Auth0 users:
 
 ### 3. Database Setup
 
-Run migrations in Supabase SQL Editor:
+Run the latest schema in Supabase (SQL editor or `psql`):
 
 ```sql
--- 1. Run the base schema from sql/current_schema.sql
--- 2. Run OpenCost migration from sql/migrations/001_opencost_integration.sql
+-- Apply the canonical schema
+\i sql/current_schema.sql;
+
+-- Apply incremental migrations (if current_schema is already applied)
+\i sql/001_opencost_integration.sql;
+\i sql/002_cleanup_and_extend_billing.sql;
+\i sql/003_project_member_roles.sql;
 ```
 
-Key tables for billing:
-- `user_projects` - Maps namespaces to users
-- `usage_daily` - Stores OpenCost metrics
-- `user_credits` - Prepaid credit balances
+Key tables for this release:
+- `user_projects` – Maps OpenCost namespaces to users/account owners.
+- `usage_daily` – Stores daily cost totals from OpenCost.
+- `project_member_roles` – Caches project membership for team auto-assignment.
 
-See [Database Documentation](database/) for complete schema details.
+See [Database Documentation](database/) for schemas and procedures.
 
 ### 4. Stripe Configuration
 
-1. Products are created automatically based on OpenCost costs
-2. Credits product for prepaid users ($1.00 per credit)
-
-2. Set up webhook endpoint:
+1. Create **metered products** in Stripe for:
+   - Compute credits (0.35 USD / credit)
+   - Online storage GB-month
+   - Offline storage GB-month
+   - (Optional) Network egress GB
+2. Capture the **Price IDs** and populate both:
+   - Environment variables (`STRIPE_PRICE_*` in Vercel)
+   - `stripe_products` table in Supabase (see `sql/current_schema.sql` for columns)
+3. Configure webhook endpoint:
    - URL: `https://your-domain.vercel.app/api/webhooks/stripe`
    - Events: 
      - `checkout.session.completed`
      - `invoice.payment_succeeded`
      - `customer.subscription.created`
      - `customer.subscription.updated`
+     - `customer.subscription.deleted`
+     - `invoice.payment_failed`
+
+See `docs/stripe-setup.md` for full Stripe product mappings and example CLI commands.
+
+### 5. Corporate Onboarding (HubSpot)
+
+1. Generate a HubSpot private app token with scopes:
+   - `crm.objects.deals.read`
+   - `crm.objects.contacts.read`
+   - `crm.objects.companies.read`
+2. Set `HUBSPOT_API_KEY` in Vercel (and locally).
+3. Ensure HubSpot deals reference valid contacts—the app validates invite emails against deal contacts.
+4. Communicate corporate registration links using the format `https://your-domain/?corporate_ref=<dealId>`.
+
+Operational details live in `docs/hubspot.md`.
+
+### 6. Email Invites (Resend)
+
+1. Verify your sending domain in Resend (or configure an equivalent transactional email provider).
+2. Set `RESEND_API_KEY` and `RESEND_FROM_EMAIL` environment variables.
+3. Update SPF/DKIM records to improve invite deliverability.
+
+See `docs/resend.md` for invite flow, failure handling, and rotation steps.
 
 ## Vercel Deployment
 
 ### 1. Environment Variables
 
-Set all variables from [.env.example](../.env.example) in Vercel dashboard.
+Set all variables from [.env.example](../.env.example) in Vercel dashboard. Minimum required categories:
+
+- **Auth0**: `AUTH0_*` (including `AUTH0_WEBHOOK_SECRET`) and allowed URLs.
+- **Supabase**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+- **Stripe**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and all `STRIPE_PRICE_*` IDs.
+- **Corporate**: `HUBSPOT_API_KEY` (omit if you disable corporate onboarding).
+- **Email**: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`.
+- **Operations**: `CRON_SECRET`, `ADMIN_EMAILS`, default cluster API URL/KEY if bootstrapping manually.
 
 ### 2. Deploy
 
@@ -158,13 +201,13 @@ For each Hopsworks cluster:
 
 ### 3. Verify System
 
-1. Test Auth0 webhook with a new user signup
-2. Test Stripe webhook with a test purchase
-3. Verify OpenCost connection in admin panel
-4. Check cron jobs in Vercel dashboard
-5. Monitor `usage_daily` for OpenCost data
+1. Test Auth0 webhook with a new user signup (ensure Stripe customer is created).
+2. Run a Stripe Checkout **Setup** session and confirm `customer.subscription.*` events create the metered subscription.
+3. Validate `/api/auth/validate-corporate` with a known HubSpot deal ID.
+4. Verify OpenCost connection in the admin panel.
+5. Check cron jobs in the Vercel dashboard and confirm hourly rows in `usage_daily`.
 
-### 3. Configure Admin Access
+### 4. Configure Admin Access
 
 Set `ADMIN_EMAILS` environment variable with comma-separated admin emails.
 
@@ -212,14 +255,15 @@ npm run build
 - Check product/price IDs
 - Monitor webhook events in Stripe
 
-## Security Checklist
+## Security Requirements
 
-- [ ] All environment variables set
-- [ ] HTTPS enforced
-- [ ] Admin emails restricted
-- [ ] Webhook endpoints secured
-- [ ] API keys rotated regularly
-- [ ] Database backups configured
+- Keep environment variables current and verified after each deployment.
+- Enforce HTTPS at the edge (Vercel) and within Hopsworks.
+- Limit admin access via the `ADMIN_EMAILS` setting.
+- Protect webhook endpoints with `AUTH0_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET`.
+- Store `HUBSPOT_API_KEY` and `RESEND_API_KEY` only in secure secrets storage.
+- Rotate `CRON_SECRET`, API keys, and Supabase service keys on schedule.
+- Ensure database backups and Supabase point-in-time recovery remain enabled.
 
 ## Related Documentation
 

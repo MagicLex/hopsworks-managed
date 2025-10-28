@@ -13,15 +13,16 @@ This directory contains comprehensive documentation for the Hopsworks Managed Se
 
 ## Quick Reference
 
-### Current Tables (8 total)
-- `users` - User accounts and team relationships
-- `team_invites` - Pending team invitations
+### Current Tables (9 total)
+- `users` - User accounts, billing mode, and Hopsworks linkage
+- `team_invites` - Pending team invitations (with role + auto-assign flags)
 - `user_projects` - Maps Kubernetes namespaces to users for cost allocation
-- `user_credits` - Credit balances for prepaid billing
+- `project_member_roles` - Cached Hopsworks project membership and sync state
+- `user_credits` - Legacy/prepaid credit balances (reporting only)
 - `usage_daily` - Daily usage metrics from OpenCost
 - `hopsworks_clusters` - Available Hopsworks clusters
 - `user_hopsworks_assignments` - User-to-cluster mappings
-- `stripe_products` - (DEPRECATED) Product pricing info
+- `stripe_products` - Active Stripe product/price mappings used by billing sync
 
 ### Key Views
 - `team_members` - Lists all team members with their owners
@@ -70,6 +71,8 @@ erDiagram
     users ||--o{ user_credits : "has"
     users ||--o{ usage_daily : "generates"
     users ||--o{ user_hopsworks_assignments : "assigned to"
+    users ||--o{ project_member_roles : "member"
+    users ||--o{ project_member_roles : "owner"
     hopsworks_clusters ||--o{ user_hopsworks_assignments : "hosts"
     
     users {
@@ -78,6 +81,14 @@ erDiagram
         text account_owner_id FK "NULL if owner"
         text stripe_customer_id
         boolean is_admin
+    }
+    
+    project_member_roles {
+        uuid id PK
+        text member_id FK
+        text account_owner_id FK
+        int project_id
+        text role
     }
     
     usage_daily {

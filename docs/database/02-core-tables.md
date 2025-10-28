@@ -23,7 +23,9 @@ CREATE TABLE users (
   billing_mode TEXT DEFAULT 'postpaid',     -- 'prepaid' or 'postpaid'
   stripe_customer_id TEXT,                  -- Stripe customer ID (production)
   stripe_test_customer_id TEXT,             -- Stripe customer ID (test mode)
-  
+  stripe_subscription_id TEXT,              -- Active subscription (postpaid SaaS)
+  stripe_subscription_status TEXT,          -- Cached Stripe status
+ 
   -- Features
   is_admin BOOLEAN DEFAULT false,           -- Platform admin flag
   feature_flags JSONB DEFAULT '{}'::jsonb,  -- Feature toggles
@@ -34,7 +36,7 @@ CREATE TABLE users (
   -- Metadata
   registration_source TEXT,                 -- How user found us
   registration_ip INET,                     -- IP at registration
-  metadata JSONB DEFAULT '{}'::jsonb        -- Flexible metadata
+  metadata JSONB DEFAULT '{}'::jsonb        -- Flexible metadata (corporate_ref, etc.)
 );
 ```
 
@@ -80,6 +82,8 @@ CREATE TABLE team_invites (
   expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '7 days'),
   accepted_at TIMESTAMPTZ,                              -- When accepted
   accepted_by_user_id TEXT REFERENCES users(id),       -- Who accepted
+  project_role TEXT DEFAULT 'Data scientist',           -- Desired project role
+  auto_assign_projects BOOLEAN DEFAULT true,            -- Auto-sync into owner's projects
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
@@ -90,10 +94,12 @@ CREATE TABLE team_invites (
 - `idx_team_invites_owner` - For listing owner's invites
 
 ### Business Rules
-- Invites expire after 7 days by default
-- Only one pending invite per email per owner
-- Token is used in invite acceptance URL
-- When accepted, Auth0 webhook links new user to owner
+- Invites expire after 7 days by default.
+- Only one pending invite per email per owner.
+- Token is used in invite acceptance URL.
+- When accepted, Auth0 webhook links new user to owner.
+- `project_role` controls the initial Hopsworks role (`Data owner`, `Data scientist`, `Observer`).
+- `auto_assign_projects` triggers automatic project membership syncing during join.
 
 ### Usage Examples
 ```sql
@@ -114,6 +120,60 @@ UPDATE team_invites
 SET accepted_at = NOW(), 
     accepted_by_user_id = 'google-oauth2|789'
 WHERE token = 'abc-123-def';
+```
+
+## project_member_roles
+
+Caches team member access to Hopsworks projects and the sync state.
+
+### Schema
+```sql
+CREATE TABLE project_member_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  member_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  account_owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  project_id INTEGER NOT NULL,
+  project_name TEXT NOT NULL,
+  project_namespace TEXT,
+  role TEXT NOT NULL CHECK (role IN ('Data owner', 'Data scientist', 'Observer')),
+  synced_to_hopsworks BOOLEAN DEFAULT false,
+  last_sync_at TIMESTAMPTZ,
+  sync_error TEXT,
+  added_by TEXT REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(member_id, project_id)
+);
+```
+
+### Indexes
+- `idx_project_member_roles_member` – Look up all projects for a member.
+- `idx_project_member_roles_owner` – Show all members per owner.
+- `idx_project_member_roles_sync_status` – Identify pending syncs.
+
+### Business Rules
+- Each member can appear once per project (`UNIQUE(member_id, project_id)`).
+- `synced_to_hopsworks` flips to `true` after successful API sync.
+- Records are inserted/updated via `upsert_project_member_role()` when:
+  - Team members auto-join projects.
+  - Admins bulk-sync roles from the dashboard.
+
+### Usage Examples
+```sql
+-- Pending sync jobs for automation
+SELECT * FROM project_member_roles 
+WHERE synced_to_hopsworks = false 
+  AND sync_error IS NULL;
+
+-- List a member's project roster
+SELECT project_name, role FROM project_member_roles
+WHERE member_id = 'auth0|member';
+
+-- Clear a sync error after rerunning a job
+UPDATE project_member_roles
+SET sync_error = NULL,
+    synced_to_hopsworks = false
+WHERE id = 'uuid';
 ```
 
 ## Key Design Decisions

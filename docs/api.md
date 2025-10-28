@@ -33,21 +33,23 @@ Get current user's Hopsworks information.
 ```json
 {
   "hasCluster": true,
-  "clusterName": "cluster1",
+  "clusterName": "shared-prod-1",
+  "clusterEndpoint": "https://prod.hopsworks.ai",
   "hasHopsworksUser": true,
   "hopsworksUser": {
-    "username": "user123",
+    "username": "hops_user_123",
     "email": "user@example.com",
-    "accountType": "MEMBER_ACCOUNT",
+    "accountType": "BILLING_ACCOUNT",
     "status": 2,
-    "maxNumProjects": 20,
-    "numActiveProjects": 2
+    "maxNumProjects": 5,
+    "numActiveProjects": 3,
+    "activated": "2025-02-01T12:34:56.000Z"
   },
   "projects": [{
     "id": 123,
-    "name": "MyProject",
-    "owner": "user123",
-    "created": "2024-01-01T00:00:00.000Z"
+    "name": "churn-modeling",
+    "owner": "hops_user_123",
+    "created": "2025-01-15T08:00:00.000Z"
   }]
 }
 ```
@@ -58,15 +60,27 @@ Get user's current month usage totals.
 **Response:**
 ```json
 {
-  "cpuHours": 120.5,
+  "cpuHours": 42.75,
   "gpuHours": 0,
-  "storageGB": 50.25,
-  "featureGroups": 2,
+  "ramGbHours": 12.8,
+  "storageGB": 55.12,
+  "featureGroups": 3,
   "modelDeployments": 0,
   "apiCalls": 0,
   "featureStoreApiCalls": 0,
   "modelInferenceCalls": 0,
-  "currentMonth": "2025-01"
+  "currentMonth": "2025-02",
+  "lastUpdate": "2025-02-07T03:10:02.123Z",
+  "projectBreakdown": {
+    "churn-modeling": {
+      "cpuHours": 12.4,
+      "gpuHours": 0,
+      "ramGBHours": 3.2,
+      "cpuEfficiency": 0.82,
+      "ramEfficiency": 0.71,
+      "lastUpdated": "2025-02-07T03:10:02.123Z"
+    }
+  }
 }
 ```
 
@@ -103,38 +117,72 @@ Get billing information and usage summary.
   "invoices": [],
   "historicalUsage": [
     {
-      "date": "2025-01-08",
-      "cpu_hours": 24.5,
+      "date": "2025-02-06",
+      "cpu_hours": 12.5,
       "gpu_hours": 0,
-      "storage_gb": 50.25,
-      "total_cost": 2.45
+      "storage_gb": 48.1,
+      "total_cost": 6.12
     }
   ],
   "rates": {
-    "cpu_hour": 0.1,
-    "gpu_hour": 1.0,
-    "ram_gb_hour": 0.01,
-    "storage_online_gb": 0.1,
-    "storage_offline_gb": 0.01,
-    "network_egress_gb": 0.05
+    "cpu_hour": 0.175,
+    "gpu_hour": 3.5,
+    "ram_gb_hour": 0.0175,
+    "storage_online_gb": 0.5,
+    "storage_offline_gb": 0.03,
+    "network_egress_gb": 0.14
   }
 }
 ```
 
-### POST /api/billing/purchase-credits
-Purchase credits (redirects to Stripe).
-
-**Request:**
-```json
-{
-  "amount": 100
-}
-```
+### GET /api/pricing
+Public pricing snapshot consumed by landing pages.
 
 **Response:**
 ```json
 {
-  "checkoutUrl": "https://checkout.stripe.com/..."
+  "compute_credits": 0.35,
+  "cpu_hour": 0.175,
+  "gpu_hour": 3.5,
+  "ram_gb_hour": 0.0175,
+  "storage_online_gb": 0.5,
+  "storage_offline_gb": 0.03,
+  "network_egress_gb": 0.14
+}
+```
+
+### POST /api/auth/validate-corporate
+Validate a HubSpot deal before corporate signup.
+
+**Request:**
+```json
+{
+  "dealId": "16586605456",
+  "checkDealOnly": true
+}
+```
+
+**Response (valid deal):**
+```json
+{
+  "valid": true,
+  "dealName": "ACME Annual Platform",
+  "companyName": "ACME Corp",
+  "companyLogo": "https://logo.clearbit.com/acme.com"
+}
+```
+
+### GET /api/user/corporate-info
+Return company info for prepaid/corporate users.
+
+**Response:**
+```json
+{
+  "isCorporate": true,
+  "corporateRef": "16586605456",
+  "companyName": "ACME Corp",
+  "companyLogo": "https://logo.clearbit.com/acme.com",
+  "companyDomain": "acme.com"
 }
 ```
 
@@ -149,14 +197,18 @@ Get team members.
   "account_owner": {
     "id": "auth0|...",
     "email": "owner@example.com",
-    "name": "Owner Name"
+    "name": "Owner Name",
+    "created_at": "2023-12-10T09:00:00.000Z",
+    "stripe_customer_id": "cus_123"
   },
   "team_members": [{
     "id": "auth0|...",
     "email": "member@example.com",
     "name": "Member Name",
     "created_at": "2024-01-01T00:00:00.000Z",
-    "hopsworks_username": "member123"
+    "last_login_at": "2025-02-06T11:24:00.000Z",
+    "hopsworks_username": "member123",
+    "status": "active"
   }],
   "is_owner": true
 }
@@ -168,7 +220,9 @@ Invite a team member.
 **Request:**
 ```json
 {
-  "email": "newmember@example.com"
+  "email": "newmember@example.com",
+  "projectRole": "Data scientist",
+  "autoAssignProjects": true
 }
 ```
 
@@ -180,7 +234,9 @@ Invite a team member.
     "id": "uuid",
     "email": "newmember@example.com",
     "expires_at": "2024-01-08T00:00:00.000Z",
-    "invite_url": "https://your-domain/team/accept-invite?token=..."
+    "invite_url": "https://your-domain/team/accept-invite?token=...",
+    "project_role": "Data scientist",
+    "auto_assign_projects": true
   }
 }
 ```
@@ -201,115 +257,56 @@ Get invite details by token.
 }
 ```
 
-## Admin Endpoints
-
-### GET /api/admin/users
-Get all users with their assignments and usage.
-
-### GET /api/admin/clusters
-Get all Hopsworks clusters.
-
-### POST /api/admin/clusters
-Create a new cluster.
+### POST /api/team/join
+Accept an invite and join the team.
 
 **Request:**
 ```json
 {
-  "name": "New Cluster",
-  "api_url": "https://hopsworks.example.com:28181",
-  "api_key": "api-key-here",
-  "max_users": 100
+  "token": "invite-token-from-email"
 }
 ```
-
-### PUT /api/admin/clusters/update-kubeconfig
-Update cluster's kubeconfig.
-
-**Request:**
-```json
-{
-  "clusterId": "uuid",
-  "kubeconfig": "base64-encoded-kubeconfig"
-}
-```
-
-### POST /api/admin/test-hopsworks
-Test Hopsworks connection and get user info.
-
-**Request:**
-```json
-{
-  "userId": "auth0|...",
-  "clusterId": "uuid"
-}
-```
-
 
 **Response:**
 ```json
 {
-  "message": "OpenCost metrics collection completed",
-  "timestamp": "2024-01-08",
-  "hour": 14,
-  "results": {
-    "successful": 10,
-    "failed": 0,
-    "totalCost": 123.45,
-    "namespaces": [
-      {
-        "namespace": "mlproject",
-        "projectName": "ML Training",
-        "userId": "auth0|123",
-        "cost": 45.67
-      }
-    ]
-  }
+  "message": "Successfully joined team",
+  "account_owner_id": "auth0|owner",
+  "cluster_assigned": true,
+  "projects_assigned": [
+    "churn-modeling",
+    "fraud-detection"
+  ]
 }
 ```
 
-### GET /api/admin/usage/[userId]
-Get detailed usage metrics for a specific user.
+## Admin Endpoints
 
-### POST /api/admin/sync-username
-Sync Hopsworks username for a user.
+All admin routes require an Auth0 session with `is_admin = true`.
 
-**Request:**
-```json
-{
-  "userId": "auth0|..."
-}
-```
+### GET /api/admin/users
+List every user with associated projects, costs, and cluster assignments (used by `/admin47392`).
 
-### GET /api/admin/project-roles
-Get user's Hopsworks projects.
+### Usage Health
+- `GET /api/admin/usage/check-opencost` – Probe OpenCost connectivity for the active cluster.
+- `GET /api/admin/usage/check-database` – Verify most recent `usage_daily` rows.
+- `POST /api/admin/usage/collect` – Manually trigger the hourly ingestion (mirrors cron).
+- `GET /api/admin/usage/[userId]` – Detailed per-namespace usage history for a single user.
 
-**Query Parameters:**
-- `userId` - User ID to fetch projects for
+### Project & Namespace Sync
+- `POST /api/admin/sync-projects` – Scan Hopsworks for new/removed projects and update `user_projects`.
+- `POST /api/admin/sync-user-projects` – Sync a specific user’s projects.
+- `POST /api/admin/sync-username` – Refresh cached Hopsworks username/ID for a user.
+- `GET|POST|PUT /api/admin/project-roles` – Inspect and manage project membership (adds members, bulk syncs, etc.).
 
-### POST /api/admin/project-roles
-Add/remove user from project with role.
+### Cluster Management
+- `GET|POST|PUT /api/admin/clusters` – List, create, or update cluster records.
+- `POST /api/admin/clusters/update-kubeconfig` – Upload/replace kubeconfig for a cluster.
+- `POST /api/admin/test-opencost` – Validate OpenCost connectivity for a specific cluster ID.
 
-**Request:**
-```json
-{
-  "userId": "auth0|...",
-  "projectName": "project_name",
-  "role": "Data scientist",  // "Data owner", "Data scientist", "Observer"
-  "action": "add"            // "add" or "remove"
-}
-```
-
-### PUT /api/admin/project-roles
-Bulk assign team member to owner's projects.
-
-**Request:**
-```json
-{
-  "teamMemberId": "auth0|...",
-  "ownerId": "auth0|...",
-  "defaultRole": "Data scientist"
-}
-```
+### Billing Utilities
+- `POST /api/admin/fix-missing-subscriptions` – Repair Stripe subscription state (idempotent helper).
+- `GET /api/admin/billing` – Aggregate billing metrics for admins.
 
 ## Webhook Endpoints
 
@@ -317,19 +314,19 @@ Bulk assign team member to owner's projects.
 Handles Auth0 post-login actions:
 - Creates user in database if not exists
 - Updates login count and last login time
-- Creates Stripe subscription for new account owners (team members excluded)
+- Creates Stripe customer records
+- Triggers health checks to sync billing state
 - Requires `x-auth0-secret` header matching `AUTH0_WEBHOOK_SECRET`
 
 ### POST /api/webhooks/stripe
 Handles Stripe webhook events:
-- `checkout.session.completed`: Credit purchases
-- `invoice.payment_succeeded`: Usage charges
-- `customer.subscription.created`: Subscription creation
-- `customer.subscription.updated`: Subscription updates
+- `checkout.session.completed` (mode `setup`): Payment method setup completion
+- `customer.subscription.created|updated|deleted`: Subscription lifecycle
+- `invoice.payment_succeeded|failed`: Invoice status notifications
 
 ## Cron Endpoints
 
-### GET /api/usage/collect-opencost
+### POST|GET /api/usage/collect-opencost
 Collects cost data from OpenCost for all clusters.
 - Runs every hour (`:00`)
 - Requires `CRON_SECRET` header in production
@@ -337,7 +334,7 @@ Collects cost data from OpenCost for all clusters.
 - Updates `usage_daily` with accumulated costs
 - Maps namespaces to users via `user_projects` table
 
-### POST /api/billing/sync-stripe
+### POST|GET /api/billing/sync-stripe
 Reports daily usage data to Stripe for metered billing.
 - Runs daily at 3 AM via cron
 - Reports usage for postpaid customers with active subscriptions
@@ -363,13 +360,14 @@ Common status codes:
 
 ## Rate Limiting
 
-Currently no rate limiting implemented. In production, consider:
-- Auth0 rate limits
-- Stripe API limits
-- Kubernetes API limits
+`middleware/rateLimit.ts` applies per-endpoint limits:
+- Team invites: 5 requests per hour per account owner.
+- Webhooks: 100 requests per minute to guard against replay storms.
+- Billing routes: 20 requests per minute to prevent dashboard abuse.
+- Other endpoints fall back to a default 60 requests per minute.
 
 ## Related Documentation
 
-- [Architecture Overview](architecture.md)
+- [Architecture Overview](ARCHITECTURE.md)
 - [Database Documentation](database/)
 - [Billing System](billing.md)

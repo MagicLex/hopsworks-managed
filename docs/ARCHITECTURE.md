@@ -5,27 +5,38 @@
 - **UI**: tailwind-quartz component library
 - **Auth**: Auth0 SDK v3 (MUST use v3, not v4)
 - **Database**: Supabase (PostgreSQL)
-- **Payments**: Stripe (live integration)
-- **Hosting**: Vercel with cron jobs
-- **Cost Tracking**: OpenCost in Kubernetes cluster
+- **Payments**: Stripe metered billing (live)
+- **Corporate CRM**: HubSpot (deal validation for prepaid onboarding)
+- **Email**: Resend for invite delivery
+- **Hosting**: Vercel with scheduled cron jobs
+- **Cost Tracking**: OpenCost inside the Kubernetes cluster
 
 ## Key Flows
 
-### User Signup
-1. Auth0 authentication
-2. Auth0 webhook → Creates user in database and Stripe customer (NOT subscription yet)
-3. User must add payment method before cluster assignment
-4. After payment method added → Auto-assigns to available Hopsworks cluster
-5. During cluster assignment → Creates OAuth user in Hopsworks with:
-   - Account owners: 5 project limit
-   - Team members: 0 project limit
-6. Stores `hopsworks_user_id` and `hopsworks_username` in database
+### User Signup (Self-Service SaaS)
+1. Auth0 authentication via hosted login.
+2. Auth0 post-login webhook (`/api/webhooks/auth0`) creates the `users` row and Stripe customer if missing.
+3. User is redirected to Stripe Checkout to add a payment method.
+4. Stripe webhook (`/api/webhooks/stripe`) creates/updates the metered subscription once payment data exists.
+5. Health checks (`/api/auth/sync-user`) or admin actions assign a shared Hopsworks cluster after billing is verified.
+6. Cluster assignment creates or links an OAuth user in Hopsworks with:
+   - Account owners: 5 project limit.
+   - Team members: 0 project limit.
+7. Stores `hopsworks_username` (and ID if returned) in Supabase for future API calls.
+
+### Corporate (Prepaid) Signup
+1. User arrives with `?corporate_ref=<hubspot-deal-id>`.
+2. `/api/auth/validate-corporate` validates the deal through HubSpot APIs using `HUBSPOT_API_KEY`.
+3. On successful validation, the account is marked `billing_mode = 'prepaid'` and the deal ID is stored in `metadata.corporate_ref`.
+4. Cluster assignment runs immediately after signup—no Stripe flow.
+5. Usage is still collected hourly, but invoicing happens off-platform.
 
 ### Team Management
-1. Account owners can invite team members via email
-2. Team members join through invitation links
-3. Team member usage is billed to account owner
-4. Account owners manage team through dashboard
+1. Account owners send invites via `/api/team/invite`; Resend emails the tokenized link.
+2. Invited users authenticate with Auth0 and accept via `/api/team/join`.
+3. Membership details are stored in `users.account_owner_id` and mirrored in Hopsworks.
+4. Optional auto-assignment adds members to the owner's projects and caches roles in `project_member_roles`.
+5. Team member usage is aggregated to the owner's account for billing and reporting.
 
 ### Cost Collection (Hourly via OpenCost)
 1. Cron job runs every hour on Vercel
@@ -36,7 +47,7 @@
 3. Maps namespaces to users via `user_projects` table
 4. Accumulates hourly costs in `usage_daily` table
 5. Updates `project_breakdown` JSONB with per-project details
-6. Deducts from credits for prepaid users
+6. Persists totals in `usage_daily` for reporting and Stripe sync.
 
 ### OpenCost Integration
 ```
@@ -54,21 +65,22 @@
 ```
 
 ### Billing
-- **Postpaid** (default): OpenCost usage synced to Stripe daily for monthly invoicing
-- **Prepaid** (opt-in): Users buy credits, OpenCost costs deducted daily
-- Hybrid model supports both simultaneously
-- Team member project costs aggregated to account owner
-- All costs come from OpenCost (actual infrastructure costs)
+- **Postpaid (default)**: Daily cron `/api/billing/sync-stripe` reports usage totals to Stripe Billing Meter Events.
+- **Prepaid (corporate)**: Usage retained for reporting; invoicing handled manually based on HubSpot deal metadata.
+- Hybrid model supports SaaS and prepaid accounts simultaneously.
+- Team member usage rolls up to the owner via `usage_daily.account_owner_id`.
+- All costs originate from OpenCost allocations; pricing is defined in `src/config/billing-rates.ts`.
 
 ## Database Schema
 
 ### Core Tables
-- **`users`** - Auth0 ID as primary key, includes:
-  - `hopsworks_username` - Username in Hopsworks
-  - `hopsworks_user_id` - Internal Hopsworks user ID for API calls
-  - `account_owner_id` - Links team members to account owners
-  - `stripe_customer_id` - Stripe customer (only for account owners)
-- **`team_invites`** - Pending team invitations with 7-day expiration
+- **`users`** – Auth0 ID as primary key:
+  - `account_owner_id` links team members to owners.
+  - `billing_mode` toggles between `postpaid` and `prepaid`.
+  - `hopsworks_username` cached for API calls.
+  - `metadata.corporate_ref` stores the HubSpot deal ID.
+- **`team_invites`** – Pending invitations, including desired project role and `auto_assign_projects`.
+- **`project_member_roles`** – Tracks team member access to each Hopsworks project plus sync status.
 
 ### Cluster Management
 - **`hopsworks_clusters`** - Shared cluster endpoints with kubeconfig
@@ -78,16 +90,17 @@
   - `assigned_by` - Tracks manual vs automatic assignment
 
 ### Billing Tables
-- **`user_projects`** - Maps Kubernetes namespaces to users (NEW)
-- **`usage_daily`** - Daily aggregated costs from OpenCost
-- **`user_credits`** - Prepaid credit tracking
+- **`user_projects`** – Maps OpenCost namespaces to account owners.
+- **`usage_daily`** – Hourly totals aggregated per day for Stripe sync.
+- **`stripe_products`** – Active Stripe product/price mappings used by billing sync.
+- **`user_credits`** – Legacy/prepaid credits (report-only for current builds).
 
 ### Key Changes from Legacy
-- Replaced hardcoded pricing with OpenCost actual costs
-- Added `user_projects` for namespace → user mapping
-- Added `opencost_*` columns to `usage_daily`
-- Changed from 15-minute to hourly collection
-- Uses `kubectl exec` instead of metrics-server API
+- Replaced hardcoded pricing with OpenCost-derived actuals.
+- Added `user_projects` for namespace → user mapping.
+- Added `project_member_roles` for project auto-assignment tracking.
+- Added `opencost_*` columns to `usage_daily`.
+- Switched cost pulls from metrics-server to `kubectl exec` proxying into OpenCost.
 
 ## Hopsworks Integration
 
@@ -108,15 +121,13 @@
 - **Account owners** can create up to 5 projects
 - **Team members** cannot create projects but can be added to owner's projects
 - Project membership managed within Hopsworks UI
-- Future: Group mapping API for automatic team access
 
 ## Security
-- All API routes protected by Auth0
-- Admin routes check `is_admin` flag in DB
-- Service role key for Supabase operations
-- Kubeconfig stored encrypted in DB
-- **OpenCost not exposed externally** - accessed via kubectl exec
-- Team members cannot access billing information
+- All API routes require Auth0 sessions; admin routes enforce `is_admin`.
+- Supabase service-role key enables server-to-server access; never expose client-side.
+- Hopsworks API keys and kubeconfigs are stored as text in Supabase—access restricted to admin functions and encrypted at rest by Supabase.
+- **OpenCost is not exposed externally**; all calls go through Kubernetes API proxying.
+- Team members inherit billing but cannot view Stripe data.
 
 ## Deployment Architecture
 
@@ -139,6 +150,14 @@
 ┌──────────────┐                   │ └──────────┘ │
 │    Stripe    │                   └──────────────┘
 │   Payments   │
+└──────────────┘
+┌──────────────┐
+│   HubSpot    │
+│  (Deals)     │
+└──────────────┘
+┌──────────────┐
+│    Resend    │
+│ (Invites)    │
 └──────────────┘
 ```
 

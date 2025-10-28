@@ -136,17 +136,14 @@ CREATE TABLE usage_daily (
 - `project_breakdown`: JSONB with per-namespace breakdown:
   ```json
   {
-    "project1": {
-      "name": "ML Training",
-      "cpuCost": 1.23,
-      "ramCost": 0.45,
-      "storageCost": 0.10,
-      "totalCost": 1.78,
-      "cpuHours": 24.5,
-      "ramGBHours": 128.0,
-      "cpuEfficiency": 0.65,
-      "ramEfficiency": 0.80,
-      "lastUpdated": "2024-01-08T10:00:00Z"
+    "churn-modeling": {
+      "name": "Churn Modeling",
+      "cpuHours": 2.75,
+      "gpuHours": 0,
+      "ramGBHours": 0.72,
+      "cpuEfficiency": 0.78,
+      "ramEfficiency": 0.71,
+      "lastUpdated": "2025-02-07T03:10:02Z"
     }
   }
   ```
@@ -173,11 +170,13 @@ ORDER BY date DESC;
 -- Get project-level breakdown for a user
 SELECT 
   date,
-  project_breakdown->>'project1' as project1_details,
-  (project_breakdown->'project1'->>'totalCost')::decimal as project1_cost
+  projects.key AS namespace,
+  (projects.value->>'cpuHours')::decimal AS cpu_hours,
+  (projects.value->>'ramGBHours')::decimal AS ram_gb_hours,
+  projects.value->>'lastUpdated' AS last_updated
 FROM usage_daily
-WHERE user_id = 'auth0|123'
-AND project_breakdown ? 'project1';
+CROSS JOIN LATERAL jsonb_each(project_breakdown) AS projects(key, value)
+WHERE user_id = 'auth0|123';
 
 -- Find total costs across all users for billing
 SELECT 
@@ -187,6 +186,34 @@ FROM usage_daily
 WHERE date >= date_trunc('month', CURRENT_DATE)
 GROUP BY account_owner_id;
 ```
+
+## stripe_products
+
+Maps logical usage types to Stripe product/price IDs for metered billing.
+
+### Schema
+```sql
+CREATE TABLE stripe_products (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_type TEXT,                -- e.g. 'cpu_hours', 'storage_gb'
+  stripe_product_id TEXT,           -- Stripe product ID (prod_...)
+  stripe_price_id TEXT,             -- Stripe price ID (price_...)
+  unit_price DECIMAL(10,4),         -- USD amount per unit (optional cache)
+  unit_name TEXT,                   -- Display unit (e.g. 'credit', 'GB-month')
+  active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### Purpose
+- `src/pages/api/billing/sync-stripe.ts` looks up `product_type` to find the correct subscription item.
+- Allows billing to switch between live/test price IDs without redeploying code.
+
+### Business Rules
+- Only rows with `active = true` are considered.
+- `product_type` should match the keys expected in billing code (e.g. `cpu_hours`, `storage_gb`, `api_calls`).
+- Keep live vs test data in separate environments—do not mix credentials in production.
 
 ## Billing Workflows
 

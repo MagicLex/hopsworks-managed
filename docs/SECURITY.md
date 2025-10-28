@@ -149,38 +149,19 @@ Handled by Vercel platform defaults:
 
 ## Known Limitations (MVP)
 
-These items are acknowledged for future improvement:
+- **Kubeconfig Storage**: Stored as plain text in Supabase; access is limited to service-role operations, so rotate keys and monitor audit logs.
+- **Webhook Verification**: Uses shared-secret comparison; rotate `AUTH0_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET` on schedule.
+- **Rate Limiting**: In-memory limiter does not extend across Vercel regions; rely on monitoring to detect bursts.
+- **Audit Logging**: Console logs only; export Vercel logs for retention.
+- **API Versioning**: Single version; coordinate changes directly with consumers.
 
-1. **Kubeconfig Storage**: Currently stored as plain text in database
-   - Future: Implement encryption at rest
-   - Mitigation: Protected by service role authentication
+## Deployment Security
 
-2. **HMAC Webhook Verification**: Using simple secret comparison
-   - Future: Implement full HMAC signature verification
-   - Mitigation: Secret rotation capability exists
-
-3. **Rate Limiting**: In-memory storage doesn't work across Vercel's distributed instances
-   - Future: Redis-backed or edge-compatible solution
-
-4. **Audit Logging**: Limited to console logs
-   - Future: Structured logging with audit trail
-   - Mitigation: Vercel captures all logs
-
-5. **API Versioning**: No versioning strategy
-   - Future: Implement versioned endpoints
-   - Mitigation: Limited external API consumers
-
-## Security Checklist for Deployment
-
-Before deploying to production:
-- [ ] Configure all required environment variables
-- [ ] Generate strong `CRON_SECRET` (minimum 32 characters)
-- [ ] Configure Auth0 webhook with secret
-- [ ] Verify Stripe webhook endpoint in Stripe dashboard
-- [ ] Test health check endpoint accessibility
-- [ ] Review admin user list
-- [ ] Verify TLS validation is enabled
-- [ ] Check error messages are sanitized
+- Confirm all environment variables, secrets, and API keys are set before promotion.
+- Generate strong values for `CRON_SECRET`, Supabase service keys, and webhook secrets.
+- Validate webhook endpoints in Auth0 and Stripe dashboards after each deploy.
+- Keep TLS validation enabled when communicating with Hopsworks and Stripe.
+- Review admin user assignments regularly and prune unused accounts.
 
 ## Incident Response
 
