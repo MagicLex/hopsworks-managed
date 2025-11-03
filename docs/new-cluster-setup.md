@@ -52,13 +52,25 @@ Add or replace a new entry in the `hopsworks_clusters` table. If you choose to r
 ### Install OpenCost
 After Hopsworks installation, install OpenCost for usage tracking:
 
+**Important**: First, verify the actual Prometheus service name in your cluster:
+```bash
+kubectl get svc -n hopsworks | grep prometheus-server
+```
+
+The service name depends on your Hopsworks Helm release name. Common patterns:
+- `hopsworks-prometheus-server` (if installed with release name "hopsworks")
+- `hopsworks-release-prometheus-server` (if installed with release name "hopsworks-release")
+- `<your-release-name>-prometheus-server` (custom release name)
+
+Update `opencost-values.yaml` with the actual service name from your cluster:
+
 ```yaml
 # opencost-values.yaml
 opencost:
   prometheus:
     internal:
       enabled: true
-      serviceName: hopsworks-release-prometheus-server
+      serviceName: hopsworks-prometheus-server  # Update this based on kubectl output above
       namespaceName: hopsworks
       port: 80
 ```
@@ -69,8 +81,11 @@ helm install opencost opencost/opencost \
   --namespace opencost --create-namespace \
   --values opencost-values.yaml
 
-# Verify pods are running 
+# Verify pods are running (should show 2/2 READY)
 kubectl get pods -n opencost
+
+# Check logs if pods are crashing
+kubectl logs -n opencost -l app.kubernetes.io/instance=opencost -c opencost --tail=50
 ```
 
 Upload the kubeconfig to the admin or in supabase panel at `/admin47392` and verify OpenCost shows "Active" status.
