@@ -12,7 +12,7 @@ export KUBECONFIG=/path/to/kubeconfig.yml
 export MYSQL_PASS=$(kubectl get secret -n hopsworks mysql-users-secrets -o jsonpath='{.data.hopsworksroot}' | base64 -d)
 
 # Get namenode pod name
-export NAMENODE_POD=$(kubectl get pods -n hopsworks -l app=namenode -o jsonpath='{.items[0].metadata.name}')
+export NAMENODE_POD=$(kubectl get pods -n hopsworks -o name | grep 'pod/namenode-' | grep -v 'preset\|setup' | head -1 | cut -d'/' -f2)
 ```
 
 ## Compute (CPU/RAM/GPU)
@@ -65,7 +65,7 @@ ORDER BY date DESC;
 ```bash
 kubectl exec -n hopsworks $NAMENODE_POD -- \
   /srv/hops/hadoop/bin/hdfs dfs -du -s /Projects/testme 2>&1 | \
-  grep -v "WARNING\|SLF4J" | \
+  grep -v "WARNING\|SLF4J" | tail -1 | \
   awk '{printf "Bytes: %d (%.2f MB)\n", $1, $1/1024/1024}'
 ```
 
@@ -88,19 +88,19 @@ kubectl exec -n hopsworks $NAMENODE_POD -- \
 
 **Single Project:**
 ```bash
-kubectl exec -n hopsworks mysqlds-0 -- mysql -u hopsworksroot -p${MYSQL_PASS} -e "
+kubectl exec -n hopsworks mysqlds-0 -- bash -c "MYSQL_PWD='${MYSQL_PASS}' mysql -u hopsworksroot -e \"
 SELECT
   SUBSTRING_INDEX(parent_fq_name, '/', 1) AS project,
   ROUND(SUM(fixed_elem_alloc_bytes + var_elem_alloc_bytes)/1024/1024, 2) AS size_mb
 FROM ndbinfo.memory_per_fragment
 WHERE parent_fq_name LIKE 'testme/%'
 GROUP BY project;
-" 2>&1 | grep -v "Warning\|Defaulted"
+\"" 2>&1 | grep -v "Warning\|Defaulted"
 ```
 
 **All Projects with NDB Tables:**
 ```bash
-kubectl exec -n hopsworks mysqlds-0 -- mysql -u hopsworksroot -p${MYSQL_PASS} -e "
+kubectl exec -n hopsworks mysqlds-0 -- bash -c "MYSQL_PWD='${MYSQL_PASS}' mysql -u hopsworksroot -e \"
 SELECT
   SUBSTRING_INDEX(parent_fq_name, '/', 1) AS project,
   ROUND(SUM(fixed_elem_alloc_bytes + var_elem_alloc_bytes)/1024/1024, 2) AS size_mb
@@ -108,7 +108,7 @@ FROM ndbinfo.memory_per_fragment
 GROUP BY SUBSTRING_INDEX(parent_fq_name, '/', 1)
 HAVING size_mb > 0
 ORDER BY size_mb DESC;
-" 2>&1 | grep -v "Warning\|Defaulted"
+\"" 2>&1 | grep -v "Warning\|Defaulted"
 ```
 
 **⚠️ Note:** NDB metrics may include metadata/overhead. Validate against actual feature group sizes.
@@ -142,17 +142,17 @@ echo ""
 echo "## Offline Storage (HDFS)"
 kubectl exec -n hopsworks $NAMENODE_POD -- \
   /srv/hops/hadoop/bin/hdfs dfs -du -s /Projects/$PROJECT 2>&1 | \
-  grep -v "WARNING\|SLF4J" | \
+  grep -v "WARNING\|SLF4J" | tail -1 | \
   awk '{printf "  Size: %d bytes (%.2f MB)\n", $1, $1/1024/1024}'
 echo ""
 
 # Online Storage
 echo "## Online Storage (NDB)"
-kubectl exec -n hopsworks mysqlds-0 -- mysql -u hopsworksroot -p${MYSQL_PASS} -e "
+kubectl exec -n hopsworks mysqlds-0 -- bash -c "MYSQL_PWD='${MYSQL_PASS}' mysql -u hopsworksroot -e \"
 SELECT ROUND(SUM(fixed_elem_alloc_bytes + var_elem_alloc_bytes)/1024/1024, 2) AS size_mb
 FROM ndbinfo.memory_per_fragment
 WHERE parent_fq_name LIKE '$PROJECT/%';
-" 2>&1 | grep -v "Warning\|Defaulted\|size_mb" | awk '{print "  Size: " $1 " MB"}'
+\"" 2>&1 | grep -v "Warning\|Defaulted\|size_mb" | awk '{print "  Size: " $1 " MB"}'
 ```
 
 ## Supabase Historical Queries

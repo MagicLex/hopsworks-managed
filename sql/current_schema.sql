@@ -137,6 +137,7 @@ CREATE TABLE IF NOT EXISTS hopsworks_clusters (
   current_users INTEGER DEFAULT 0,
   status TEXT DEFAULT 'active',
   kubeconfig TEXT,
+  mysql_password TEXT,
   metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

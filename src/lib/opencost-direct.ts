@@ -1,12 +1,15 @@
 import * as k8s from '@kubernetes/client-node';
 import https from 'https';
+import { Writable } from 'stream';
 
 export class OpenCostDirect {
   private kc: k8s.KubeConfig;
-  
+  private exec: k8s.Exec;
+
   constructor(kubeconfigContent: string) {
     this.kc = new k8s.KubeConfig();
     this.kc.loadFromString(kubeconfigContent);
+    this.exec = new k8s.Exec(this.kc);
   }
 
   async cleanup() {
@@ -90,5 +93,179 @@ export class OpenCostDirect {
     }
 
     return allocations;
+  }
+
+  /**
+   * Execute a command in a pod and capture stdout
+   */
+  private async execInPod(
+    namespace: string,
+    podName: string,
+    command: string[]
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      let stdout = '';
+      let stderr = '';
+
+      const stdoutStream = new Writable({
+        write(chunk, encoding, callback) {
+          stdout += chunk.toString();
+          callback();
+        }
+      });
+
+      const stderrStream = new Writable({
+        write(chunk, encoding, callback) {
+          stderr += chunk.toString();
+          callback();
+        }
+      });
+
+      this.exec.exec(
+        namespace,
+        podName,
+        '',
+        command,
+        stdoutStream,
+        stderrStream,
+        null,
+        false,
+        (status) => {
+          if (status.status === 'Success') {
+            resolve(stdout);
+          } else {
+            reject(new Error(`Command failed: ${stderr || 'Unknown error'}`));
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * Get offline storage (HDFS) for all projects in batch
+   * Returns map of project name -> bytes
+   */
+  async getOfflineStorageBatch(): Promise<Map<string, number>> {
+    const storageMap = new Map<string, number>();
+
+    try {
+      // Get namenode pod
+      const k8sApi = this.kc.makeApiClient(k8s.CoreV1Api);
+      const podsResponse = await k8sApi.listNamespacedPod('hopsworks');
+      const namenodePod = podsResponse.body.items.find(
+        pod => pod.metadata?.name?.startsWith('namenode-') &&
+               !pod.metadata.name.includes('preset') &&
+               !pod.metadata.name.includes('setup') &&
+               pod.status?.phase === 'Running'
+      );
+
+      if (!namenodePod?.metadata?.name) {
+        throw new Error('Namenode pod not found');
+      }
+
+      // Single HDFS command to get all project sizes
+      const command = [
+        '/srv/hops/hadoop/bin/hdfs',
+        'dfs',
+        '-du',
+        '/Projects'
+      ];
+
+      const output = await this.execInPod('hopsworks', namenodePod.metadata.name, command);
+
+      // Parse output: each line is "bytes  bytes_with_replication  /Projects/projectname"
+      const lines = output.split('\n').filter(line => line.trim() && !line.includes('WARNING') && !line.includes('SLF4J'));
+
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 3) {
+          const bytes = parseInt(parts[0], 10);
+          const path = parts[parts.length - 1];
+          const projectName = path.split('/').pop();
+
+          // Skip empty or very small baseline projects (Hopsworks metadata only)
+          if (projectName && !isNaN(bytes) && bytes > 10000) { // > 10KB
+            storageMap.set(projectName, bytes);
+          }
+        }
+      }
+
+      console.log(`Collected offline storage for ${storageMap.size} projects`);
+      return storageMap;
+
+    } catch (error) {
+      console.error('Failed to get offline storage:', error);
+      return storageMap; // Return empty map on error, don't fail the whole job
+    }
+  }
+
+  /**
+   * Get online storage (NDB) for all projects in batch
+   * Returns map of project name -> bytes
+   */
+  async getOnlineStorageBatch(mysqlPassword: string): Promise<Map<string, number>> {
+    const storageMap = new Map<string, number>();
+
+    try {
+      // Get mysqlds pod
+      const k8sApi = this.kc.makeApiClient(k8s.CoreV1Api);
+      const podsResponse = await k8sApi.listNamespacedPod('hopsworks');
+      const mysqlPod = podsResponse.body.items.find(
+        pod => pod.metadata?.name?.startsWith('mysqlds-') &&
+               pod.status?.phase === 'Running'
+      );
+
+      if (!mysqlPod?.metadata?.name) {
+        throw new Error('MySQL pod not found');
+      }
+
+      // Single MySQL query to get all project sizes
+      const query = `
+        SELECT
+          SUBSTRING_INDEX(parent_fq_name, '/', 1) AS project,
+          SUM(fixed_elem_alloc_bytes + var_elem_alloc_bytes) AS bytes
+        FROM ndbinfo.memory_per_fragment
+        GROUP BY SUBSTRING_INDEX(parent_fq_name, '/', 1)
+        HAVING bytes > 0
+      `;
+
+      const command = [
+        'bash',
+        '-c',
+        `MYSQL_PWD='${mysqlPassword}' mysql -u hopsworksroot -N -e "${query.replace(/\n/g, ' ')}"`
+      ];
+
+      const output = await this.execInPod('hopsworks', mysqlPod.metadata.name, command);
+
+      // Parse output: each line is "projectname\tbytes"
+      const lines = output.split('\n').filter(line =>
+        line.trim() &&
+        !line.includes('Warning') &&
+        !line.includes('Defaulted')
+      );
+
+      // System databases to exclude from user billing
+      const SYSTEM_DATABASES = new Set(['NULL', 'mysql', 'heartbeat', 'hops', 'hopsworks', 'metastore', 'information_schema', 'performance_schema']);
+
+      for (const line of lines) {
+        const parts = line.trim().split(/\t/);
+        if (parts.length === 2) {
+          const projectName = parts[0];
+          const bytes = parseFloat(parts[1]);
+
+          // Skip system databases and very small allocations
+          if (projectName && !isNaN(bytes) && !SYSTEM_DATABASES.has(projectName) && bytes > 100000) { // > 100KB
+            storageMap.set(projectName, bytes);
+          }
+        }
+      }
+
+      console.log(`Collected online storage for ${storageMap.size} projects`);
+      return storageMap;
+
+    } catch (error) {
+      console.error('Failed to get online storage:', error);
+      return storageMap; // Return empty map on error
+    }
   }
 }

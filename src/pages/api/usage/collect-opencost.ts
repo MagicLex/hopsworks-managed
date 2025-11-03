@@ -67,6 +67,12 @@ async function collectOpenCostMetrics() {
     // Get hourly allocations from OpenCost using kubectl exec
     const allocations = await opencost.getOpenCostAllocations('1h');
 
+    // Get storage metrics in batch (once for all projects)
+    console.log('Collecting storage metrics...');
+    const offlineStorage = await opencost.getOfflineStorageBatch();
+    const onlineStorage = await opencost.getOnlineStorageBatch(cluster.mysql_password || '');
+    console.log(`Storage collected: ${offlineStorage.size} offline, ${onlineStorage.size} online`);
+
   console.log(`Found ${allocations.size} namespaces with costs`);
 
   const results = {
@@ -178,16 +184,27 @@ async function collectOpenCostMetrics() {
         .eq('date', currentDate)
         .single();
 
-      // Extract usage metrics
+      // Extract compute usage metrics
       const cpuHours = allocation.cpuCoreHours || 0;
       const ramGBHours = (allocation.ramByteHours || 0) / (1024 * 1024 * 1024);
-      const gpuHours = allocation.gpuHours || 0; // If OpenCost provides GPU data
-      
+      const gpuHours = allocation.gpuHours || 0;
+
+      // Get storage for this project (convert bytes to GB)
+      const offlineStorageBytes = offlineStorage.get(projectName) || 0;
+      const onlineStorageBytes = onlineStorage.get(projectName) || 0;
+      const offlineStorageGB = offlineStorageBytes / (1024 * 1024 * 1024);
+      const onlineStorageGB = onlineStorageBytes / (1024 * 1024 * 1024);
+
+      // Storage rates are per month, so divide by 720 hours (30 days * 24 hours) for hourly cost
+      const HOURS_PER_MONTH = 30 * 24;
+
       // Calculate cost using our rates
       const creditsUsed = calculateCreditsUsed({
         cpuHours,
         gpuHours,
-        ramGbHours: ramGBHours
+        ramGbHours: ramGBHours,
+        onlineStorageGb: onlineStorageGB / HOURS_PER_MONTH, // Pro-rata for this hour
+        offlineStorageGb: offlineStorageGB / HOURS_PER_MONTH
       });
       const hourlyTotalCost = calculateDollarAmount(creditsUsed);
 
@@ -199,6 +216,8 @@ async function collectOpenCostMetrics() {
           cpuHours: cpuHours,
           gpuHours: gpuHours,
           ramGBHours: ramGBHours,
+          onlineStorageGB: onlineStorageGB,
+          offlineStorageGB: offlineStorageGB,
           cpuEfficiency: allocation.cpuEfficiency,
           ramEfficiency: allocation.ramEfficiency,
           lastUpdated: now.toISOString()
@@ -210,6 +229,8 @@ async function collectOpenCostMetrics() {
             opencost_cpu_hours: (existingUsage.opencost_cpu_hours || 0) + cpuHours,
             opencost_gpu_hours: (existingUsage.opencost_gpu_hours || 0) + gpuHours,
             opencost_ram_gb_hours: (existingUsage.opencost_ram_gb_hours || 0) + ramGBHours,
+            online_storage_gb: onlineStorageGB, // Latest snapshot, not accumulated
+            offline_storage_gb: offlineStorageGB,
             total_cost: (existingUsage.total_cost || 0) + hourlyTotalCost,
             project_breakdown: updatedProjectBreakdown
           })
@@ -222,6 +243,8 @@ async function collectOpenCostMetrics() {
           cpuHours: cpuHours,
           gpuHours: gpuHours,
           ramGBHours: ramGBHours,
+          onlineStorageGB: onlineStorageGB,
+          offlineStorageGB: offlineStorageGB,
           cpuEfficiency: allocation.cpuEfficiency,
           ramEfficiency: allocation.ramEfficiency,
           lastUpdated: now.toISOString()
@@ -235,6 +258,8 @@ async function collectOpenCostMetrics() {
             opencost_cpu_hours: cpuHours,
             opencost_gpu_hours: gpuHours,
             opencost_ram_gb_hours: ramGBHours,
+            online_storage_gb: onlineStorageGB,
+            offline_storage_gb: offlineStorageGB,
             total_cost: hourlyTotalCost,
             project_breakdown: projectBreakdown,
             hopsworks_cluster_id: cluster.id
@@ -248,7 +273,9 @@ async function collectOpenCostMetrics() {
         userId,
         cpuHours,
         gpuHours,
-        ramGBHours
+        ramGBHours,
+        onlineStorageGB,
+        offlineStorageGB
       });
 
     } catch (error) {
