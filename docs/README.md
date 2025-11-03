@@ -28,6 +28,7 @@
 
 - [API](reference/api.md) - Endpoints and admin tools
 - [Database Schema](reference/database/) - Detailed table documentation
+- [Metering Queries](reference/metering-queries.md) - Quick reference for compute and storage queries
 
 ## Troubleshooting
 
