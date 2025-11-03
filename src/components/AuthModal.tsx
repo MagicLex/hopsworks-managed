@@ -9,12 +9,14 @@ interface AuthModalProps {
   onSuccess?: () => void;
   mode?: 'signin' | 'signup';
   corporateRef?: string;
+  promoCode?: string;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess, mode = 'signup', corporateRef }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess, mode = 'signup', corporateRef, promoCode }) => {
   const { signIn } = useAuth();
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>(mode);
   const [isCorporate, setIsCorporate] = useState(false);
+  const [isPromo, setIsPromo] = useState(false);
 
   useEffect(() => {
     // Check for corporate ref in URL or props
@@ -25,12 +27,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       // Store in sessionStorage for persistence during auth flow
       sessionStorage.setItem('corporate_ref', ref);
     }
-  }, [corporateRef]);
+
+    // Check for promo code in URL or props
+    const promo = promoCode || urlParams.get('promo');
+    if (promo) {
+      setIsPromo(true);
+      // Store in sessionStorage for persistence during auth flow
+      sessionStorage.setItem('promo_code', promo);
+    }
+  }, [corporateRef, promoCode]);
 
   const handleSignIn = () => {
-    // Pass corporate ref through Auth0 state if present
+    // Pass corporate ref and promo code through Auth0 state if present
     const corporateRefValue = sessionStorage.getItem('corporate_ref');
-    signIn(corporateRefValue || undefined);
+    const promoCodeValue = sessionStorage.getItem('promo_code');
+    signIn(corporateRefValue || undefined, promoCodeValue || undefined);
     onClose();
   };
 
@@ -46,15 +57,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       }
     >
       <Flex direction="column" gap={24}>
-        <Card className={isCorporate ? "border-blue-500 bg-blue-50 p-4" : "border-[#1eb182] bg-[#e8f5f0] p-4"}>
+        <Card className={(isCorporate || isPromo) ? "border-blue-500 bg-blue-50 p-4" : "border-[#1eb182] bg-[#e8f5f0] p-4"}>
           <Flex align="center" gap={8}>
             {isCorporate && <Building2 size={16} className="text-blue-600" />}
             <Text className="text-sm">
-              {isCorporate 
+              {isCorporate
                 ? 'Corporate account registration. Your organization has a prepaid agreement with Hopsworks. Sign up to get instant access.'
-                : authMode === 'signin' 
-                  ? 'Welcome back! Sign in to access your Hopsworks instance.'
-                  : 'Create a new account to start using Hopsworks. No credit card required to sign up.'}
+                : isPromo
+                  ? 'Promotional access enabled. Sign up to get instant access with no payment required.'
+                  : authMode === 'signin'
+                    ? 'Welcome back! Sign in to access your Hopsworks instance.'
+                    : 'Create a new account to start using Hopsworks. No credit card required to sign up.'}
             </Text>
           </Flex>
         </Card>

@@ -55,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const { sub: userId, email, name } = session.user;
-    const { corporateRef, teamInviteToken } = req.body;
+    const { corporateRef, promoCode, teamInviteToken } = req.body;
     const healthCheckResults = {
       userExists: false,
       billingEnabled: false,
@@ -105,7 +105,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           console.error('Corporate validation error:', error);
         }
       }
-      
+
+      // Handle promotional code registration
+      if (promoCode && !billingMode) { // Only if not already set by corporate
+        try {
+          // Validate promotional code
+          const validateResponse = await fetch(
+            `${process.env.AUTH0_BASE_URL || 'http://localhost:3000'}/api/auth/validate-promo`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ promoCode })
+            }
+          );
+
+          const validationResult = await validateResponse.json();
+
+          if (validationResult.valid) {
+            billingMode = 'prepaid';
+            metadata.promo_code = validationResult.promoCode; // Use normalized code
+            registrationSource = validationResult.promoCode; // Use promo code as source to track conversions
+            console.log(`Promotional registration validated for ${email} with code ${validationResult.promoCode}`);
+          } else {
+            console.log(`Promotional code validation failed for ${email}: ${validationResult.error}`);
+          }
+        } catch (error) {
+          console.error('Promo code validation error:', error);
+        }
+      }
+
       // Names are now handled by Auth0 Action with prompt
       
       // Create new user

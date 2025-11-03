@@ -12,19 +12,20 @@ interface DeployModalProps {
   deployment: DeploymentOption | null;
   onClose: () => void;
   corporateRef?: string | null;
+  promoCode?: string | null;
 }
 
-export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, onClose, corporateRef }) => {
+export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, onClose, corporateRef, promoCode }) => {
   const { user, signIn } = useAuth();
   const router = useRouter();
   const { pricing } = usePricing();
-  
+
   if (!deployment) return null;
 
   const handleStartNow = () => {
     if (!user) {
-      // Pass corporate ref if present, use signup mode
-      signIn(corporateRef || undefined, 'signup');
+      // Pass corporate ref or promo code if present, use signup mode
+      signIn(corporateRef || undefined, promoCode || undefined, 'signup');
     } else {
       // Redirect to billing to add payment method
       router.push('/billing');

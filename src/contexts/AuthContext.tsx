@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 interface AuthContextType {
   user: any; // Auth0's UserProfile type has nullable sub
   loading: boolean;
-  signIn: (corporateRef?: string, mode?: 'login' | 'signup') => void;
+  signIn: (corporateRef?: string, promoCode?: string, mode?: 'login' | 'signup') => void;
   signOut: () => void;
 }
 
@@ -17,29 +17,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (user && !isLoading) {
-      // Get corporate ref from sessionStorage if present
+      // Get corporate ref and promo code from sessionStorage if present
       const corporateRef = sessionStorage.getItem('corporate_ref');
-      
+      const promoCode = sessionStorage.getItem('promo_code');
+
       // Check if we've already synced this session
       const syncedThisSession = sessionStorage.getItem('user_synced_session');
       if (syncedThisSession === user.sub) {
         return; // Already synced this user in this session
       }
-      
+
       // Sync user to Supabase when they log in
       fetch('/api/auth/sync-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ corporateRef })
+        body: JSON.stringify({ corporateRef, promoCode })
       })
       .then(res => res.json())
       .then(data => {
         // Mark as synced for this session
         sessionStorage.setItem('user_synced_session', user.sub!);
-        
-        // Clear corporate ref after successful sync
+
+        // Clear corporate ref and promo code after successful sync
         sessionStorage.removeItem('corporate_ref');
-        
+        sessionStorage.removeItem('promo_code');
+
         // Check if user needs to set up payment (new users, not team members)
         if (data.needsPayment && router.pathname !== '/billing-setup') {
           // Store flag to show payment setup is required
@@ -52,10 +54,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user, isLoading, router.pathname]); // Only re-run if pathname changes to billing-setup
 
-  const signIn = (corporateRef?: string, mode: 'login' | 'signup' = 'login') => {
+  const signIn = (corporateRef?: string, promoCode?: string, mode: 'login' | 'signup' = 'login') => {
     if (corporateRef) {
       // Store corporate ref in sessionStorage to persist through auth flow
       sessionStorage.setItem('corporate_ref', corporateRef);
+    }
+    if (promoCode) {
+      // Store promo code in sessionStorage to persist through auth flow
+      sessionStorage.setItem('promo_code', promoCode);
     }
     // Use the proper Auth0 route - signup or login
     router.push(mode === 'signup' ? '/api/auth/signup' : '/api/auth/login');

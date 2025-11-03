@@ -20,12 +20,15 @@ export default function Home() {
   const [corporateCompanyName, setCorporateCompanyName] = useState<string | null>(null);
   const [corporateLogo, setCorporateLogo] = useState<string | null>(null);
   const [corporateError, setCorporateError] = useState<string | null>(null);
+  const [promoCode, setPromoCode] = useState<string | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
   const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // Check for corporate_ref in URL params
     const urlParams = new URLSearchParams(window.location.search);
+
+    // Check for corporate_ref in URL params
     const ref = urlParams.get('corporate_ref');
     if (ref) {
       // Validate the corporate ref exists
@@ -51,6 +54,33 @@ export default function Home() {
         .catch(err => {
           console.error('Failed to validate corporate ref:', err);
           setCorporateError('Unable to validate corporate reference. Please try again or contact support.');
+        });
+    }
+
+    // Check for promo code in URL params
+    const promo = urlParams.get('promo');
+    if (promo) {
+      // Validate the promo code
+      fetch('/api/auth/validate-promo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promoCode: promo })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.valid) {
+            setPromoCode(data.promoCode); // Use normalized code
+            // Store in sessionStorage for persistence
+            sessionStorage.setItem('promo_code', data.promoCode);
+          } else {
+            setPromoError(data.error || 'Invalid promotional code');
+            // Remove invalid promo from URL
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to validate promo code:', err);
+          setPromoError('Unable to validate promotional code. Please try again or contact support.');
         });
     }
   }, []);
@@ -143,8 +173,8 @@ export default function Home() {
         <Box className="max-w-6xl mx-auto">
           {(corporateRef || corporateError) && (
             <Box className={`mb-6 p-4 rounded-lg border ${
-              corporateError 
-                ? 'bg-red-50 border-red-200' 
+              corporateError
+                ? 'bg-red-50 border-red-200'
                 : 'bg-green-50 border-green-200'
             }`}>
               {corporateError ? (
@@ -154,9 +184,9 @@ export default function Home() {
               ) : (
                 <Flex align="center" gap={12}>
                   {corporateLogo && (
-                    <img 
-                      src={corporateLogo} 
-                      alt={corporateCompanyName || ''} 
+                    <img
+                      src={corporateLogo}
+                      alt={corporateCompanyName || ''}
                       className="h-10 w-10 object-contain rounded"
                       onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     />
@@ -169,6 +199,28 @@ export default function Home() {
                       Full platform access unlocked. Sign in with your {corporateCompanyName && (corporateCompanyName.toLowerCase().includes('inc') || corporateCompanyName.toLowerCase().includes('corp') || corporateCompanyName.toLowerCase().includes('ltd')) ? 'company' : corporateCompanyName} email.
                     </Text>
                   </Flex>
+                </Flex>
+              )}
+            </Box>
+          )}
+          {(promoCode || promoError) && (
+            <Box className={`mb-6 p-4 rounded-lg border ${
+              promoError
+                ? 'bg-red-50 border-red-200'
+                : 'bg-blue-50 border-blue-200'
+            }`}>
+              {promoError ? (
+                <Text className="text-red-700 font-mono text-sm">
+                  ❌ {promoError}
+                </Text>
+              ) : (
+                <Flex direction="column" gap={4}>
+                  <Text className="text-blue-700 font-mono text-sm font-semibold">
+                    ✓ Promotional Code Applied: {promoCode}
+                  </Text>
+                  <Text className="text-blue-600 font-mono text-xs">
+                    Full platform access unlocked. No payment required.
+                  </Text>
                 </Flex>
               )}
             </Box>
@@ -186,8 +238,8 @@ export default function Home() {
           <Flex direction="column" gap={20}>
             {deploymentOptions
               .filter(deployment => {
-                // Hide serverless option when corporate ref is present
-                if (corporateRef && deployment.id === 'serverless') {
+                // Hide serverless option when corporate ref or promo code is present
+                if ((corporateRef || promoCode) && deployment.id === 'serverless') {
                   return false;
                 }
                 return true;
@@ -198,18 +250,19 @@ export default function Home() {
                   deployment={deployment}
                   isYearly={isYearly}
                   onDeploy={handleDeploy}
-                  isCorporate={!!corporateRef}
+                  isCorporate={!!(corporateRef || promoCode)}
                 />
               ))}
           </Flex>
         </Box>
       </Layout>
       
-      <DeployModal 
+      <DeployModal
         isOpen={isModalOpen}
         deployment={selectedDeployment}
         onClose={() => setIsModalOpen(false)}
         corporateRef={corporateRef}
+        promoCode={promoCode}
       />
     </>
   );
