@@ -32,7 +32,6 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
   };
   
   const getButtonText = () => {
-    if (deployment.id === 'serverless') return 'Join Free';
     if (deployment.id === 'payg') return 'Get Started';
     if (deployment.buttonStyle === 'enterprise') return 'Contact Sales';
     return 'Join Cluster';
@@ -46,43 +45,6 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
       default: return Server;
     }
   };
-
-  if (deployment.id === 'serverless') {
-    return (
-      <Card className="p-6 bg-gray-50 border-gray-200">
-        <Flex justify="between" align="center">
-          <Box>
-            <Title as="h3" className="text-base mb-1">{deployment.name}</Title>
-            <Text className="text-sm text-gray-600 mb-2">Feature store access on shared infrastructure</Text>
-            <Flex gap={16} className="text-xs font-mono text-gray-500 mb-2">
-              <Flex align="center" gap={4}>
-                <span className="text-green-600 font-semibold text-sm">✓ Feature Store</span>
-              </Flex>
-              <Flex align="center" gap={4}>
-                <X size={10} className="text-red-400" />
-                <span>No Jupyter</span>
-              </Flex>
-              <Flex align="center" gap={4}>
-                <X size={10} className="text-red-400" />
-                <span>No Orchestration</span>
-              </Flex>
-            </Flex>
-            <Box className="inline-flex items-center px-2 py-0.5 bg-gray-700 text-white text-xs font-mono font-semibold uppercase tracking-wider">
-              EU-WEST
-            </Box>
-          </Box>
-          <Button 
-            onClick={() => onDeploy(deployment)}
-            intent="secondary"
-            size="md"
-            className="font-mono uppercase tracking-wide w-[150px] justify-center"
-          >
-            Join Free
-          </Button>
-        </Flex>
-      </Card>
-    );
-  }
 
   if (deployment.buttonStyle === 'enterprise') {
     return (
@@ -133,9 +95,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
               {isCorporate && deployment.id === 'payg' ? 'Corporate' : deployment.name}
             </Title>
             <Box className="text-sm text-gray-600 mb-2">
-              {price === 0 && deployment.id === 'serverless' ? (
-                <Badge variant="primary" size="sm" className="font-mono font-semibold">FREE</Badge>
-              ) : deployment.id === 'payg' ? (
+              {deployment.id === 'payg' ? (
                 isCorporate ? (
                   <Badge variant="primary" size="sm" className="font-mono font-semibold">PREPAID</Badge>
                 ) : (

@@ -94,8 +94,6 @@ export default function Home() {
   const handleDeploy = (deployment: DeploymentOption) => {
     if (deployment.buttonStyle === 'enterprise') {
       window.open('https://www.hopsworks.ai/contact/main', '_blank');
-    } else if (deployment.id === 'serverless') {
-      window.open('https://app.hopsworks.ai/', '_blank');
     } else {
       setSelectedDeployment(deployment);
       setIsModalOpen(true);
@@ -236,23 +234,15 @@ export default function Home() {
           
           
           <Flex direction="column" gap={20}>
-            {deploymentOptions
-              .filter(deployment => {
-                // Hide serverless option when corporate ref or promo code is present
-                if ((corporateRef || promoCode) && deployment.id === 'serverless') {
-                  return false;
-                }
-                return true;
-              })
-              .map((deployment) => (
-                <DeploymentCard
-                  key={deployment.id}
-                  deployment={deployment}
-                  isYearly={isYearly}
-                  onDeploy={handleDeploy}
-                  isCorporate={!!(corporateRef || promoCode)}
-                />
-              ))}
+            {deploymentOptions.map((deployment) => (
+              <DeploymentCard
+                key={deployment.id}
+                deployment={deployment}
+                isYearly={isYearly}
+                onDeploy={handleDeploy}
+                isCorporate={!!(corporateRef || promoCode)}
+              />
+            ))}
           </Flex>
         </Box>
       </Layout>

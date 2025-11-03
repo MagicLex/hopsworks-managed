@@ -14,18 +14,6 @@ export interface DeploymentOption {
 
 export const deploymentOptions: DeploymentOption[] = [
   {
-    id: 'serverless',
-    name: 'Serverless',
-    monthlyPrice: 0,
-    yearlyPrice: 0,
-    buttonStyle: 'secondary',
-    specs: {
-      compute: ['Shared Spark cluster', '4GB memory limit', '1hr max job time'],
-      storage: ['10GB storage quota', '100K feature limit', 'Shared RonDB instance'],
-      capabilities: ['Feature store only', 'Python SDK access', 'No Airflow/Jupyter', 'No GPU access', 'Rate-limited APIs'],
-    },
-  },
-  {
     id: 'payg',
     name: 'Pay-As-You-Go',
     monthlyPrice: 0,
