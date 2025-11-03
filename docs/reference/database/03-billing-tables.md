@@ -125,14 +125,17 @@ CREATE TABLE usage_daily (
 
 ### Data Collection
 - **Source**: OpenCost running in Kubernetes cluster
-- **Method**: `kubectl exec` to query OpenCost API directly (no external exposure)
+- **Method**: Kubernetes API service proxy via HTTPS (uses kubeconfig from `hopsworks_clusters` table)
 - **Frequency**: Hourly via Vercel cron job
 - **Endpoint**: `/api/usage/collect-opencost`
+- **Query**: `/api/v1/namespaces/opencost/services/opencost:9003/proxy/allocation/compute?window=1h&aggregate=namespace`
 - **Accumulation**: Each hour adds to the daily total
+- **Namespaces skipped**: `hopsworks`, `kube-system`, `kube-public`, `kube-node-lease`, `opencost`, `ingress-nginx`
 
 ### Key Fields
-- `opencost_*_cost`: Actual costs from OpenCost (USD)
-- `opencost_*_hours`: Resource consumption in hours
+- `opencost_*_hours`: Resource consumption metrics from OpenCost (CPU hours, GPU hours, RAM GB-hours)
+- `opencost_*_cost`: DEPRECATED - Legacy fields, not currently used
+- `total_cost`: Calculated cost using our pricing model from `billing-rates.ts` (NOT from OpenCost)
 - `project_breakdown`: JSONB with per-namespace breakdown:
   ```json
   {
@@ -217,13 +220,22 @@ CREATE TABLE stripe_products (
 
 ## Billing Workflows
 
-### OpenCost Collection Flow
-1. Hourly cron job triggers `/api/usage/collect-opencost`
-2. Uses `kubectl exec` to query OpenCost inside cluster
-3. Gets costs per namespace for last hour
-4. Maps namespaces to users via `user_projects` table
-5. Accumulates hourly costs into `usage_daily` records
-6. Updates `project_breakdown` JSONB with details
+### Project Sync Flow (Every 30 minutes)
+1. Cron job triggers `/api/cron/sync-projects`
+2. Fetches all projects from Hopsworks API for each user
+3. Updates `user_projects` table with namespace mappings
+4. Marks orphaned projects as inactive
+5. Updates `last_seen_at` for active projects
+
+### OpenCost Collection Flow (Hourly)
+1. Cron job triggers `/api/usage/collect-opencost`
+2. Queries OpenCost via Kubernetes API service proxy (HTTPS)
+3. Gets resource usage (CPU/GPU/RAM hours) per namespace for last hour
+4. Skips system namespaces (`hopsworks`, `kube-system`, etc.)
+5. Maps namespaces to users via `user_projects` table
+6. Calculates costs using `billing-rates.ts` (NOT OpenCost's costs)
+7. Accumulates hourly usage/costs into `usage_daily` records (ADD not UPDATE)
+8. Updates `project_breakdown` JSONB with per-project details
 
 ### Prepaid Flow
 1. User purchases credits via Stripe

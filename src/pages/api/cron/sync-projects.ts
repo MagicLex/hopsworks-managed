@@ -30,10 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  // Allow manual trigger in development
-  if (process.env.NODE_ENV === 'development' && req.method === 'GET') {
-    console.log('⚠️  Manual trigger in development mode');
-  } else if (req.method !== 'POST') {
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 

@@ -215,12 +215,16 @@ await stripe.billing.meterEvents.create({
 {
   "crons": [
     {
+      "path": "/api/cron/sync-projects",
+      "schedule": "*/30 * * * *"  // Every 30 minutes - syncs project mappings
+    },
+    {
       "path": "/api/usage/collect-opencost",
-      "schedule": "0 * * * *"  // Every hour
+      "schedule": "0 * * * *"  // Every hour - collects usage metrics
     },
     {
       "path": "/api/billing/sync-stripe",
-      "schedule": "0 3 * * *"   // Daily at 3 AM
+      "schedule": "0 3 * * *"   // Daily at 3 AM - reports to Stripe
     }
   ]
 }
