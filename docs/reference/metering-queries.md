@@ -90,11 +90,11 @@ kubectl exec -n hopsworks $NAMENODE_POD -- \
 ```bash
 kubectl exec -n hopsworks mysqlds-0 -- bash -c "MYSQL_PWD='${MYSQL_PASS}' mysql -u hopsworksroot -e \"
 SELECT
-  SUBSTRING_INDEX(parent_fq_name, '/', 1) AS project,
-  ROUND(SUM(fixed_elem_alloc_bytes + var_elem_alloc_bytes)/1024/1024, 2) AS size_mb
-FROM ndbinfo.memory_per_fragment
-WHERE parent_fq_name LIKE 'testme/%'
-GROUP BY project;
+  database_name AS project,
+  ROUND(SUM(in_memory_bytes + disk_memory_bytes)/1024/1024, 2) AS size_mb
+FROM ndbinfo.table_memory_usage
+WHERE database_name = 'testme'
+GROUP BY database_name;
 \"" 2>&1 | grep -v "Warning\|Defaulted"
 ```
 
@@ -102,16 +102,16 @@ GROUP BY project;
 ```bash
 kubectl exec -n hopsworks mysqlds-0 -- bash -c "MYSQL_PWD='${MYSQL_PASS}' mysql -u hopsworksroot -e \"
 SELECT
-  SUBSTRING_INDEX(parent_fq_name, '/', 1) AS project,
-  ROUND(SUM(fixed_elem_alloc_bytes + var_elem_alloc_bytes)/1024/1024, 2) AS size_mb
-FROM ndbinfo.memory_per_fragment
-GROUP BY SUBSTRING_INDEX(parent_fq_name, '/', 1)
+  database_name AS project,
+  ROUND(SUM(in_memory_bytes + disk_memory_bytes)/1024/1024, 2) AS size_mb
+FROM ndbinfo.table_memory_usage
+GROUP BY database_name
 HAVING size_mb > 0
 ORDER BY size_mb DESC;
 \"" 2>&1 | grep -v "Warning\|Defaulted"
 ```
 
-**⚠️ Note:** NDB metrics may include metadata/overhead. Validate against actual feature group sizes.
+**⚠️ Note:** Uses `table_memory_usage` which aggregates in-memory and disk allocations. More accurate than `memory_per_fragment` for billing.
 
 ## Combined Query (All Metrics for Project)
 
@@ -149,9 +149,9 @@ echo ""
 # Online Storage
 echo "## Online Storage (NDB)"
 kubectl exec -n hopsworks mysqlds-0 -- bash -c "MYSQL_PWD='${MYSQL_PASS}' mysql -u hopsworksroot -e \"
-SELECT ROUND(SUM(fixed_elem_alloc_bytes + var_elem_alloc_bytes)/1024/1024, 2) AS size_mb
-FROM ndbinfo.memory_per_fragment
-WHERE parent_fq_name LIKE '$PROJECT/%';
+SELECT ROUND(SUM(in_memory_bytes + disk_memory_bytes)/1024/1024, 2) AS size_mb
+FROM ndbinfo.table_memory_usage
+WHERE database_name = '$PROJECT';
 \"" 2>&1 | grep -v "Warning\|Defaulted\|size_mb" | awk '{print "  Size: " $1 " MB"}'
 ```
 

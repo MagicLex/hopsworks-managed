@@ -320,7 +320,7 @@ Storage tracking is **fully implemented** using batch queries:
 
 **Batch Query Approach:**
 - Single HDFS query for all projects: `hdfs dfs -du /Projects`
-- Single NDB query for all projects via `ndbinfo.memory_per_fragment`
+- Single NDB query for all projects via `ndbinfo.table_memory_usage`
 - Runs hourly alongside OpenCost collection
 - ~3-5 seconds total overhead per run
 - Scales to ~500-1000 projects before timeout concerns
@@ -351,15 +351,15 @@ Filtering:
 **Online Storage (NDB):**
 ```sql
 SELECT
-  SUBSTRING_INDEX(parent_fq_name, '/', 1) AS project,
-  SUM(fixed_elem_alloc_bytes + var_elem_alloc_bytes) AS bytes
-FROM ndbinfo.memory_per_fragment
-GROUP BY SUBSTRING_INDEX(parent_fq_name, '/', 1)
+  database_name AS project,
+  SUM(in_memory_bytes + disk_memory_bytes) AS bytes
+FROM ndbinfo.table_memory_usage
+GROUP BY database_name
 HAVING bytes > 0
 ```
 
 Filtering:
-- Excludes system databases: `NULL`, `mysql`, `heartbeat`, `hops`, `hopsworks`, `metastore`
+- Excludes system databases: `mysql`, `heartbeat`, `hops`, `hopsworks`, `metastore`
 - Skips allocations < 100KB
 - Returns Map<project_name, bytes>
 
@@ -405,10 +405,10 @@ offline_storage_gb DECIMAL(10,4)  -- Latest GB at collection time
 ### Caveats & Known Issues
 
 ⚠️ **NDB Metrics Include Metadata:**
-- `ndbinfo.memory_per_fragment` reports total allocated memory
+- `ndbinfo.table_memory_usage` reports total allocated memory (in-memory + disk)
 - May include table metadata, indexes, and overhead
-- Typically ~10-20% higher than actual data size
-- Consider this acceptable for billing purposes or validate against row counts
+- More accurate than `memory_per_fragment` for billing purposes
+- Aggregates at table level rather than fragment level
 
 ⚠️ **System Database Filtering:**
 - NDB query returns system databases (hopsworks, metastore, etc.)

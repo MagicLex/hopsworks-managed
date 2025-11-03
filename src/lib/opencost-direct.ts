@@ -222,10 +222,10 @@ export class OpenCostDirect {
       // Single MySQL query to get all project sizes
       const query = `
         SELECT
-          SUBSTRING_INDEX(parent_fq_name, '/', 1) AS project,
-          SUM(fixed_elem_alloc_bytes + var_elem_alloc_bytes) AS bytes
-        FROM ndbinfo.memory_per_fragment
-        GROUP BY SUBSTRING_INDEX(parent_fq_name, '/', 1)
+          database_name AS project,
+          SUM(in_memory_bytes + disk_memory_bytes) AS bytes
+        FROM ndbinfo.table_memory_usage
+        GROUP BY database_name
         HAVING bytes > 0
       `;
 
