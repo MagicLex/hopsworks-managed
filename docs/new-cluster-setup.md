@@ -34,7 +34,17 @@ More documentation on hopsworks' configuration at [this link](https://docs.hopsw
 __NotaBene: if you used an installer to deploy Hopsworks, remember to change the admin's  logins/passwords.__ 
 
 ### In Auth0
-Replace or add all the callback links, CORS etc. 
+Add the following URLs to your Auth0 Application Settings:
+
+**Allowed Callback URLs**:
+- `https://<your-domain>/api/auth/callback`
+- `https://<your-domain>/team/joining`
+
+**Allowed Logout URLs**:
+- `https://<your-domain>/`
+
+**Allowed Web Origins** (for CORS):
+- `https://<your-domain>` 
 
 ### In Supabase
 Add or replace a new entry in the `hopsworks_clusters` table. If you choose to replace an existing entry; users that are assigned to that entry will be assigned to the new cluster. 
