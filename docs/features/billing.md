@@ -309,6 +309,68 @@ WHERE user_id = 'auth0|123';
 4. Run Stripe reporting
 5. Check Stripe dashboard for usage records
 
+## Storage Metering (Not Yet Implemented)
+
+### Current Status
+Storage tracking fields exist in `usage_daily` but are not populated:
+- `online_storage_gb` - For MySQL/PostgreSQL/RonDB (online feature store)
+- `offline_storage_gb` - For HDFS/S3 (datasets, training data)
+
+### Technical Investigation Results
+
+**Prometheus Metrics:**
+- Hopsworks Prometheus collects 251+ HDFS metrics from namenode/datanode
+- All metrics are at **cluster level** (total capacity/usage)
+- No per-project breakdown available in metrics
+
+**HDFS Direct Access (Offline Storage):**
+- ✅ HDFS can be queried directly via namenode pod
+- Command: `kubectl exec namenode-pod -- /srv/hops/hadoop/bin/hdfs dfs -du -s /Projects/{project}`
+- Example output: `600855341  600855341  /Projects/testme` (bytes used, with replication)
+- Projects located at: `/Projects/mahmoud`, `/Projects/testme`, etc.
+- Baseline: Empty projects = ~4.5 KB (Hopsworks metadata)
+- Example: testme = 573 MB
+
+**RonDB/NDB Cluster Direct Access (Online Storage):**
+- ✅ NDB can be queried via `ndbinfo.memory_per_fragment`
+- Query: `SELECT SUM(fixed_elem_alloc_bytes + var_elem_alloc_bytes) FROM ndbinfo.memory_per_fragment WHERE parent_fq_name LIKE '{project}/%'`
+- Example: testme = 0.63 MB (for 1000 rows across 2 feature groups)
+- ⚠️ **Warning:** Reported size may include metadata/overhead - needs validation for accurate billing
+
+**Storage Architecture:**
+- All storage centralized in `hopsworks` namespace
+- HDFS datanode PVC: 100GB (all projects combined)
+- RonDB (MySQL) PVCs: 60GB total
+- User namespaces (`testme`, `mahmoud`) have NO PVCs - they use centralized storage
+
+### Implementation Options
+
+**Option A: Custom HDFS Exporter Pod**
+- Standalone pod with Hadoop client
+- Periodically queries HDFS via namenode
+- Exposes Prometheus metrics with `project` label
+- Most "cloud-native" but requires new infrastructure
+
+**Option B: Direct Query in Cron Job (Recommended)**
+- Add storage querying to existing `collect-opencost` cron
+- Execute HDFS commands in namenode pod for offline storage
+- Execute MySQL queries against `ndbinfo` for online storage
+- Parse output and store in `usage_daily` table
+- Simple, no additional infrastructure needed
+- ⚠️ NDB storage calculation needs validation (may include metadata)
+
+**Option C: Hopsworks API Endpoint**
+- Endpoint `/api/admin/projects/{id}/usage` currently returns 404
+- Would be cleanest if implemented in Hopsworks backend
+- Requires backend development
+
+### Next Steps
+When storage metering is prioritized:
+1. Implement Option B in `collect-opencost.ts`
+2. Query HDFS for each project in `user_projects`
+3. Update `online_storage_gb` and `offline_storage_gb` in `usage_daily`
+4. Add storage costs to billing calculations
+
 ## Migration Notes
 
 ### From Old System
