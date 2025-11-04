@@ -52,13 +52,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         billingMode: 'team',
         hasPaymentMethod: true, // Team members don't need payment
         currentUsage: {
-          cpuHours: 0,
-          storageGB: 0,
-          currentMonth: { 
-            cpuCost: 0,
-            storageCost: 0,
-            baseCost: 0,
-            total: 0 
+          cpuHours: '0.00',
+          gpuHours: '0.00',
+          ramGbHours: '0.00',
+          onlineStorageGB: '0.00',
+          offlineStorageGB: '0.00',
+          currentMonth: {
+            computeCost: 0,
+            onlineStorageCost: 0,
+            offlineStorageCost: 0,
+            total: 0
           }
         }
       });
@@ -79,10 +82,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const currentMonthTotals = currentMonthData?.reduce((acc, day) => ({
       cpuHours: acc.cpuHours + (day.opencost_cpu_hours || 0),
       gpuHours: acc.gpuHours + (day.opencost_gpu_hours || 0),
-      storageGB: acc.storageGB + (day.online_storage_gb || 0) + (day.offline_storage_gb || 0),
+      ramGbHours: acc.ramGbHours + (day.opencost_ram_gb_hours || 0),
+      onlineStorageGB: Math.max(acc.onlineStorageGB, day.online_storage_gb || 0), // Snapshot
+      offlineStorageGB: Math.max(acc.offlineStorageGB, day.offline_storage_gb || 0), // Snapshot
       totalCost: acc.totalCost + (day.total_cost || 0)
-    }), { cpuHours: 0, gpuHours: 0, storageGB: 0, totalCost: 0 }) || 
-    { cpuHours: 0, gpuHours: 0, storageGB: 0, totalCost: 0 };
+    }), { cpuHours: 0, gpuHours: 0, ramGbHours: 0, onlineStorageGB: 0, offlineStorageGB: 0, totalCost: 0 }) ||
+    { cpuHours: 0, gpuHours: 0, ramGbHours: 0, onlineStorageGB: 0, offlineStorageGB: 0, totalCost: 0 };
 
 
     // Get usage data for the requested period
@@ -255,11 +260,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       prepaidEnabled: user?.feature_flags?.prepaid_enabled || false,
       currentUsage: {
         cpuHours: currentMonthTotals.cpuHours.toFixed(2),
-        storageGB: currentMonthTotals.storageGB.toFixed(2),
+        gpuHours: currentMonthTotals.gpuHours.toFixed(2),
+        ramGbHours: currentMonthTotals.ramGbHours.toFixed(2),
+        onlineStorageGB: currentMonthTotals.onlineStorageGB.toFixed(2),
+        offlineStorageGB: currentMonthTotals.offlineStorageGB.toFixed(2),
         currentMonth: {
-          cpuCost: currentMonthTotals.cpuHours * DEFAULT_RATES.CPU_HOUR,
-          storageCost: currentMonthTotals.storageGB * DEFAULT_RATES.STORAGE_ONLINE_GB,
-          baseCost: currentMonthTotals.totalCost,
+          computeCost: (
+            currentMonthTotals.cpuHours * DEFAULT_RATES.CPU_HOUR +
+            currentMonthTotals.gpuHours * DEFAULT_RATES.GPU_HOUR +
+            currentMonthTotals.ramGbHours * DEFAULT_RATES.RAM_GB_HOUR
+          ),
+          onlineStorageCost: currentMonthTotals.onlineStorageGB * DEFAULT_RATES.STORAGE_ONLINE_GB / 30 * new Date().getDate(),
+          offlineStorageCost: currentMonthTotals.offlineStorageGB * DEFAULT_RATES.STORAGE_OFFLINE_GB / 30 * new Date().getDate(),
           total: currentMonthTotals.totalCost
         }
       },

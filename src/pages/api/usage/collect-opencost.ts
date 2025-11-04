@@ -267,7 +267,8 @@ async function collectOpenCostMetrics() {
             online_storage_gb: onlineStorageGB, // Latest snapshot, not accumulated
             offline_storage_gb: offlineStorageGB,
             total_cost: (existingUsage.total_cost || 0) + hourlyTotalCost,
-            project_breakdown: updatedProjectBreakdown
+            project_breakdown: updatedProjectBreakdown,
+            updated_at: now.toISOString()
           })
           .eq('id', existingUsage.id);
       } else {
