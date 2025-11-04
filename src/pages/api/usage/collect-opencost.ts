@@ -102,8 +102,9 @@ async function collectOpenCostMetrics() {
   // Process each namespace with costs
   for (const [namespace, allocation] of Array.from(allocations.entries())) {
     try {
-      // Skip Hopsworks system namespace
-      if (namespace === 'hopsworks') {
+      // Skip system namespaces
+      const SYSTEM_NAMESPACES = ['hopsworks', 'ingress-nginx', 'kube-system', 'kube-public', 'kube-node-lease', 'opencost'];
+      if (SYSTEM_NAMESPACES.includes(namespace)) {
         continue;
       }
 
@@ -320,6 +321,229 @@ async function collectOpenCostMetrics() {
       clusterResults.errors.push(`Namespace ${namespace}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+
+      // Second pass: Process storage-only projects (no compute in last hour)
+      console.log(`[${cluster.name}] Processing storage-only projects...`);
+
+      // Get all project names that have storage
+      const allProjectsWithStorage = new Set<string>();
+      for (const projectName of offlineStorage.keys()) {
+        allProjectsWithStorage.add(projectName);
+      }
+      for (const projectName of onlineStorage.keys()) {
+        allProjectsWithStorage.add(projectName);
+      }
+
+      // Track which projects were already processed in the compute loop
+      const processedProjects = new Set(
+        clusterResults.namespaces.map(ns => ns.projectName)
+      );
+
+      // Process projects with storage but no compute
+      const SYSTEM_PROJECTS = ['hopsworks', 'mysql', 'heartbeat', 'hops', 'metastore', 'information_schema', 'performance_schema'];
+
+      for (const projectName of allProjectsWithStorage) {
+        if (processedProjects.has(projectName)) {
+          continue; // Already processed in compute loop
+        }
+
+        // Skip system projects
+        if (SYSTEM_PROJECTS.includes(projectName.toLowerCase())) {
+          continue;
+        }
+
+        try {
+          // Look up project owner in our database
+          const { data: project } = await supabaseAdmin
+            .from('user_projects')
+            .select('user_id, project_name, project_id, namespace')
+            .eq('project_name', projectName)
+            .eq('status', 'active')
+            .single();
+
+          let userId: string | null = null;
+          let projectId: number | null = null;
+          let namespace = projectName;
+
+          if (project) {
+            // Verify user is on this cluster
+            const { data: userAssignment } = await supabaseAdmin
+              .from('user_hopsworks_assignments')
+              .select('hopsworks_cluster_id')
+              .eq('user_id', project.user_id)
+              .single();
+
+            if (userAssignment?.hopsworks_cluster_id === cluster.id) {
+              userId = project.user_id;
+              projectId = project.project_id;
+              namespace = project.namespace;
+
+              // Update last seen
+              await supabaseAdmin
+                .from('user_projects')
+                .update({ last_seen_at: now.toISOString() })
+                .eq('project_name', projectName);
+            }
+          } else {
+            // Query Hopsworks API to find owner
+            const hopsworksProjects = await getAllProjects(
+              { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+              `ApiKey ${cluster.api_key}`
+            );
+
+            const hopsworksProject = hopsworksProjects.find(p =>
+              p.name.toLowerCase() === projectName.toLowerCase()
+            );
+
+            if (hopsworksProject) {
+              const { data: user } = await supabaseAdmin
+                .from('users')
+                .select(`
+                  id,
+                  user_hopsworks_assignments!inner (
+                    hopsworks_cluster_id
+                  )
+                `)
+                .eq('hopsworks_username', hopsworksProject.owner)
+                .eq('user_hopsworks_assignments.hopsworks_cluster_id', cluster.id)
+                .single();
+
+              if (user) {
+                userId = user.id;
+                projectId = hopsworksProject.id;
+
+                // Cache the mapping
+                await supabaseAdmin
+                  .from('user_projects')
+                  .upsert({
+                    user_id: userId,
+                    project_id: projectId,
+                    project_name: projectName,
+                    namespace: namespace,
+                    status: 'active',
+                    last_seen_at: now.toISOString()
+                  }, {
+                    onConflict: 'namespace'
+                  });
+              }
+            }
+          }
+
+          if (!userId) {
+            console.warn(`[${cluster.name}] No user found for storage-only project ${projectName}`);
+            continue;
+          }
+
+          // Get storage for this project
+          const offlineStorageBytes = offlineStorage.get(projectName) || 0;
+          const onlineStorageBytes = onlineStorage.get(projectName) || 0;
+          const offlineStorageGB = offlineStorageBytes / (1024 * 1024 * 1024);
+          const onlineStorageGB = onlineStorageBytes / (1024 * 1024 * 1024);
+
+          // Skip if no significant storage
+          if (offlineStorageGB < 0.001 && onlineStorageGB < 0.001) {
+            continue;
+          }
+
+          console.log(`[${cluster.name}] Storage-only project: ${projectName}, offline: ${offlineStorageGB.toFixed(3)} GB, online: ${onlineStorageGB.toFixed(3)} GB`);
+
+          // Storage rates are per month, divide by 720 hours for hourly cost
+          const HOURS_PER_MONTH = 30 * 24;
+
+          // Calculate storage-only cost
+          const creditsUsed = calculateCreditsUsed({
+            cpuHours: 0,
+            gpuHours: 0,
+            ramGbHours: 0,
+            onlineStorageGb: onlineStorageGB / HOURS_PER_MONTH,
+            offlineStorageGb: offlineStorageGB / HOURS_PER_MONTH
+          });
+          const hourlyTotalCost = calculateDollarAmount(creditsUsed);
+
+          // Get or create today's usage record
+          const { data: existingUsage } = await supabaseAdmin
+            .from('usage_daily')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('date', currentDate)
+            .single();
+
+          if (existingUsage) {
+            // Update existing record
+            const updatedProjectBreakdown = existingUsage.project_breakdown || {};
+            updatedProjectBreakdown[namespace] = {
+              name: projectName,
+              cpuHours: 0,
+              gpuHours: 0,
+              ramGBHours: 0,
+              onlineStorageGB: onlineStorageGB,
+              offlineStorageGB: offlineStorageGB,
+              cpuEfficiency: 0,
+              ramEfficiency: 0,
+              lastUpdated: now.toISOString()
+            };
+
+            await supabaseAdmin
+              .from('usage_daily')
+              .update({
+                online_storage_gb: onlineStorageGB, // Latest snapshot
+                offline_storage_gb: offlineStorageGB,
+                total_cost: (existingUsage.total_cost || 0) + hourlyTotalCost,
+                project_breakdown: updatedProjectBreakdown,
+                updated_at: now.toISOString()
+              })
+              .eq('id', existingUsage.id);
+          } else {
+            // Create new record
+            const projectBreakdown: any = {};
+            projectBreakdown[namespace] = {
+              name: projectName,
+              cpuHours: 0,
+              gpuHours: 0,
+              ramGBHours: 0,
+              onlineStorageGB: onlineStorageGB,
+              offlineStorageGB: offlineStorageGB,
+              cpuEfficiency: 0,
+              ramEfficiency: 0,
+              lastUpdated: now.toISOString()
+            };
+
+            await supabaseAdmin
+              .from('usage_daily')
+              .insert({
+                user_id: userId,
+                date: currentDate,
+                opencost_cpu_hours: 0,
+                opencost_gpu_hours: 0,
+                opencost_ram_gb_hours: 0,
+                online_storage_gb: onlineStorageGB,
+                offline_storage_gb: offlineStorageGB,
+                total_cost: hourlyTotalCost,
+                project_breakdown: projectBreakdown,
+                hopsworks_cluster_id: cluster.id
+              });
+          }
+
+          clusterResults.successful++;
+          clusterResults.namespaces.push({
+            namespace,
+            projectName,
+            userId,
+            cpuHours: 0,
+            gpuHours: 0,
+            ramGBHours: 0,
+            onlineStorageGB,
+            offlineStorageGB
+          });
+
+        } catch (error) {
+          console.error(`[${cluster.name}] Failed to process storage-only project ${projectName}:`, error);
+          clusterResults.failed++;
+          clusterResults.errors.push(`Storage-only project ${projectName}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
+      console.log(`[${cluster.name}] Storage-only processing completed`);
 
       // Mark projects as inactive if not seen in 30 days (per cluster)
       const thirtyDaysAgo = new Date();
