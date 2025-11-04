@@ -105,11 +105,13 @@ Get billing information and usage summary.
   "prepaidEnabled": false,
   "currentUsage": {
     "cpuHours": "120.50",
-    "storageGB": "50.25",
+    "gpuHours": "0.00",
+    "ramGbHours": "240.00",
+    "onlineStorageGB": "2MB",
+    "offlineStorageGB": "50.25GB",
     "currentMonth": {
-      "cpuCost": 12.05,
+      "computeCost": 12.05,
       "storageCost": 5.03,
-      "baseCost": 17.08,
       "total": 17.08
     }
   },

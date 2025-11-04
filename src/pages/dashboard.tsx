@@ -996,7 +996,7 @@ mr = project.get_model_registry()`;
                               ${billing.currentUsage.currentMonth.storageCost.toFixed(2)}
                             </Text>
                             <Text className="text-xs text-gray-500">
-                              Online: {billing.currentUsage.onlineStorageGB || '0.00'}GB | Offline: {billing.currentUsage.offlineStorageGB || '0.00'}GB
+                              Online: {billing.currentUsage.onlineStorageGB || '0.00GB'} | Offline: {billing.currentUsage.offlineStorageGB || '0.00GB'}
                             </Text>
                           </Box>
                           <Box>

@@ -265,8 +265,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cpuHours: currentMonthTotals.cpuHours.toFixed(2),
         gpuHours: currentMonthTotals.gpuHours.toFixed(2),
         ramGbHours: currentMonthTotals.ramGbHours.toFixed(2),
-        onlineStorageGB: onlineStorageGB.toFixed(2),
-        offlineStorageGB: offlineStorageGB.toFixed(2),
+        onlineStorageGB: onlineStorageGB < 0.1 ? (onlineStorageGB * 1024).toFixed(0) + 'MB' : onlineStorageGB.toFixed(2) + 'GB',
+        offlineStorageGB: offlineStorageGB < 0.1 ? (offlineStorageGB * 1024).toFixed(0) + 'MB' : offlineStorageGB.toFixed(2) + 'GB',
         currentMonth: {
           computeCost: (
             currentMonthTotals.cpuHours * DEFAULT_RATES.CPU_HOUR +
