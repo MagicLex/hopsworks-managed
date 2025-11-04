@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS usage_daily (
   -- Stripe sync tracking
   reported_to_stripe BOOLEAN DEFAULT false,
 
+  total_credits DECIMAL(10,4) DEFAULT 0,
   total_cost DECIMAL(10,2) DEFAULT 0,
   hopsworks_cluster_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),

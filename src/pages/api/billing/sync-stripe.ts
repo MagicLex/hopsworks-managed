@@ -81,13 +81,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       try {
         const customerId = usage.users.stripe_customer_id;
 
-        // Report compute credits (convert dollars to credits)
-        if (usage.total_cost > 0) {
-          const credits = usage.total_cost / 0.35; // Convert dollars to credits ($0.35 per credit)
+        // Report compute credits (send as centi-credits for Stripe integer requirement)
+        if (usage.total_credits > 0) {
+          const centiCredits = Math.round(usage.total_credits * 100); // 1.11 credits → 111 centi-credits
           const cpuUsageRecord = await stripe.billing.meterEvents.create({
             event_name: 'compute_credits',
             payload: {
-              value: String(Math.round(credits * 100) / 100), // Round to 2 decimals
+              value: String(centiCredits),
               stripe_customer_id: customerId,
             },
             timestamp: Math.floor(new Date(reportDate).getTime() / 1000)

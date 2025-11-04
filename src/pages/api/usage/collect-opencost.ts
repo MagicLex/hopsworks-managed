@@ -357,6 +357,7 @@ async function collectOpenCostMetrics() {
         onlineStorageGb: onlineStorageGB / HOURS_PER_MONTH, // Pro-rata for this hour
         offlineStorageGb: offlineStorageGB / HOURS_PER_MONTH
       });
+      const hourlyTotalCredits = creditsUsed;
       const hourlyTotalCost = calculateDollarAmount(creditsUsed);
 
       const accountOwnerId = await resolveAccountOwnerId(userId);
@@ -375,6 +376,7 @@ async function collectOpenCostMetrics() {
       let totalCpuHours = existingUsage?.opencost_cpu_hours || 0;
       let totalGpuHours = existingUsage?.opencost_gpu_hours || 0;
       let totalRamGbHours = existingUsage?.opencost_ram_gb_hours || 0;
+      let totalCredits = existingUsage?.total_credits || 0;
       let totalCost = existingUsage?.total_cost || 0;
 
       if (previousContribution && isSameUtcHour(previousContribution.processedAt)) {
@@ -423,6 +425,7 @@ async function collectOpenCostMetrics() {
         opencost_ram_gb_hours: totalRamGbHours + ramGBHours,
         online_storage_gb: storageTotals.online,
         offline_storage_gb: storageTotals.offline,
+        total_credits: totalCredits + hourlyTotalCredits,
         total_cost: totalCost + hourlyTotalCost,
         project_breakdown: breakdown,
         hopsworks_cluster_id: cluster.id
@@ -595,6 +598,7 @@ async function collectOpenCostMetrics() {
             onlineStorageGb: onlineStorageGB / HOURS_PER_MONTH,
             offlineStorageGb: offlineStorageGB / HOURS_PER_MONTH
           });
+          const hourlyTotalCredits = creditsUsed;
           const hourlyTotalCost = calculateDollarAmount(creditsUsed);
 
           const accountOwnerId = await resolveAccountOwnerId(userId);
@@ -613,6 +617,7 @@ async function collectOpenCostMetrics() {
           let totalCpuHours = existingUsage?.opencost_cpu_hours || 0;
           let totalGpuHours = existingUsage?.opencost_gpu_hours || 0;
           let totalRamGbHours = existingUsage?.opencost_ram_gb_hours || 0;
+          let totalCredits = existingUsage?.total_credits || 0;
           let totalCost = existingUsage?.total_cost || 0;
 
           if (previousContribution && isSameUtcHour(previousContribution.processedAt)) {
@@ -670,6 +675,7 @@ async function collectOpenCostMetrics() {
             opencost_ram_gb_hours: totalRamGbHours,
             online_storage_gb: storageTotals.online,
             offline_storage_gb: storageTotals.offline,
+            total_credits: totalCredits + hourlyTotalCredits,
             total_cost: totalCost + hourlyTotalCost,
             project_breakdown: breakdown,
             hopsworks_cluster_id: cluster.id
