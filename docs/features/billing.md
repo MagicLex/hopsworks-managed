@@ -495,3 +495,12 @@ Check logs for "Collecting storage metrics..." and verify no errors
 - `total_cost` field maintained for display
 - Old data remains readable
 - Gradual migration possible
+
+## Future Improvements
+
+- **Storage guardrails** – Fail loudly (or alert) if `getOnlineStorageBatch` comes back empty to catch missing RonDB credentials before storage goes to $0.
+- **Orphan namespace monitoring** – Log/alert when a namespace stays unresolved across runs so projects never slip through unbilled.
+- **Collection mutex** – Add a per-cluster lock (Supabase flag, Redis, etc.) to prevent concurrent cron executions from double-counting usage.
+- **Namespace + cluster key** – Extend `user_projects` uniqueness to `(namespace, hopsworks_cluster_id)` so duplicate project names across clusters don’t overwrite each other.
+- **Hourly cross-checks** – Schedule a “trust-but-verify” job that compares raw OpenCost totals with what landed in `usage_daily` and records any deltas.
+- **Stripe health tracking** – Store the most recent `/api/billing/sync-stripe` payload per user to make end-to-end billing audits trivial.
