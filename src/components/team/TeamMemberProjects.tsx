@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Flex, Text, Button, Select } from 'tailwind-quartz';
+import { Box, Flex, Text, Button, Select, StatusMessage } from 'tailwind-quartz';
 import { FolderOpen, Loader, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface Project {
@@ -174,23 +174,17 @@ export default function TeamMemberProjects({
           </Text>
 
           {message && (
-            <Box
-              className={`mb-3 p-2 rounded border ${
-                message.type === 'error' ? 'bg-red-50 border-red-200' :
-                message.type === 'success' ? 'bg-green-50 border-green-200' :
-                'bg-blue-50 border-blue-200'
-              }`}
+            <StatusMessage
+              variant={message.type}
+              icon={
+                message.type === 'success' ? <CheckCircle size={16} /> :
+                message.type === 'error' ? <AlertCircle size={16} /> :
+                null
+              }
+              className="mb-3"
             >
-              <Flex align="center" gap={8}>
-                {message.type === 'success' && <CheckCircle size={16} className="text-green-600" />}
-                {message.type === 'error' && <AlertCircle size={16} className="text-red-600" />}
-                <Text className={`text-sm ${
-                  message.type === 'error' ? 'text-red-800' :
-                  message.type === 'success' ? 'text-green-800' :
-                  'text-blue-800'
-                }`}>{message.text}</Text>
-              </Flex>
-            </Box>
+              <Text className="text-sm">{message.text}</Text>
+            </StatusMessage>
           )}
 
           {loading || syncing ? (

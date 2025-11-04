@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
-import { Card, Button, Flex, Box, Title, Text, Labeling, Badge, Dropdown, DropdownItem } from 'tailwind-quartz';
+import { Card, Button, Box, Text, Labeling, IconLabel, Dropdown, DropdownItem } from 'tailwind-quartz';
 import { User, LogOut, Settings, CreditCard, Activity, Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -44,41 +44,26 @@ export const UserProfile: React.FC = () => {
 
             <Box className="p-2">
               <DropdownItem onClick={() => handleNavigation('/dashboard')}>
-                <Flex align="center" gap={8}>
-                  <Activity size={14} />
-                  <span>Dashboard</span>
-                </Flex>
+                <IconLabel icon={<Activity size={14} />}>Dashboard</IconLabel>
               </DropdownItem>
-              
+
               <DropdownItem onClick={() => handleNavigation('/dashboard?tab=billing')}>
-                <Flex align="center" gap={8}>
-                  <CreditCard size={14} />
-                  <span>Billing</span>
-                </Flex>
+                <IconLabel icon={<CreditCard size={14} />}>Billing</IconLabel>
               </DropdownItem>
-              
+
               <DropdownItem onClick={() => handleNavigation('/dashboard?tab=settings')}>
-                <Flex align="center" gap={8}>
-                  <Settings size={14} />
-                  <span>Account Settings</span>
-                </Flex>
+                <IconLabel icon={<Settings size={14} />}>Account Settings</IconLabel>
               </DropdownItem>
-              
+
               {isAdmin && (
                 <DropdownItem onClick={() => handleNavigation(ADMIN_ROUTE)}>
-                  <Flex align="center" gap={8}>
-                    <Shield size={14} />
-                    <span>Admin Dashboard</span>
-                  </Flex>
+                  <IconLabel icon={<Shield size={14} />}>Admin Dashboard</IconLabel>
                 </DropdownItem>
               )}
-              
+
               <Box className="border-t border-grayShade2 mt-2 pt-2">
                 <DropdownItem onClick={handleSignOut}>
-                  <Flex align="center" gap={8}>
-                    <LogOut size={14} />
-                    <span>Sign Out</span>
-                  </Flex>
+                  <IconLabel icon={<LogOut size={14} />}>Sign Out</IconLabel>
                 </DropdownItem>
               </Box>
             </Box>
