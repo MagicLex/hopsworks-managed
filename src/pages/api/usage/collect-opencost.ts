@@ -327,10 +327,10 @@ async function collectOpenCostMetrics() {
 
       // Get all project names that have storage
       const allProjectsWithStorage = new Set<string>();
-      for (const projectName of offlineStorage.keys()) {
+      for (const projectName of Array.from(offlineStorage.keys())) {
         allProjectsWithStorage.add(projectName);
       }
-      for (const projectName of onlineStorage.keys()) {
+      for (const projectName of Array.from(onlineStorage.keys())) {
         allProjectsWithStorage.add(projectName);
       }
 
