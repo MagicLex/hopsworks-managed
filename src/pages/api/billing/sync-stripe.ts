@@ -70,21 +70,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Get Stripe product IDs from our configuration
-    const { data: stripeProducts } = await supabaseAdmin
-      .from('stripe_products')
-      .select('*')
-      .eq('active', true);
-
-    if (!stripeProducts || stripeProducts.length === 0) {
-      throw new Error('No active Stripe products configured');
-    }
-
-    const productMap = stripeProducts.reduce((acc, product) => {
-      acc[product.product_type] = product;
-      return acc;
-    }, {} as Record<string, any>);
-
     const results = {
       successful: 0,
       failed: 0,
@@ -95,26 +80,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const usage of unreportedUsage) {
       try {
         const customerId = usage.users.stripe_customer_id;
-        const subscriptionId = usage.users.stripe_subscription_id;
 
-        // Get the subscription to find subscription items
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        
-        // Find subscription items for each product type
-        const cpuItem = subscription.items.data.find(item => 
-          item.price.product === productMap.cpu_hours?.stripe_product_id
-        );
-        const storageItem = subscription.items.data.find(item => 
-          item.price.product === productMap.storage_gb?.stripe_product_id
-        );
-        const apiItem = subscription.items.data.find(item => 
-          item.price.product === productMap.api_calls?.stripe_product_id
-        );
-
-        // Report CPU hours (using total_cost instead of raw hours)
-        if (cpuItem && usage.total_cost > 0) {
+        // Report compute credits (total cost in cents)
+        if (usage.total_cost > 0) {
           const cpuUsageRecord = await stripe.billing.meterEvents.create({
-            event_name: 'cpu_usage',
+            event_name: 'compute_credits',
             payload: {
               value: String(Math.round(usage.total_cost * 100)), // Convert dollars to cents
               stripe_customer_id: customerId,
@@ -125,30 +95,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           // Update our record with Stripe ID
           await supabaseAdmin
             .from('usage_daily')
-            .update({ 
-              stripe_usage_record_id: cpuUsageRecord.identifier 
+            .update({
+              stripe_usage_record_id: cpuUsageRecord.identifier
             })
             .eq('id', usage.id);
         }
 
-        // Report storage GB (average for the day)
-        if (storageItem && usage.storage_gb > 0) {
+        // Report online storage GB
+        if (usage.online_storage_gb > 0) {
           await stripe.billing.meterEvents.create({
-            event_name: 'storage_usage',
+            event_name: 'storage_online_gb',
             payload: {
-              value: String(Math.round(usage.storage_gb)),
+              value: String(Math.round(usage.online_storage_gb)),
               stripe_customer_id: customerId,
             },
             timestamp: Math.floor(new Date(reportDate).getTime() / 1000)
           });
         }
 
-        // Report API calls
-        if (apiItem && usage.api_calls > 0) {
+        // Report offline storage GB
+        if (usage.offline_storage_gb > 0) {
           await stripe.billing.meterEvents.create({
-            event_name: 'api_calls',
+            event_name: 'storage_offline_gb',
             payload: {
-              value: String(usage.api_calls),
+              value: String(Math.round(usage.offline_storage_gb)),
               stripe_customer_id: customerId,
             },
             timestamp: Math.floor(new Date(reportDate).getTime() / 1000)
