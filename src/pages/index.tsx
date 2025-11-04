@@ -10,6 +10,7 @@ import { Box, Title, Text, Flex } from 'tailwind-quartz';
 import { useAuth } from '@/contexts/AuthContext';
 import { DEFAULT_RATES } from '@/config/billing-rates';
 import { usePricing } from '@/contexts/PricingContext';
+import { MatrixText } from '@/components/MatrixText';
 
 export default function Home() {
   const { pricing } = usePricing();
@@ -227,8 +228,11 @@ export default function Home() {
             <Title className="text-2xl mb-2">
               Start with Hopsworks
             </Title>
-            <Text className="text-sm text-gray-600">
-              The complete ML platform - feature store, pipelines, and deployment. Pay only for what you use.
+            <Text className="text-sm text-gray-600 mb-2">
+              <MatrixText text="Storage" /> for features & AI data — <MatrixText text="Compute" /> for training & inference — <MatrixText text="Query" /> for analytics & serving
+            </Text>
+            <Text className="text-xs text-gray-500 font-mono">
+              Pay only for what you use.
             </Text>
           </Box>
           
