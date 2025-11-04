@@ -575,7 +575,7 @@ export default function Dashboard() {
 import hopsworks
 
 project = hopsworks.login(
-    project='mlops_preflight',  # or other project
+    project='your_project_name',  # Replace with your project name
     host="${host}",
     port=${port},
     api_key_value="your api key"  # Get from Hopsworks UI > Account Settings > API Keys
@@ -628,7 +628,7 @@ mr = project.get_model_registry()`;
                           {'\n\n'}
                           <span className="text-blue-300">project</span> = <span className="text-green-400">hopsworks</span>.<span className="text-yellow-300">login</span>(
                           {'\n    '}
-                          <span className="text-orange-300">project</span>=<span className="text-green-300">&apos;mlops_preflight&apos;</span>,  <span className="text-gray-500"># or other project</span>
+                          <span className="text-orange-300">project</span>=<span className="text-green-300">&apos;your_project_name&apos;</span>,  <span className="text-gray-500"># Replace with your project name</span>
                           {'\n    '}
                           <span className="text-orange-300">host</span>=<span className="text-green-300">&quot;{(() => {
                             if (instance?.endpoint) {
