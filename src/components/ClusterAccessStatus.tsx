@@ -1,4 +1,4 @@
-import { Box, Card, Text, Button, Badge, Flex } from 'tailwind-quartz';
+import { Box, Card, Text, Button, StatusMessage, Flex } from 'tailwind-quartz';
 import { AlertTriangle, CheckCircle, CreditCard } from 'lucide-react';
 import Link from 'next/link';
 
@@ -34,16 +34,15 @@ export default function ClusterAccessStatus({
   
   if (hasCluster) {
     return (
-      <Card className="p-4 border-green-200 bg-green-50">
-        <Flex align="center" gap={12}>
-          <CheckCircle size={20} className="text-green-600" />
-          <Box className="flex-1">
+      <Card className="p-4">
+        <StatusMessage variant="success" icon={<CheckCircle size={20} />} className="border-0 p-0">
+          <Box>
             <Text className="font-semibold text-green-800">Cluster Access Active</Text>
             <Text className="text-sm text-green-700">
               Connected to: {clusterName || 'Hopsworks Cluster'}
             </Text>
           </Box>
-        </Flex>
+        </StatusMessage>
       </Card>
     );
   }
@@ -51,10 +50,9 @@ export default function ClusterAccessStatus({
   // For prepaid users, show different message
   if (billingMode === 'prepaid' && !hasCluster) {
     return (
-      <Card className="p-4 border-blue-200 bg-blue-50">
-        <Flex align="start" gap={12}>
-          <AlertTriangle size={20} className="text-blue-600 mt-1" />
-          <Box className="flex-1">
+      <Card className="p-4">
+        <StatusMessage variant="info" icon={<AlertTriangle size={20} />} className="items-start border-0 p-0">
+          <Box>
             <Text className="font-semibold text-blue-800 mb-2">
               Cluster Setup In Progress
             </Text>
@@ -63,16 +61,15 @@ export default function ClusterAccessStatus({
               If you continue to see this message, please contact support.
             </Text>
           </Box>
-        </Flex>
+        </StatusMessage>
       </Card>
     );
   }
 
   return (
-    <Card className="p-4 border-yellow-200 bg-yellow-50">
-      <Flex align="start" gap={12}>
-        <AlertTriangle size={20} className="text-yellow-600 mt-1" />
-        <Box className="flex-1">
+    <Card className="p-4">
+      <StatusMessage variant="warning" icon={<AlertTriangle size={20} />} className="items-start border-0 p-0">
+        <Box>
           <Text className="font-semibold text-yellow-800 mb-2">
             Cluster Access Pending
           </Text>
@@ -82,7 +79,7 @@ export default function ClusterAccessStatus({
                 Set up a payment method to get access to Hopsworks clusters.
               </Text>
               <Link href="/billing">
-                <Button 
+                <Button
                   intent="primary"
                   size="md"
                 >
@@ -96,7 +93,7 @@ export default function ClusterAccessStatus({
             </Text>
           )}
         </Box>
-      </Flex>
+      </StatusMessage>
     </Card>
   );
 }

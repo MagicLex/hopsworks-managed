@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Head from 'next/head';
 import Layout from '@/components/Layout';
-import { Box, Title, Text, Flex, Card, Button } from 'tailwind-quartz';
+import { Box, Title, Text, Flex, Card, Button, IconLabel } from 'tailwind-quartz';
 import { usePricing } from '@/contexts/PricingContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Cpu, HardDrive, Database, Server, Activity } from 'lucide-react';
@@ -55,24 +55,21 @@ export default function Pricing() {
               <Title as="h3" className="text-base mb-4">Base Rates</Title>
               <Flex direction="column" gap={12}>
                 <Flex justify="between" align="center" className="pb-3 border-b border-gray-100">
-                  <Flex align="center" gap={8}>
-                    <Activity size={16} className="text-gray-400" />
+                  <IconLabel icon={<Activity size={16} className="text-gray-400" />}>
                     <Text className="text-sm">Compute Credits</Text>
-                  </Flex>
+                  </IconLabel>
                   <Text className="text-sm font-mono font-semibold">${pricing.compute_credits.toFixed(2)}/credit</Text>
                 </Flex>
                 <Flex justify="between" align="center" className="pb-3 border-b border-gray-100">
-                  <Flex align="center" gap={8}>
-                    <Database size={16} className="text-gray-400" />
+                  <IconLabel icon={<Database size={16} className="text-gray-400" />}>
                     <Text className="text-sm">Online Storage</Text>
-                  </Flex>
+                  </IconLabel>
                   <Text className="text-sm font-mono font-semibold">${pricing.storage_online_gb.toFixed(2)}/GB/month</Text>
                 </Flex>
                 <Flex justify="between" align="center" className="pb-3 border-b border-gray-100">
-                  <Flex align="center" gap={8}>
-                    <HardDrive size={16} className="text-gray-400" />
+                  <IconLabel icon={<HardDrive size={16} className="text-gray-400" />}>
                     <Text className="text-sm">Offline Storage</Text>
-                  </Flex>
+                  </IconLabel>
                   <Text className="text-sm font-mono font-semibold">${pricing.storage_offline_gb.toFixed(2)}/GB/month</Text>
                 </Flex>
               </Flex>
@@ -82,17 +79,15 @@ export default function Pricing() {
               <Title as="h3" className="text-base mb-4">Compute Resources</Title>
               <Flex direction="column" gap={12}>
                 <Flex justify="between" align="center" className="pb-3 border-b border-gray-100">
-                  <Flex align="center" gap={8}>
-                    <Cpu size={16} className="text-gray-400" />
+                  <IconLabel icon={<Cpu size={16} className="text-gray-400" />}>
                     <Text className="text-sm">CPU Hour</Text>
-                  </Flex>
+                  </IconLabel>
                   <Text className="text-sm font-mono font-semibold">${pricing.cpu_hour.toFixed(4)}/hour</Text>
                 </Flex>
                 <Flex justify="between" align="center" className="pb-3 border-b border-gray-100">
-                  <Flex align="center" gap={8}>
-                    <Server size={16} className="text-gray-400" />
+                  <IconLabel icon={<Server size={16} className="text-gray-400" />}>
                     <Text className="text-sm">RAM GB Hour</Text>
-                  </Flex>
+                  </IconLabel>
                   <Text className="text-sm font-mono font-semibold">${pricing.ram_gb_hour.toFixed(4)}/GB-hour</Text>
                 </Flex>
               </Flex>

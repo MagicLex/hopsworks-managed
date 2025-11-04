@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApiData } from '@/hooks/useApiData';
-import { Box, Flex, Title, Text, Button, Card, Badge, Tabs, TabsContent, TabsList, TabsTrigger, Modal, Input, Select } from 'tailwind-quartz';
+import { Box, Flex, Title, Text, Button, Card, Badge, Tabs, TabsContent, TabsList, TabsTrigger, Modal, Input, Select, IconLabel, StatusMessage } from 'tailwind-quartz';
 import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle, UserPlus, Mail, Download, Calendar, AlertTriangle, TrendingUp, Clock, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
 import Layout from '@/components/Layout';
@@ -362,10 +362,9 @@ export default function Dashboard() {
                         <CardSkeleton rows={2} showIcon={false} />
                       ) : (
                         <Card className="p-4">
-                          <Flex align="center" gap={8} className="mb-2">
-                            <Cpu size={16} className="text-[#1eb182]" />
+                          <IconLabel icon={<Cpu size={16} className="text-[#1eb182]" />} gap={8} className="mb-2">
                             <Text className="text-sm text-gray-600">Credits Used</Text>
-                          </Flex>
+                          </IconLabel>
                           <Text className="text-xl font-semibold">
                             {usage?.cpuHours?.toFixed(0) || '0'}
                           </Text>
@@ -376,10 +375,9 @@ export default function Dashboard() {
                         <CardSkeleton rows={2} showIcon={false} />
                       ) : hopsworksInfo?.hasHopsworksUser ? (
                         <Card className="p-4">
-                          <Flex align="center" gap={8} className="mb-2">
-                            <Database size={16} className="text-[#1eb182]" />
+                          <IconLabel icon={<Database size={16} className="text-[#1eb182]" />} gap={8} className="mb-2">
                             <Text className="text-sm text-gray-600">Projects</Text>
-                          </Flex>
+                          </IconLabel>
                           <Text className="text-xl font-semibold">
                             {hopsworksInfo?.hopsworksUser?.numActiveProjects || '0'}
                           </Text>
@@ -605,15 +603,13 @@ mr = project.get_model_registry()`;
                         }}
                       >
                         {copied === 'quickstart' ? (
-                          <Flex align="center" gap={4}>
-                            <CheckCircle size={14} className="text-green-500" />
+                          <IconLabel icon={<CheckCircle size={14} className="text-green-500" />} gap={4}>
                             <Text className="text-xs text-white">Copied!</Text>
-                          </Flex>
+                          </IconLabel>
                         ) : (
-                          <Flex align="center" gap={4}>
-                            <Copy size={14} className="text-gray-300" />
+                          <IconLabel icon={<Copy size={14} className="text-gray-300" />} gap={4}>
                             <Text className="text-xs text-white">Copy</Text>
-                          </Flex>
+                          </IconLabel>
                         )}
                       </Button>
                       <pre className="overflow-x-auto p-4 text-sm bg-gray-900 text-gray-300 rounded">
