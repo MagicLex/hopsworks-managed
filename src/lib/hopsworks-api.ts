@@ -73,6 +73,7 @@ interface ProjectUsage {
 
 /**
  * Create an OAuth user in Hopsworks
+ * Fixed: Uses query params instead of JSON body (HWORKS-2426)
  */
 export async function createHopsworksOAuthUser(
   credentials: HopsworksCredentials,
@@ -80,25 +81,28 @@ export async function createHopsworksOAuthUser(
   firstName: string,
   lastName: string,
   auth0Id: string,
-  maxNumProjects: number = 0
+  maxNumProjects: number = 5
 ): Promise<HopsworksUser> {
-  const response = await fetch(`${credentials.apiUrl}${HOPSWORKS_API_BASE}/admin/users`, {
+  // Build query params - must use query params, not JSON body
+  const params = new URLSearchParams({
+    accountType: 'REMOTE_ACCOUNT_TYPE',
+    email: email,
+    givenName: firstName,
+    surname: lastName,
+    maxNumProjects: maxNumProjects.toString(),
+    subject: auth0Id,
+    clientId: process.env.AUTH0_CLIENT_ID!,
+    type: 'OAUTH2'
+  });
+
+  const url = `${credentials.apiUrl}${HOPSWORKS_API_BASE}/admin/users?${params.toString()}`;
+
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': `ApiKey ${credentials.apiKey}`,
-      'Content-Type': 'application/json'
+      'Authorization': `ApiKey ${credentials.apiKey}`
+      // No Content-Type needed for query params
     },
-    body: JSON.stringify({
-      accountType: 'REMOTE_ACCOUNT_TYPE',
-      type: 'OAUTH2',
-      clientId: process.env.AUTH0_CLIENT_ID,
-      subject: auth0Id,
-      email,
-      givenName: firstName,
-      surname: lastName,
-      maxNumProjects: maxNumProjects,
-      status: 'ACTIVATED'
-    }),
     // @ts-ignore - Node.js fetch doesn't have proper agent typing
     agent: httpsAgent
   });
@@ -106,11 +110,25 @@ export async function createHopsworksOAuthUser(
   if (!response.ok) {
     const errorBody = await response.text();
     console.error(`Hopsworks OAuth user creation failed: ${response.status} ${response.statusText}`, errorBody);
-    throw new Error(`Failed to create Hopsworks user: ${response.statusText}`);
+
+    // Parse error message if available
+    try {
+      const errorJson = JSON.parse(errorBody);
+      throw new Error(`Failed to create Hopsworks user: ${errorJson.usrMsg || errorJson.errorMsg || response.statusText}`);
+    } catch {
+      throw new Error(`Failed to create Hopsworks user: ${response.statusText}`);
+    }
   }
 
   const data = await response.json();
-  return data;
+  // Response format: {uuid, givenName, surname, email, username}
+  return {
+    username: data.username,
+    email: data.email,
+    firstname: data.givenName,
+    lastname: data.surname,
+    id: 0 // Will be populated when we fetch full user details if needed
+  };
 }
 
 /**
