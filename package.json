@@ -25,7 +25,7 @@
     "recharts": "^3.1.0",
     "resend": "^4.7.0",
     "stripe": "^18.3.0",
-    "tailwind-quartz": "^0.2.0"
+    "tailwind-quartz": "^0.2.1"
   },
   "devDependencies": {
     "@types/node": "^20.19.12",
