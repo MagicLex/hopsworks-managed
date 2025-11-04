@@ -47,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .from('usage_daily')
       .select(`
         *,
-        users!inner (
+        users!usage_daily_user_id_fkey!inner (
           stripe_customer_id,
           stripe_subscription_id,
           email,
