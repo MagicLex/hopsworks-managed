@@ -342,7 +342,7 @@ async function collectOpenCostMetrics() {
       // Process projects with storage but no compute
       const SYSTEM_PROJECTS = ['hopsworks', 'mysql', 'heartbeat', 'hops', 'metastore', 'information_schema', 'performance_schema'];
 
-      for (const projectName of allProjectsWithStorage) {
+      for (const projectName of Array.from(allProjectsWithStorage)) {
         if (processedProjects.has(projectName)) {
           continue; // Already processed in compute loop
         }
