@@ -4,6 +4,29 @@ import { OpenCostDirect } from '../../../lib/opencost-direct';
 import { getHopsworksUserByUsername, getUserProjects, getAllProjects } from '../../../lib/hopsworks-api';
 import { calculateCreditsUsed, calculateDollarAmount } from '../../../config/billing-rates';
 
+type ProjectBreakdownEntry = {
+  name: string;
+  cpuHours: number;
+  gpuHours: number;
+  ramGBHours: number;
+  onlineStorageGB: number;
+  offlineStorageGB: number;
+  cpuEfficiency?: number;
+  ramEfficiency?: number;
+  lastUpdated: string;
+  lastContribution?: {
+    cpuHours: number;
+    gpuHours: number;
+    ramGBHours: number;
+    onlineStorageGB: number;
+    offlineStorageGB: number;
+    hourlyCost: number;
+    processedAt: string;
+  };
+};
+
+const HOURS_PER_MONTH = 30 * 24;
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -45,9 +68,112 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function collectOpenCostMetrics() {
   const now = new Date();
   const currentDate = now.toISOString().split('T')[0];
-  const currentHour = now.getHours();
+  const currentHourUtc = now.getUTCHours();
+  const nowIso = now.toISOString();
 
-  console.log(`Starting OpenCost collection for: ${currentDate} hour ${currentHour}`);
+  const accountOwnerCache = new Map<string, string | null>();
+
+  const resolveAccountOwnerId = async (userId: string): Promise<string | null> => {
+    if (accountOwnerCache.has(userId)) {
+      return accountOwnerCache.get(userId)!;
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('account_owner_id')
+      .eq('id', userId)
+      .single();
+
+    const accountOwnerId = error ? null : (data?.account_owner_id ?? null);
+    accountOwnerCache.set(userId, accountOwnerId);
+    return accountOwnerId;
+  };
+
+  const isSameUtcHour = (previousIso?: string): boolean => {
+    if (!previousIso) {
+      return false;
+    }
+    const previous = new Date(previousIso);
+    return (
+      previous.getUTCFullYear() === now.getUTCFullYear() &&
+      previous.getUTCMonth() === now.getUTCMonth() &&
+      previous.getUTCDate() === now.getUTCDate() &&
+      previous.getUTCHours() === currentHourUtc
+    );
+  };
+
+  const hydrateBreakdown = (data: any): Record<string, ProjectBreakdownEntry> => {
+    if (!data || typeof data !== 'object') {
+      return {};
+    }
+
+    const hydrated: Record<string, ProjectBreakdownEntry> = {};
+
+    for (const [namespace, value] of Object.entries(data as Record<string, any>)) {
+      hydrated[namespace] = {
+        name: typeof value.name === 'string' ? value.name : namespace,
+        cpuHours: Number(value.cpuHours) || 0,
+        gpuHours: Number(value.gpuHours) || 0,
+        ramGBHours: Number(value.ramGBHours) || 0,
+        onlineStorageGB: Number(value.onlineStorageGB) || 0,
+        offlineStorageGB: Number(value.offlineStorageGB) || 0,
+        cpuEfficiency: typeof value.cpuEfficiency === 'number' ? value.cpuEfficiency : undefined,
+        ramEfficiency: typeof value.ramEfficiency === 'number' ? value.ramEfficiency : undefined,
+        lastUpdated: typeof value.lastUpdated === 'string' ? value.lastUpdated : nowIso,
+        lastContribution: value.lastContribution
+          ? {
+              cpuHours: Number(value.lastContribution.cpuHours) || 0,
+              gpuHours: Number(value.lastContribution.gpuHours) || 0,
+              ramGBHours: Number(value.lastContribution.ramGBHours) || 0,
+              onlineStorageGB: Number(value.lastContribution.onlineStorageGB) || 0,
+              offlineStorageGB: Number(value.lastContribution.offlineStorageGB) || 0,
+              hourlyCost: Number(value.lastContribution.hourlyCost) || 0,
+              processedAt:
+                typeof value.lastContribution.processedAt === 'string'
+                  ? value.lastContribution.processedAt
+                  : undefined
+            }
+          : undefined
+      };
+    }
+
+    return hydrated;
+  };
+
+  const sumStorageFromBreakdown = (breakdown: Record<string, ProjectBreakdownEntry>) => {
+    return Object.values(breakdown).reduce(
+      (acc, entry) => {
+        acc.online += entry.onlineStorageGB || 0;
+        acc.offline += entry.offlineStorageGB || 0;
+        return acc;
+      },
+      { online: 0, offline: 0 }
+    );
+  };
+
+  const computeHourlyCost = (metrics?: {
+    cpuHours?: number;
+    gpuHours?: number;
+    ramGBHours?: number;
+    onlineStorageGB?: number;
+    offlineStorageGB?: number;
+  }): number => {
+    if (!metrics) {
+      return 0;
+    }
+
+    const credits = calculateCreditsUsed({
+      cpuHours: metrics.cpuHours || 0,
+      gpuHours: metrics.gpuHours || 0,
+      ramGbHours: metrics.ramGBHours || 0,
+      onlineStorageGb: (metrics.onlineStorageGB || 0) / HOURS_PER_MONTH,
+      offlineStorageGb: (metrics.offlineStorageGB || 0) / HOURS_PER_MONTH
+    });
+
+    return calculateDollarAmount(credits);
+  };
+
+  console.log(`Starting OpenCost collection for: ${currentDate} hour ${currentHourUtc} (UTC)`);
 
   // Get ALL active Hopsworks clusters
   const { data: clusters, error: clusterError } = await supabaseAdmin
@@ -138,7 +264,7 @@ async function collectOpenCostMetrics() {
           // Update last seen
           await supabaseAdmin
             .from('user_projects')
-            .update({ last_seen_at: now.toISOString() })
+            .update({ last_seen_at: nowIso })
             .eq('namespace', namespace);
         } else {
           console.warn(`[${cluster.name}] Namespace ${namespace} mapped to user on different cluster, will re-resolve`);
@@ -189,7 +315,7 @@ async function collectOpenCostMetrics() {
                 project_name: projectName,
                 namespace: namespace,
                 status: 'active',
-                last_seen_at: now.toISOString()
+                last_seen_at: nowIso
               }, {
                 onConflict: 'namespace'
               });
@@ -212,14 +338,6 @@ async function collectOpenCostMetrics() {
         continue;
       }
 
-      // Get or create today's usage record
-      const { data: existingUsage } = await supabaseAdmin
-        .from('usage_daily')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('date', currentDate)
-        .single();
-
       // Extract compute usage metrics
       const cpuHours = allocation.cpuCoreHours || 0;
       const ramGBHours = (allocation.ramByteHours || 0) / (1024 * 1024 * 1024);
@@ -231,9 +349,6 @@ async function collectOpenCostMetrics() {
       const offlineStorageGB = offlineStorageBytes / (1024 * 1024 * 1024);
       const onlineStorageGB = onlineStorageBytes / (1024 * 1024 * 1024);
 
-      // Storage rates are per month, so divide by 720 hours (30 days * 24 hours) for hourly cost
-      const HOURS_PER_MONTH = 30 * 24;
-
       // Calculate cost using our rates
       const creditsUsed = calculateCreditsUsed({
         cpuHours,
@@ -244,62 +359,87 @@ async function collectOpenCostMetrics() {
       });
       const hourlyTotalCost = calculateDollarAmount(creditsUsed);
 
-      if (existingUsage) {
-        // Update existing record - ADD the hourly usage
-        const updatedProjectBreakdown = existingUsage.project_breakdown || {};
-        updatedProjectBreakdown[namespace] = {
-          name: projectName,
-          cpuHours: cpuHours,
-          gpuHours: gpuHours,
-          ramGBHours: ramGBHours,
-          onlineStorageGB: onlineStorageGB,
-          offlineStorageGB: offlineStorageGB,
-          cpuEfficiency: allocation.cpuEfficiency,
-          ramEfficiency: allocation.ramEfficiency,
-          lastUpdated: now.toISOString()
-        };
+      const accountOwnerId = await resolveAccountOwnerId(userId);
 
+      const { data: existingUsage } = await supabaseAdmin
+        .from('usage_daily')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('date', currentDate)
+        .single();
+
+      const breakdown = hydrateBreakdown(existingUsage?.project_breakdown);
+      const previousEntry = breakdown[namespace];
+      const previousContribution = previousEntry?.lastContribution;
+
+      let totalCpuHours = existingUsage?.opencost_cpu_hours || 0;
+      let totalGpuHours = existingUsage?.opencost_gpu_hours || 0;
+      let totalRamGbHours = existingUsage?.opencost_ram_gb_hours || 0;
+      let totalCost = existingUsage?.total_cost || 0;
+
+      if (previousContribution && isSameUtcHour(previousContribution.processedAt)) {
+        totalCpuHours = Math.max(0, totalCpuHours - (previousContribution.cpuHours || 0));
+        totalGpuHours = Math.max(0, totalGpuHours - (previousContribution.gpuHours || 0));
+        totalRamGbHours = Math.max(0, totalRamGbHours - (previousContribution.ramGBHours || 0));
+        const previousHourlyCost =
+          previousContribution.hourlyCost || computeHourlyCost(previousContribution);
+        totalCost = Math.max(0, totalCost - previousHourlyCost);
+
+        if (previousEntry) {
+          previousEntry.cpuHours = Math.max(0, (previousEntry.cpuHours || 0) - (previousContribution.cpuHours || 0));
+          previousEntry.gpuHours = Math.max(0, (previousEntry.gpuHours || 0) - (previousContribution.gpuHours || 0));
+          previousEntry.ramGBHours = Math.max(0, (previousEntry.ramGBHours || 0) - (previousContribution.ramGBHours || 0));
+        }
+      }
+
+      const updatedEntry: ProjectBreakdownEntry = {
+        name: projectName,
+        cpuHours: (breakdown[namespace]?.cpuHours || 0) + cpuHours,
+        gpuHours: (breakdown[namespace]?.gpuHours || 0) + gpuHours,
+        ramGBHours: (breakdown[namespace]?.ramGBHours || 0) + ramGBHours,
+        onlineStorageGB: onlineStorageGB,
+        offlineStorageGB: offlineStorageGB,
+        cpuEfficiency: allocation.cpuEfficiency,
+        ramEfficiency: allocation.ramEfficiency,
+        lastUpdated: nowIso,
+        lastContribution: {
+          cpuHours,
+          gpuHours,
+          ramGBHours,
+          onlineStorageGB,
+          offlineStorageGB,
+          hourlyCost: hourlyTotalCost,
+          processedAt: nowIso
+        }
+      };
+
+      breakdown[namespace] = updatedEntry;
+      const storageTotals = sumStorageFromBreakdown(breakdown);
+
+      const payload = {
+        account_owner_id: accountOwnerId,
+        opencost_cpu_hours: totalCpuHours + cpuHours,
+        opencost_gpu_hours: totalGpuHours + gpuHours,
+        opencost_ram_gb_hours: totalRamGbHours + ramGBHours,
+        online_storage_gb: storageTotals.online,
+        offline_storage_gb: storageTotals.offline,
+        total_cost: totalCost + hourlyTotalCost,
+        project_breakdown: breakdown,
+        hopsworks_cluster_id: cluster.id
+      };
+
+      if (existingUsage) {
         await supabaseAdmin
           .from('usage_daily')
-          .update({
-            opencost_cpu_hours: (existingUsage.opencost_cpu_hours || 0) + cpuHours,
-            opencost_gpu_hours: (existingUsage.opencost_gpu_hours || 0) + gpuHours,
-            opencost_ram_gb_hours: (existingUsage.opencost_ram_gb_hours || 0) + ramGBHours,
-            online_storage_gb: onlineStorageGB, // Latest snapshot, not accumulated
-            offline_storage_gb: offlineStorageGB,
-            total_cost: (existingUsage.total_cost || 0) + hourlyTotalCost,
-            project_breakdown: updatedProjectBreakdown,
-            updated_at: now.toISOString()
-          })
+          .update(payload)
           .eq('id', existingUsage.id);
       } else {
-        // Create new record
-        const projectBreakdown: any = {};
-        projectBreakdown[namespace] = {
-          name: projectName,
-          cpuHours: cpuHours,
-          gpuHours: gpuHours,
-          ramGBHours: ramGBHours,
-          onlineStorageGB: onlineStorageGB,
-          offlineStorageGB: offlineStorageGB,
-          cpuEfficiency: allocation.cpuEfficiency,
-          ramEfficiency: allocation.ramEfficiency,
-          lastUpdated: now.toISOString()
-        };
-
         await supabaseAdmin
           .from('usage_daily')
           .insert({
             user_id: userId,
             date: currentDate,
-            opencost_cpu_hours: cpuHours,
-            opencost_gpu_hours: gpuHours,
-            opencost_ram_gb_hours: ramGBHours,
-            online_storage_gb: onlineStorageGB,
-            offline_storage_gb: offlineStorageGB,
-            total_cost: hourlyTotalCost,
-            project_breakdown: projectBreakdown,
-            hopsworks_cluster_id: cluster.id
+            ...payload
           });
       }
 
@@ -381,7 +521,7 @@ async function collectOpenCostMetrics() {
               // Update last seen
               await supabaseAdmin
                 .from('user_projects')
-                .update({ last_seen_at: now.toISOString() })
+                .update({ last_seen_at: nowIso })
                 .eq('project_name', projectName);
             }
           } else {
@@ -421,7 +561,7 @@ async function collectOpenCostMetrics() {
                     project_name: projectName,
                     namespace: namespace,
                     status: 'active',
-                    last_seen_at: now.toISOString()
+                    last_seen_at: nowIso
                   }, {
                     onConflict: 'namespace'
                   });
@@ -447,9 +587,6 @@ async function collectOpenCostMetrics() {
 
           console.log(`[${cluster.name}] Storage-only project: ${projectName}, offline: ${offlineStorageGB.toFixed(3)} GB, online: ${onlineStorageGB.toFixed(3)} GB`);
 
-          // Storage rates are per month, divide by 720 hours for hourly cost
-          const HOURS_PER_MONTH = 30 * 24;
-
           // Calculate storage-only cost
           const creditsUsed = calculateCreditsUsed({
             cpuHours: 0,
@@ -460,7 +597,8 @@ async function collectOpenCostMetrics() {
           });
           const hourlyTotalCost = calculateDollarAmount(creditsUsed);
 
-          // Get or create today's usage record
+          const accountOwnerId = await resolveAccountOwnerId(userId);
+
           const { data: existingUsage } = await supabaseAdmin
             .from('usage_daily')
             .select('*')
@@ -468,59 +606,75 @@ async function collectOpenCostMetrics() {
             .eq('date', currentDate)
             .single();
 
-          if (existingUsage) {
-            // Update existing record
-            const updatedProjectBreakdown = existingUsage.project_breakdown || {};
-            updatedProjectBreakdown[namespace] = {
-              name: projectName,
+          const breakdown = hydrateBreakdown(existingUsage?.project_breakdown);
+          const previousEntry = breakdown[namespace];
+          const previousContribution = previousEntry?.lastContribution;
+
+          let totalCpuHours = existingUsage?.opencost_cpu_hours || 0;
+          let totalGpuHours = existingUsage?.opencost_gpu_hours || 0;
+          let totalRamGbHours = existingUsage?.opencost_ram_gb_hours || 0;
+          let totalCost = existingUsage?.total_cost || 0;
+
+          if (previousContribution && isSameUtcHour(previousContribution.processedAt)) {
+            const previousHourlyCost =
+              previousContribution.hourlyCost || computeHourlyCost(previousContribution);
+            totalCost = Math.max(0, totalCost - previousHourlyCost);
+
+            if (previousEntry) {
+              previousEntry.cpuHours = Math.max(0, previousEntry.cpuHours || 0);
+              previousEntry.gpuHours = Math.max(0, previousEntry.gpuHours || 0);
+              previousEntry.ramGBHours = Math.max(0, previousEntry.ramGBHours || 0);
+            }
+          }
+
+          const updatedEntry: ProjectBreakdownEntry = {
+            name: projectName,
+            cpuHours: breakdown[namespace]?.cpuHours || 0,
+            gpuHours: breakdown[namespace]?.gpuHours || 0,
+            ramGBHours: breakdown[namespace]?.ramGBHours || 0,
+            onlineStorageGB: onlineStorageGB,
+            offlineStorageGB: offlineStorageGB,
+            cpuEfficiency: 0,
+            ramEfficiency: 0,
+            lastUpdated: nowIso,
+            lastContribution: {
               cpuHours: 0,
               gpuHours: 0,
               ramGBHours: 0,
-              onlineStorageGB: onlineStorageGB,
-              offlineStorageGB: offlineStorageGB,
-              cpuEfficiency: 0,
-              ramEfficiency: 0,
-              lastUpdated: now.toISOString()
-            };
+              onlineStorageGB,
+              offlineStorageGB,
+              hourlyCost: hourlyTotalCost,
+              processedAt: nowIso
+            }
+          };
 
+          breakdown[namespace] = updatedEntry;
+          const storageTotals = sumStorageFromBreakdown(breakdown);
+
+          const payload = {
+            account_owner_id: accountOwnerId,
+            opencost_cpu_hours: totalCpuHours,
+            opencost_gpu_hours: totalGpuHours,
+            opencost_ram_gb_hours: totalRamGbHours,
+            online_storage_gb: storageTotals.online,
+            offline_storage_gb: storageTotals.offline,
+            total_cost: totalCost + hourlyTotalCost,
+            project_breakdown: breakdown,
+            hopsworks_cluster_id: cluster.id
+          };
+
+          if (existingUsage) {
             await supabaseAdmin
               .from('usage_daily')
-              .update({
-                online_storage_gb: onlineStorageGB, // Latest snapshot
-                offline_storage_gb: offlineStorageGB,
-                total_cost: (existingUsage.total_cost || 0) + hourlyTotalCost,
-                project_breakdown: updatedProjectBreakdown,
-                updated_at: now.toISOString()
-              })
+              .update(payload)
               .eq('id', existingUsage.id);
           } else {
-            // Create new record
-            const projectBreakdown: any = {};
-            projectBreakdown[namespace] = {
-              name: projectName,
-              cpuHours: 0,
-              gpuHours: 0,
-              ramGBHours: 0,
-              onlineStorageGB: onlineStorageGB,
-              offlineStorageGB: offlineStorageGB,
-              cpuEfficiency: 0,
-              ramEfficiency: 0,
-              lastUpdated: now.toISOString()
-            };
-
             await supabaseAdmin
               .from('usage_daily')
               .insert({
                 user_id: userId,
                 date: currentDate,
-                opencost_cpu_hours: 0,
-                opencost_gpu_hours: 0,
-                opencost_ram_gb_hours: 0,
-                online_storage_gb: onlineStorageGB,
-                offline_storage_gb: offlineStorageGB,
-                total_cost: hourlyTotalCost,
-                project_breakdown: projectBreakdown,
-                hopsworks_cluster_id: cluster.id
+                ...payload
               });
           }
 
@@ -598,7 +752,7 @@ async function collectOpenCostMetrics() {
   return {
     message: 'OpenCost metrics collection completed for all clusters',
     timestamp: currentDate,
-    hour: currentHour,
+    hour: currentHourUtc,
     clustersProcessed: aggregatedResults.clusters.length,
     results: aggregatedResults
   };

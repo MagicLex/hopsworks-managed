@@ -153,6 +153,8 @@ Rates from `src/config/billing-rates.ts`:
 - Online storage: $0.50/GB-month
 - Offline storage: $0.03/GB-month
 
+Each usage row records both `user_id` and `account_owner_id`, so owner-level aggregation works immediately for dashboards and billing queries.
+
 ### 5. Database Storage
 
 **Accumulation logic**:
@@ -166,9 +168,9 @@ UPDATE usage_daily SET
   opencost_gpu_hours = opencost_gpu_hours + new_gpu_hours,     -- ADD
   opencost_ram_gb_hours = opencost_ram_gb_hours + new_ram,     -- ADD
   online_storage_gb = new_online_storage,                      -- REPLACE
-  offline_storage_gb = new_offline_storage,                    -- REPLACE
-  total_cost = total_cost + new_hourly_cost,                   -- ADD
-  project_breakdown = updated_breakdown                         -- MERGE
+      offline_storage_gb = new_offline_storage,                    -- REPLACE
+      total_cost = total_cost + new_hourly_cost,                   -- ADD
+      project_breakdown = updated_breakdown                         -- MERGE
 WHERE user_id = ? AND date = CURRENT_DATE;
 
 -- If no record for today
@@ -185,6 +187,8 @@ INSERT INTO usage_daily (
   hopsworks_cluster_id
 ) VALUES (...);
 ```
+
+When the cron job reruns within the same UTC hour, it replaces the previous contribution for that namespace instead of double-counting. The latest per-project snapshots are summed to populate `online_storage_gb` and `offline_storage_gb`, so the totals always reflect the current state observed in RonDB/HDFS.
 
 ## Cluster Results Aggregation
 
