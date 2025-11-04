@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Flex, Text, Button, Badge, Select, Card } from 'tailwind-quartz';
+import { Box, Flex, Text, Button, Select } from 'tailwind-quartz';
 import { FolderOpen, Loader, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface Project {
@@ -20,8 +20,8 @@ interface TeamMemberProjectsProps {
   ownerId: string;
 }
 
-export default function TeamMemberProjects({ 
-  memberId, 
+export default function TeamMemberProjects({
+  memberId,
   memberEmail,
   memberName,
   isOwner,
@@ -33,20 +33,19 @@ export default function TeamMemberProjects({
   const [expanded, setExpanded] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [validating, setValidating] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
-  const [pendingChanges, setPendingChanges] = useState<Map<string, string>>(new Map()); // projectName -> role
+  const [pendingChanges, setPendingChanges] = useState<Map<string, string>>(new Map());
   const [saving, setSaving] = useState(false);
 
   const syncRoles = async () => {
     if (!isOwner) return;
-    
+
     try {
       setSyncing(true);
       const response = await fetch('/api/team/sync-member-roles', {
         method: 'POST'
       });
-      
+
       if (!response.ok) {
         console.error('Failed to sync roles');
       } else {
@@ -61,30 +60,24 @@ export default function TeamMemberProjects({
   };
 
   const fetchProjects = async () => {
-    if (!expanded) return;
-    
     try {
       setLoading(true);
-      
-      // If owner, sync roles from Hopsworks first
-      if (isOwner) {
-        await syncRoles();
+
+      // Get member's current projects
+      const memberResponse = await fetch(`/api/team/member-projects?memberId=${memberId}`);
+      if (memberResponse.ok) {
+        const memberData = await memberResponse.json();
+        setMemberProjects(memberData.projects || []);
       }
-      
-      // Fetch both member's current projects and owner's available projects
-      const [memberResponse, ownerResponse] = await Promise.all([
-        fetch(`/api/team/member-projects?memberId=${memberId}`),
-        fetch(`/api/team/owner-projects`)
-      ]);
-      
-      if (!memberResponse.ok) throw new Error('Failed to fetch member projects');
-      if (!ownerResponse.ok) throw new Error('Failed to fetch owner projects');
-      
-      const memberData = await memberResponse.json();
-      const ownerData = await ownerResponse.json();
-      
-      setMemberProjects(memberData.projects || []);
-      setOwnerProjects(ownerData.projects || []);
+
+      // If owner, also get owner's projects to show available ones
+      if (isOwner) {
+        const ownerResponse = await fetch('/api/team/owner-projects');
+        if (ownerResponse.ok) {
+          const ownerData = await ownerResponse.json();
+          setOwnerProjects(ownerData.projects || []);
+        }
+      }
     } catch (error) {
       console.error('Failed to fetch projects:', error);
     } finally {
@@ -98,47 +91,14 @@ export default function TeamMemberProjects({
     }
   }, [expanded]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const validateAndCleanProjects = async () => {
-    if (!isOwner) return;
-    
-    try {
-      setValidating(true);
-      setMessage({ type: 'info', text: 'Validating projects with Hopsworks...' });
-      
-      const response = await fetch('/api/admin/sync-projects', {
-        method: 'POST'
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to validate projects');
-      }
-      
-      const result = await response.json();
-      setMessage({ 
-        type: 'success', 
-        text: `Validated ${result.stats.projectsInHopsworks} projects. Cleaned ${result.stats.deletedProjects} stale entries.`
-      });
-      
-      // Refresh after validation
-      await fetchProjects();
-      
-      setTimeout(() => setMessage(null), 5000);
-    } catch (error) {
-      console.error('Failed to validate projects:', error);
-      setMessage({ type: 'error', text: 'Failed to validate projects' });
-      setTimeout(() => setMessage(null), 5000);
-    } finally {
-      setValidating(false);
-    }
-  };
 
-  const updateProjectRole = async (projectName: string, projectId: number, role: string, action: 'add' | 'remove') => {
+  const updateProjectRole = async (projectName: string, projectId: number, role: string) => {
     if (!isOwner) return;
-    
+
     try {
       setUpdating(projectName);
       setMessage(null);
-      
+
       const response = await fetch('/api/team/member-projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -147,18 +107,17 @@ export default function TeamMemberProjects({
           projectName,
           projectId,
           role,
-          action
+          action: 'add'
         })
       });
 
       const result = await response.json();
-      
+
       if (!response.ok) {
-        // Check if it's a project not found error
         if (result.error?.includes('does not exist') || result.error?.includes('not found')) {
-          setMessage({ 
-            type: 'error', 
-            text: `Project '${projectName}' no longer exists. Run validation to clean up.`
+          setMessage({
+            type: 'error',
+            text: `Project '${projectName}' no longer exists.`
           });
         } else {
           setMessage({ type: 'error', text: result.error || 'Failed to update role' });
@@ -166,17 +125,12 @@ export default function TeamMemberProjects({
         throw new Error(result.error || 'Failed to update project role');
       }
 
-      // Success!
-      setMessage({ 
-        type: 'success', 
-        text: action === 'add' 
-          ? `Added ${memberName || memberEmail} to ${projectName} as ${role}`
-          : `Removed ${memberName || memberEmail} from ${projectName}`
+      setMessage({
+        type: 'success',
+        text: `Added ${memberName || memberEmail} to ${projectName} as ${role}`
       });
-      
-      // Refresh projects
+
       await fetchProjects();
-      
       setTimeout(() => setMessage(null), 5000);
     } catch (error) {
       console.error('Failed to update role:', error);
@@ -188,51 +142,42 @@ export default function TeamMemberProjects({
   const handleToggle = () => {
     setExpanded(!expanded);
   };
-  
+
   // For team members viewing their own access
   const isViewingOwnAccess = !isOwner && memberId === ownerId;
 
+  // Combine all projects for the table
+  const allProjects = [
+    ...memberProjects.map(p => ({ ...p, status: 'assigned' as const })),
+    ...(isOwner ? ownerProjects
+      .filter(p => !memberProjects.some(mp => mp.name === p.name))
+      .map(p => ({ ...p, status: 'available' as const }))
+    : [])
+  ];
+
   return (
     <Box className="mt-3">
-      <Flex gap={8}>
-        <Button
-          onClick={handleToggle}
-          size="sm"
-          intent="ghost"
-          className="text-xs"
-        >
-          <FolderOpen size={14} className="mr-1" />
-          {expanded ? 'Hide' : (isOwner ? 'Manage' : 'View')} Projects
-        </Button>
-        
-        {isOwner && expanded && (
-          <Button
-            onClick={validateAndCleanProjects}
-            size="sm"
-            intent="ghost"
-            className="text-xs"
-            disabled={validating}
-          >
-            {validating ? (
-              <><Loader className="animate-spin mr-1" size={14} /> Validating...</>
-            ) : (
-              <><RefreshCw size={14} className="mr-1" /> Validate Projects</>
-            )}
-          </Button>
-        )}
-      </Flex>
+      <Button
+        onClick={handleToggle}
+        size="sm"
+        intent="ghost"
+        className="text-xs"
+      >
+        <FolderOpen size={14} />
+        {expanded ? 'Hide' : (isOwner ? 'Manage' : 'View')} Projects
+      </Button>
 
       {expanded && (
-        <Card className="mt-3 p-3 bg-gray-50">
-          <Text className="text-sm font-medium mb-2">
+        <Box className="mt-3">
+          <Text className="text-sm font-medium mb-3">
             Project Access for {memberName || memberEmail}
           </Text>
-          
+
           {message && (
-            <Box 
+            <Box
               className={`mb-3 p-2 rounded border ${
-                message.type === 'error' ? 'bg-red-50 border-red-200' : 
-                message.type === 'success' ? 'bg-green-50 border-green-200' : 
+                message.type === 'error' ? 'bg-red-50 border-red-200' :
+                message.type === 'success' ? 'bg-green-50 border-green-200' :
                 'bg-blue-50 border-blue-200'
               }`}
             >
@@ -240,24 +185,26 @@ export default function TeamMemberProjects({
                 {message.type === 'success' && <CheckCircle size={16} className="text-green-600" />}
                 {message.type === 'error' && <AlertCircle size={16} className="text-red-600" />}
                 <Text className={`text-sm ${
-                  message.type === 'error' ? 'text-red-800' : 
-                  message.type === 'success' ? 'text-green-800' : 
+                  message.type === 'error' ? 'text-red-800' :
+                  message.type === 'success' ? 'text-green-800' :
                   'text-blue-800'
                 }`}>{message.text}</Text>
               </Flex>
             </Box>
           )}
-          
+
           {loading || syncing ? (
-            <Flex align="center" justify="center" className="py-4">
-              <Loader className="animate-spin" size={16} />
+            <Flex align="center" justify="center" className="py-8">
+              <Loader className="animate-spin" size={20} />
               <Text className="ml-2 text-sm text-gray-600">
-                {syncing ? 'Syncing with Hopsworks...' : 'Loading projects...'}
+                {syncing ? 'Syncing...' : 'Loading...'}
               </Text>
             </Flex>
+          ) : allProjects.length === 0 ? (
+            <Text className="text-sm text-gray-500 py-4">No projects found</Text>
           ) : (
-            <Box className="space-y-3">
-              {/* Show sync button if there are pending projects */}
+            <>
+              {/* Show sync warning if needed */}
               {memberProjects.some(p => !p.synced) && isOwner && (
                 <Box className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
                   <Flex justify="between" align="center">
@@ -277,171 +224,115 @@ export default function TeamMemberProjects({
                           });
                           const data = await response.json();
                           if (data.syncedCount > 0) {
-                            setMessage({ 
-                              type: 'success', 
-                              text: `Synced ${data.syncedCount} project(s)` 
-                            });
+                            setMessage({ type: 'success', text: `Synced ${data.syncedCount} project(s)` });
                           }
                           if (data.warning) {
-                            setMessage({ 
-                              type: 'error', 
-                              text: data.warning + (data.failedProjects ? `: ${data.failedProjects.map((f: any) => f.project).join(', ')}` : '')
-                            });
+                            setMessage({ type: 'error', text: data.warning });
                           }
                           await fetchProjects();
                         } catch (error) {
-                          setMessage({ type: 'error', text: 'Failed to sync projects' });
+                          setMessage({ type: 'error', text: 'Failed to sync' });
                         } finally {
                           setSyncing(false);
                         }
                       }}
                       disabled={syncing}
                     >
-                      <RefreshCw size={14} className="mr-1" />
-                      Retry Sync
+                      <Flex align="center" gap={4}>
+                        <RefreshCw size={14} />
+                        Retry Sync
+                      </Flex>
                     </Button>
                   </Flex>
                 </Box>
               )}
 
-              {/* Member's current projects */}
-              {memberProjects.length > 0 && (
-                <Box>
-                  <Text className="text-xs font-medium text-gray-700 mb-2">Current Access</Text>
-                  <Box className="space-y-2">
-                    {memberProjects.map(project => (
-                <Flex 
-                  key={project.namespace || project.name} 
-                  justify="between" 
-                  align="center"
-                  className={`p-2 bg-white rounded border ${
-                    !project.synced ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200'
-                  }`}
-                >
-                  <Box>
-                    <Flex align="center" gap={4}>
-                      <Text className="text-sm font-medium">{project.name}</Text>
-                      {!project.synced && (
-                        <span className="text-xs px-2 py-0.5 rounded text-yellow-700 bg-yellow-50 border border-yellow-300">
-                          Pending Sync
-                        </span>
-                      )}
-                    </Flex>
-                    <Text className="text-xs text-gray-500">
-                      {project.id ? `ID: ${project.id}` : 'Not synced to Hopsworks'}
-                    </Text>
-                    {project.syncError && (
-                      <Text className="text-xs text-red-600 mt-1">
-                        Sync error: {project.syncError}
-                      </Text>
-                    )}
-                  </Box>
-                  <Flex gap={8} align="center">
-                    {project.role && (
-                      <Badge size="sm" variant="default">
-                        {project.role}
-                      </Badge>
-                    )}
-                    {isOwner && (
-                      <Select
-                        value={pendingChanges.get(project.name) || project.role || 'current'}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          const newChanges = new Map(pendingChanges);
-                          if (value === 'remove' || (value !== project.role && value !== 'current')) {
-                            newChanges.set(project.name, value);
-                          } else {
-                            newChanges.delete(project.name);
-                          }
-                          setPendingChanges(newChanges);
-                        }}
-                        disabled={saving}
-                        className={`text-xs ${pendingChanges.has(project.name) ? 'border-blue-500' : ''}`}
-                        style={{ width: '140px' }}
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-300">
+                    <th className="text-left py-2 px-2 font-medium text-gray-700">Project</th>
+                    <th className="text-left py-2 px-2 font-medium text-gray-700">Status</th>
+                    <th className="text-left py-2 px-2 font-medium text-gray-700">Role</th>
+                    {isOwner && <th className="text-right py-2 px-2 font-medium text-gray-700">Action</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {allProjects.map(project => {
+                    const isAssigned = project.status === 'assigned';
+                    const hasPendingChange = pendingChanges.has(project.name);
+
+                    return (
+                      <tr
+                        key={project.name}
+                        className={`border-b border-gray-200 ${
+                          !project.synced && isAssigned ? 'bg-yellow-50' : ''
+                        }`}
                       >
-                        <option value="current" disabled>Current: {project.role || 'Unknown'}</option>
-                        <option value="Data owner">Data owner</option>
-                        <option value="Data scientist">Data scientist</option>
-                        <option value="Observer">Observer</option>
-                        <option value="remove">Remove Access</option>
-                      </Select>
-                    )}
-                  </Flex>
-                </Flex>
-                    ))}
-                  </Box>
-                </Box>
-              )}
-              
-              {/* Available projects to add */}
-              {isOwner && ownerProjects.length > 0 && (
-                <Box>
-                  <Text className="text-xs font-medium text-gray-700 mb-2">
-                    {memberProjects.length === 0 ? 'Your Projects' : 'Add to More Projects'}
-                  </Text>
-                  <Box className="space-y-2">
-                    {ownerProjects
-                      .filter(p => !memberProjects.some(mp => mp.name === p.name))
-                      .map(project => (
-                        <Flex 
-                          key={project.namespace} 
-                          justify="between" 
-                          align="center"
-                          className="p-2 bg-white rounded border border-gray-200 opacity-75"
-                        >
-                          <Box>
-                            <Text className="text-sm font-medium">{project.name}</Text>
-                            <Text className="text-xs text-gray-500">Not added yet</Text>
-                          </Box>
-                          <Select
-                            value={pendingChanges.get(project.name) || 'select'}
-                            onChange={(e) => {
-                              const role = e.target.value;
-                              if (role && role !== 'select') {
+                        <td className="py-2 px-2">
+                          <Text className="font-medium">{project.name}</Text>
+                          {project.syncError && (
+                            <Text className="text-xs text-red-600">Error: {project.syncError}</Text>
+                          )}
+                        </td>
+                        <td className="py-2 px-2">
+                          {isAssigned ? (
+                            project.synced ? (
+                              <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 border border-green-300">
+                                Active
+                              </span>
+                            ) : (
+                              <span className="text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 border border-yellow-300">
+                                Pending
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-xs text-gray-500">Not added</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-2">
+                          {isAssigned && project.role && (
+                            <Text className="text-sm">{project.role}</Text>
+                          )}
+                          {hasPendingChange && !isAssigned && (
+                            <Text className="text-sm text-blue-600">{pendingChanges.get(project.name)}</Text>
+                          )}
+                        </td>
+                        {isOwner && (
+                          <td className="py-2 px-2 text-right">
+                            <Select
+                              value={pendingChanges.get(project.name) || (isAssigned ? project.role : 'select')}
+                              onChange={(e) => {
+                                const value = e.target.value;
                                 const newChanges = new Map(pendingChanges);
-                                newChanges.set(project.name, role);
+                                if (value !== 'select' && value !== project.role) {
+                                  newChanges.set(project.name, value);
+                                } else {
+                                  newChanges.delete(project.name);
+                                }
                                 setPendingChanges(newChanges);
-                              }
-                            }}
-                            disabled={saving}
-                            className={`text-xs ${pendingChanges.has(project.name) ? 'border-blue-500' : ''}`}
-                            style={{ width: '140px' }}
-                          >
-                            <option value="select">Add with role...</option>
-                            <option value="Data scientist">Data scientist</option>
-                            <option value="Data owner">Data owner</option>
-                            <option value="Observer">Observer</option>
-                          </Select>
-                        </Flex>
-                      ))}
-                  </Box>
-                </Box>
-              )}
-              
-              {memberProjects.length === 0 && ownerProjects.length === 0 && (
-                <Text className="text-sm text-gray-600">
-                  No projects available. Create projects in Hopsworks first.
-                </Text>
-              )}
-            </Box>
-          )}
-          
-          {isOwner && pendingChanges.size > 0 && (
-            <Box className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-              <Flex justify="between" align="center">
-                <Text className="text-xs text-yellow-800">
-                  <strong>{pendingChanges.size} unsaved change{pendingChanges.size > 1 ? 's' : ''}</strong>
-                </Text>
-                <Flex gap={8}>
-                  <Button
-                    size="sm"
-                    intent="ghost"
-                    onClick={() => setPendingChanges(new Map())}
-                    disabled={saving}
-                    className="text-xs"
-                  >
-                    Cancel
-                  </Button>
+                              }}
+                              disabled={saving || updating === project.name}
+                              className={`text-xs ${hasPendingChange ? 'border-blue-500' : ''}`}
+                              style={{ width: '140px' }}
+                            >
+                              <option value="select" disabled>
+                                {isAssigned ? `Current: ${project.role}` : 'Select role...'}
+                              </option>
+                              <option value="Data owner">Data owner</option>
+                              <option value="Data scientist">Data scientist</option>
+                              <option value="Observer">Observer</option>
+                            </Select>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* Save button */}
+              {isOwner && pendingChanges.size > 0 && (
+                <Flex justify="end" className="mt-3">
                   <Button
                     size="sm"
                     intent="primary"
@@ -450,55 +341,49 @@ export default function TeamMemberProjects({
                       setMessage(null);
                       let successCount = 0;
                       let errorCount = 0;
-                      
+
                       const changes = Array.from(pendingChanges.entries());
                       for (const [projectName, role] of changes) {
                         const project = [...memberProjects, ...ownerProjects].find(p => p.name === projectName);
-                        if (project) {
+                        if (project && role && role !== 'select') {
                           try {
-                            await updateProjectRole(
-                              projectName, 
-                              project.id, 
-                              role === 'remove' ? '' : role, 
-                              role === 'remove' ? 'remove' : 'add'
-                            );
+                            await updateProjectRole(projectName, project.id, role);
                             successCount++;
                           } catch (error) {
                             errorCount++;
                           }
                         }
                       }
-                      
+
                       if (successCount > 0 && errorCount === 0) {
-                        setMessage({ 
-                          type: 'success', 
+                        setMessage({
+                          type: 'success',
                           text: `Successfully updated ${successCount} role${successCount > 1 ? 's' : ''}`
                         });
                         setPendingChanges(new Map());
                       } else if (errorCount > 0) {
-                        setMessage({ 
-                          type: 'error', 
-                          text: `Updated ${successCount}, failed ${errorCount}. Check project availability.`
+                        setMessage({
+                          type: 'error',
+                          text: `${errorCount} update(s) failed`
                         });
                       }
-                      
+
                       setSaving(false);
                       setTimeout(() => setMessage(null), 5000);
                     }}
                     disabled={saving}
-                    className="text-xs"
                   >
                     {saving ? (
                       <><Loader className="animate-spin mr-1" size={14} /> Saving...</>
                     ) : (
-                      <>Save Changes</>
+                      `Save Changes (${pendingChanges.size})`
                     )}
                   </Button>
                 </Flex>
-              </Flex>
-            </Box>
+              )}
+            </>
           )}
-        </Card>
+        </Box>
       )}
     </Box>
   );

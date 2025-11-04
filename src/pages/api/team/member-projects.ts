@@ -263,45 +263,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         // This line was moved into the try block above
 
-      } else if (action === 'remove') {
-        // Check if the role exists before trying to remove
-        const { data: existingRole } = await supabaseAdmin
-          .from('project_member_roles')
-          .select('*')
-          .eq('member_id', memberId)
-          .eq('project_name', projectName)
-          .eq('account_owner_id', userId)
-          .single();
-
-        if (!existingRole) {
-          return res.status(404).json({ 
-            error: `${teamMember.email} does not have access to ${projectName}` 
-          });
-        }
-
-        // Remove from our database
-        const { error: dbError } = await supabaseAdmin
-          .from('project_member_roles')
-          .delete()
-          .eq('member_id', memberId)
-          .eq('project_name', projectName)
-          .eq('account_owner_id', userId);
-
-        if (dbError) {
-          console.error('Failed to remove role from database:', dbError);
-          return res.status(500).json({ error: 'Failed to remove project role' });
-        }
-
-        // TODO: Once Hopsworks supports removal, add sync here
-        // For now, we just track removal locally
-        return res.status(200).json({ 
-          message: `Removed ${teamMember.email} from ${projectName}`,
-          project: projectName,
-          localOnly: true // Indicates this is only removed locally
-        });
-
       } else {
-        return res.status(400).json({ error: 'Invalid action' });
+        return res.status(400).json({ error: 'Invalid action. Only "add" is supported.' });
       }
 
     } catch (error) {

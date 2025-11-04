@@ -169,11 +169,9 @@ export default function BillingSetup() {
                   isLoading={loading}
                   disabled={loading}
                 >
-                  <Flex align="center" gap={8}>
-                    <CreditCard size={18} />
-                    Set Up Payment Method
-                    <ArrowRight size={18} />
-                  </Flex>
+                  <CreditCard size={18} />
+                  Set Up Payment Method
+                  <ArrowRight size={18} />
                 </Button>
                 <Button
                   intent="ghost"
