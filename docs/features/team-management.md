@@ -4,6 +4,8 @@
 
 team management allows account owners to invite members to share their hopsworks resources and billing. team members inherit billing configuration from the account owner and share the same cluster assignment.
 
+team member onboarding is fully automated. when a member accepts an invite, their hopsworks account is created instantly with the correct quota, and they're automatically added to the owner's projects if `autoAssignProjects=true`.
+
 ## core concepts
 
 ### account owner
@@ -58,9 +60,10 @@ the acceptance process:
 2. user authenticates via auth0
 3. system links user to the account owner
 4. inherits billing mode and cluster assignment
-5. creates Hopsworks OAuth user with 0 project limit
-6. stores `hopsworks_user_id` for future API calls
-7. redirects to dashboard
+5. **automatically creates Hopsworks OAuth user** with 0 project limit (no user interaction needed)
+6. stores `hopsworks_user_id` and `hopsworks_username` immediately
+7. **auto-assigns to owner's projects** if `autoAssignProjects=true` (happens instantly)
+8. redirects to dashboard - member can access cluster immediately
 
 ## database schema
 
