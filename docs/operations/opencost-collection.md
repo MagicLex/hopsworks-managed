@@ -59,7 +59,7 @@ Returns per namespace:
 - RAM byte-hours
 - Efficiency metrics
 
-**Storage (batch queries)**:
+**Storage (batch queries - all projects)**:
 ```bash
 # Offline (HDFS) - all projects in one query
 kubectl exec namenode-pod -- hdfs dfs -du /Projects
@@ -69,6 +69,17 @@ mysql> SELECT database_name, SUM(in_memory_bytes + disk_memory_bytes)
        FROM ndbinfo.table_memory_usage
        GROUP BY database_name
 ```
+
+**Two-pass collection strategy**:
+1. **First pass**: Process namespaces with compute activity (from OpenCost allocations)
+   - Collect compute metrics (CPU, RAM, GPU)
+   - Collect storage metrics for these projects
+2. **Second pass**: Process projects with storage but no compute activity
+   - Iterate through all projects in storage batch results
+   - Skip projects already processed in first pass
+   - Create/update usage records with storage-only metrics (compute = 0)
+
+This ensures storage is billed even when no pods are running.
 
 ### 3. Namespace to User Mapping
 
@@ -367,5 +378,5 @@ user_projects_namespace_key UNIQUE (namespace)
 | Missing namespaces | Cache stale | Run `/api/cron/sync-projects` |
 | Wrong user billed | Cross-cluster mapping bug | Code verifies cluster now (fixed) |
 | Cluster timeout | Too many namespaces | Batch processing or queue |
-| Storage metrics zero | MySQL password missing | Update `hopsworks_clusters.mysql_password` |
+| Storage metrics zero | MySQL password missing or pods not running | Update `hopsworks_clusters.mysql_password`. Storage is now collected even without active pods. |
 | OpenCost connection error | Pod not running | `kubectl get pods -n opencost` |
