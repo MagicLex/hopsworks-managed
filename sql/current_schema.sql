@@ -116,7 +116,10 @@ CREATE TABLE IF NOT EXISTS usage_daily (
   project_breakdown JSONB,
   instance_types JSONB DEFAULT '{}'::jsonb,
   resource_efficiency JSONB DEFAULT '{}'::jsonb,
-  
+
+  -- Stripe sync tracking
+  reported_to_stripe BOOLEAN DEFAULT false,
+
   total_cost DECIMAL(10,2) DEFAULT 0,
   hopsworks_cluster_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
