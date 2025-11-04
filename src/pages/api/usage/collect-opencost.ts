@@ -621,9 +621,21 @@ async function collectOpenCostMetrics() {
             totalCost = Math.max(0, totalCost - previousHourlyCost);
 
             if (previousEntry) {
-              previousEntry.cpuHours = Math.max(0, previousEntry.cpuHours || 0);
-              previousEntry.gpuHours = Math.max(0, previousEntry.gpuHours || 0);
-              previousEntry.ramGBHours = Math.max(0, previousEntry.ramGBHours || 0);
+              totalCpuHours = Math.max(0, totalCpuHours - (previousContribution.cpuHours || 0));
+              totalGpuHours = Math.max(0, totalGpuHours - (previousContribution.gpuHours || 0));
+              totalRamGbHours = Math.max(0, totalRamGbHours - (previousContribution.ramGBHours || 0));
+              previousEntry.cpuHours = Math.max(
+                0,
+                (previousEntry.cpuHours || 0) - (previousContribution.cpuHours || 0)
+              );
+              previousEntry.gpuHours = Math.max(
+                0,
+                (previousEntry.gpuHours || 0) - (previousContribution.gpuHours || 0)
+              );
+              previousEntry.ramGBHours = Math.max(
+                0,
+                (previousEntry.ramGBHours || 0) - (previousContribution.ramGBHours || 0)
+              );
             }
           }
 
