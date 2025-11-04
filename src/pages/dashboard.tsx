@@ -112,8 +112,7 @@ interface BillingInfo {
     offlineStorageGB: string;
     currentMonth: {
       computeCost: number;
-      onlineStorageCost: number;
-      offlineStorageCost: number;
+      storageCost: number;
       total: number;
     };
   };
@@ -979,7 +978,7 @@ mr = project.get_model_registry()`;
                           <Title as="h2" className="text-lg">Current Month Usage</Title>
                         </Flex>
                         
-                        <Flex gap={16} className="grid grid-cols-1 md:grid-cols-4 mb-4">
+                        <Flex gap={16} className="grid grid-cols-1 md:grid-cols-3 mb-4">
                           <Box>
                             <Text className="text-sm text-gray-600">Compute</Text>
                             <Text className="text-xl font-semibold">
@@ -992,21 +991,12 @@ mr = project.get_model_registry()`;
                             </Text>
                           </Box>
                           <Box>
-                            <Text className="text-sm text-gray-600">Online Storage</Text>
+                            <Text className="text-sm text-gray-600">Storage</Text>
                             <Text className="text-xl font-semibold">
-                              {billing.currentUsage.onlineStorageGB || '0.00'} GB
+                              ${billing.currentUsage.currentMonth.storageCost.toFixed(2)}
                             </Text>
-                            <Text className="text-sm text-gray-500">
-                              ${billing.currentUsage.currentMonth.onlineStorageCost.toFixed(2)}
-                            </Text>
-                          </Box>
-                          <Box>
-                            <Text className="text-sm text-gray-600">Offline Storage</Text>
-                            <Text className="text-xl font-semibold">
-                              {billing.currentUsage.offlineStorageGB || '0.00'} GB
-                            </Text>
-                            <Text className="text-sm text-gray-500">
-                              ${billing.currentUsage.currentMonth.offlineStorageCost.toFixed(2)}
+                            <Text className="text-xs text-gray-500">
+                              Online: {billing.currentUsage.onlineStorageGB || '0.00'}GB | Offline: {billing.currentUsage.offlineStorageGB || '0.00'}GB
                             </Text>
                           </Box>
                           <Box>

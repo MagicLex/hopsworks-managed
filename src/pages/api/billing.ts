@@ -59,8 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           offlineStorageGB: '0.00',
           currentMonth: {
             computeCost: 0,
-            onlineStorageCost: 0,
-            offlineStorageCost: 0,
+            storageCost: 0,
             total: 0
           }
         }
@@ -74,20 +73,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: currentMonthData } = await supabaseAdmin
       .from('usage_daily')
-      .select('opencost_cpu_hours, opencost_gpu_hours, opencost_ram_gb_hours, total_cost, online_storage_gb, offline_storage_gb')
+      .select('opencost_cpu_hours, opencost_gpu_hours, opencost_ram_gb_hours, total_cost, online_storage_gb, offline_storage_gb, date')
       .eq('user_id', userId)
-      .gte('date', startOfMonth.toISOString().split('T')[0]);
+      .gte('date', startOfMonth.toISOString().split('T')[0])
+      .order('date', { ascending: true });
 
-    // Calculate current month totals
+    // Calculate current month totals - accumulate compute, use latest storage snapshot
     const currentMonthTotals = currentMonthData?.reduce((acc, day) => ({
       cpuHours: acc.cpuHours + (day.opencost_cpu_hours || 0),
       gpuHours: acc.gpuHours + (day.opencost_gpu_hours || 0),
       ramGbHours: acc.ramGbHours + (day.opencost_ram_gb_hours || 0),
-      onlineStorageGB: Math.max(acc.onlineStorageGB, day.online_storage_gb || 0), // Snapshot
-      offlineStorageGB: Math.max(acc.offlineStorageGB, day.offline_storage_gb || 0), // Snapshot
       totalCost: acc.totalCost + (day.total_cost || 0)
-    }), { cpuHours: 0, gpuHours: 0, ramGbHours: 0, onlineStorageGB: 0, offlineStorageGB: 0, totalCost: 0 }) ||
-    { cpuHours: 0, gpuHours: 0, ramGbHours: 0, onlineStorageGB: 0, offlineStorageGB: 0, totalCost: 0 };
+    }), { cpuHours: 0, gpuHours: 0, ramGbHours: 0, totalCost: 0 }) ||
+    { cpuHours: 0, gpuHours: 0, ramGbHours: 0, totalCost: 0 };
+
+    // Get latest storage values from most recent day (storage is a snapshot, not accumulated)
+    const latestDay = currentMonthData?.[currentMonthData.length - 1];
+    const onlineStorageGB = latestDay?.online_storage_gb || 0;
+    const offlineStorageGB = latestDay?.offline_storage_gb || 0;
 
 
     // Get usage data for the requested period
@@ -262,16 +265,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cpuHours: currentMonthTotals.cpuHours.toFixed(2),
         gpuHours: currentMonthTotals.gpuHours.toFixed(2),
         ramGbHours: currentMonthTotals.ramGbHours.toFixed(2),
-        onlineStorageGB: currentMonthTotals.onlineStorageGB.toFixed(2),
-        offlineStorageGB: currentMonthTotals.offlineStorageGB.toFixed(2),
+        onlineStorageGB: onlineStorageGB.toFixed(2),
+        offlineStorageGB: offlineStorageGB.toFixed(2),
         currentMonth: {
           computeCost: (
             currentMonthTotals.cpuHours * DEFAULT_RATES.CPU_HOUR +
             currentMonthTotals.gpuHours * DEFAULT_RATES.GPU_HOUR +
             currentMonthTotals.ramGbHours * DEFAULT_RATES.RAM_GB_HOUR
           ),
-          onlineStorageCost: currentMonthTotals.onlineStorageGB * DEFAULT_RATES.STORAGE_ONLINE_GB / 30 * new Date().getDate(),
-          offlineStorageCost: currentMonthTotals.offlineStorageGB * DEFAULT_RATES.STORAGE_OFFLINE_GB / 30 * new Date().getDate(),
+          storageCost: Math.max(0, currentMonthTotals.totalCost - (
+            currentMonthTotals.cpuHours * DEFAULT_RATES.CPU_HOUR +
+            currentMonthTotals.gpuHours * DEFAULT_RATES.GPU_HOUR +
+            currentMonthTotals.ramGbHours * DEFAULT_RATES.RAM_GB_HOUR
+          )),
           total: currentMonthTotals.totalCost
         }
       },
