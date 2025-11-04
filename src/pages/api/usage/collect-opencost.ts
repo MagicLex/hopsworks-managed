@@ -49,38 +49,55 @@ async function collectOpenCostMetrics() {
 
   console.log(`Starting OpenCost collection for: ${currentDate} hour ${currentHour}`);
 
-  // Get the active Hopsworks cluster
-  const { data: cluster, error: clusterError } = await supabaseAdmin
+  // Get ALL active Hopsworks clusters
+  const { data: clusters, error: clusterError } = await supabaseAdmin
     .from('hopsworks_clusters')
     .select('*')
-    .eq('status', 'active')
-    .single();
+    .eq('status', 'active');
 
-  if (clusterError || !cluster) {
-    throw new Error(`Failed to fetch active cluster: ${clusterError?.message || 'No active cluster'}`);
+  if (clusterError || !clusters || clusters.length === 0) {
+    throw new Error(`Failed to fetch active clusters: ${clusterError?.message || 'No active clusters'}`);
   }
 
-  // Initialize OpenCost direct client
-  const opencost = new OpenCostDirect(cluster.kubeconfig);
+  console.log(`Found ${clusters.length} active cluster(s) to process`);
 
-  try {
-    // Get hourly allocations from OpenCost using kubectl exec
-    const allocations = await opencost.getOpenCostAllocations('1h');
-
-    // Get storage metrics in batch (once for all projects)
-    console.log('Collecting storage metrics...');
-    const offlineStorage = await opencost.getOfflineStorageBatch();
-    const onlineStorage = await opencost.getOnlineStorageBatch(cluster.mysql_password || '');
-    console.log(`Storage collected: ${offlineStorage.size} offline, ${onlineStorage.size} online`);
-
-  console.log(`Found ${allocations.size} namespaces with costs`);
-
-  const results = {
+  const aggregatedResults = {
     successful: 0,
     failed: 0,
     errors: [] as string[],
-    namespaces: [] as any[]
+    namespaces: [] as any[],
+    clusters: [] as any[]
   };
+
+  // Process each cluster
+  for (const cluster of clusters) {
+    console.log(`\n=== Processing cluster: ${cluster.name} (${cluster.id}) ===`);
+
+    let opencost: OpenCostDirect | null = null;
+
+    try {
+      // Initialize OpenCost direct client for this cluster
+      opencost = new OpenCostDirect(cluster.kubeconfig);
+
+      // Get hourly allocations from OpenCost using kubectl exec
+      const allocations = await opencost.getOpenCostAllocations('1h');
+
+      // Get storage metrics in batch (once for all projects)
+      console.log(`[${cluster.name}] Collecting storage metrics...`);
+      const offlineStorage = await opencost.getOfflineStorageBatch();
+      const onlineStorage = await opencost.getOnlineStorageBatch(cluster.mysql_password || '');
+      console.log(`[${cluster.name}] Storage collected: ${offlineStorage.size} offline, ${onlineStorage.size} online`);
+
+      console.log(`[${cluster.name}] Found ${allocations.size} namespaces with costs`);
+
+      const clusterResults = {
+        clusterId: cluster.id,
+        clusterName: cluster.name,
+        successful: 0,
+        failed: 0,
+        errors: [] as string[],
+        namespaces: [] as any[]
+      };
 
   // Process each namespace with costs
   for (const [namespace, allocation] of Array.from(allocations.entries())) {
@@ -105,16 +122,26 @@ async function collectOpenCostMetrics() {
       let projectId: number | null = null;
 
       if (project) {
-        // Found in our cache
-        userId = project.user_id;
-        projectName = project.project_name;
-        projectId = project.project_id;
+        // Found in our cache - verify user is on this cluster
+        const { data: userAssignment } = await supabaseAdmin
+          .from('user_hopsworks_assignments')
+          .select('hopsworks_cluster_id')
+          .eq('user_id', project.user_id)
+          .single();
 
-        // Update last seen
-        await supabaseAdmin
-          .from('user_projects')
-          .update({ last_seen_at: now.toISOString() })
-          .eq('namespace', namespace);
+        if (userAssignment?.hopsworks_cluster_id === cluster.id) {
+          userId = project.user_id;
+          projectName = project.project_name;
+          projectId = project.project_id;
+
+          // Update last seen
+          await supabaseAdmin
+            .from('user_projects')
+            .update({ last_seen_at: now.toISOString() })
+            .eq('namespace', namespace);
+        } else {
+          console.warn(`[${cluster.name}] Namespace ${namespace} mapped to user on different cluster, will re-resolve`);
+        }
       } else {
         // Query Hopsworks API to find owner
         console.log(`Namespace ${namespace} not in cache, querying Hopsworks...`);
@@ -134,11 +161,17 @@ async function collectOpenCostMetrics() {
         );
 
         if (hopsworksProject) {
-          // Find user by Hopsworks username
+          // Find user by Hopsworks username AND verify they're on this cluster
           const { data: user } = await supabaseAdmin
             .from('users')
-            .select('id')
+            .select(`
+              id,
+              user_hopsworks_assignments!inner (
+                hopsworks_cluster_id
+              )
+            `)
             .eq('hopsworks_username', hopsworksProject.owner)
+            .eq('user_hopsworks_assignments.hopsworks_cluster_id', cluster.id)
             .single();
 
           if (user) {
@@ -159,6 +192,8 @@ async function collectOpenCostMetrics() {
               }, {
                 onConflict: 'namespace'
               });
+          } else {
+            console.warn(`[${cluster.name}] Found project ${hopsworksProject.name} but owner ${hopsworksProject.owner} not on this cluster`);
           }
         }
       }
@@ -170,9 +205,9 @@ async function collectOpenCostMetrics() {
           namespaceType = 'admin/system';
         }
         
-        console.warn(`No user found for namespace ${namespace} (type: ${namespaceType})`);
-        results.errors.push(`Namespace ${namespace}: No user mapping found`);
-        results.failed++;
+        console.warn(`[${cluster.name}] No user found for namespace ${namespace} (type: ${namespaceType})`);
+        clusterResults.errors.push(`Namespace ${namespace}: No user mapping found`);
+        clusterResults.failed++;
         continue;
       }
 
@@ -266,8 +301,8 @@ async function collectOpenCostMetrics() {
           });
       }
 
-      results.successful++;
-      results.namespaces.push({
+      clusterResults.successful++;
+      clusterResults.namespaces.push({
         namespace,
         projectName,
         userId,
@@ -279,32 +314,67 @@ async function collectOpenCostMetrics() {
       });
 
     } catch (error) {
-      console.error(`Failed to process namespace ${namespace}:`, error);
-      results.failed++;
-      results.errors.push(`Namespace ${namespace}: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`[${cluster.name}] Failed to process namespace ${namespace}:`, error);
+      clusterResults.failed++;
+      clusterResults.errors.push(`Namespace ${namespace}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  // Mark projects as inactive if not seen in 30 days
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      // Mark projects as inactive if not seen in 30 days (per cluster)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  await supabaseAdmin
-    .from('user_projects')
-    .update({ status: 'inactive' })
-    .lt('last_seen_at', thirtyDaysAgo.toISOString())
-    .eq('status', 'active');
+      await supabaseAdmin
+        .from('user_projects')
+        .update({ status: 'inactive' })
+        .lt('last_seen_at', thirtyDaysAgo.toISOString())
+        .eq('status', 'active');
 
-    console.log(`OpenCost collection completed: ${results.successful} successful, ${results.failed} failed`);
+      console.log(`[${cluster.name}] Collection completed: ${clusterResults.successful} successful, ${clusterResults.failed} failed`);
 
-    return {
-      message: 'OpenCost metrics collection completed',
-      timestamp: currentDate,
-      hour: currentHour,
-      results
-    };
-  } finally {
-    // Clean up temporary kubeconfig file
-    await opencost.cleanup();
+      // Aggregate cluster results
+      aggregatedResults.successful += clusterResults.successful;
+      aggregatedResults.failed += clusterResults.failed;
+      aggregatedResults.errors.push(...clusterResults.errors);
+      aggregatedResults.namespaces.push(...clusterResults.namespaces);
+      aggregatedResults.clusters.push({
+        clusterId: cluster.id,
+        clusterName: cluster.name,
+        successful: clusterResults.successful,
+        failed: clusterResults.failed,
+        namespaceCount: clusterResults.namespaces.length
+      });
+
+    } catch (error) {
+      console.error(`[${cluster.name}] Failed to collect metrics for cluster:`, error);
+      aggregatedResults.errors.push(`Cluster ${cluster.name}: ${error instanceof Error ? error.message : String(error)}`);
+      aggregatedResults.clusters.push({
+        clusterId: cluster.id,
+        clusterName: cluster.name,
+        error: error instanceof Error ? error.message : String(error),
+        successful: 0,
+        failed: 0,
+        namespaceCount: 0
+      });
+    } finally {
+      // Clean up temporary kubeconfig file for this cluster
+      if (opencost) {
+        await opencost.cleanup();
+      }
+    }
   }
+
+  console.log(`\n=== Overall OpenCost Collection Summary ===`);
+  console.log(`Clusters processed: ${aggregatedResults.clusters.length}`);
+  console.log(`Total successful: ${aggregatedResults.successful}`);
+  console.log(`Total failed: ${aggregatedResults.failed}`);
+  console.log(`Total errors: ${aggregatedResults.errors.length}`);
+
+  return {
+    message: 'OpenCost metrics collection completed for all clusters',
+    timestamp: currentDate,
+    hour: currentHour,
+    clustersProcessed: aggregatedResults.clusters.length,
+    results: aggregatedResults
+  };
 }

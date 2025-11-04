@@ -22,6 +22,7 @@
 
 - [Deployment](operations/deployment.md) - Vercel deployment, environment config
 - [Cluster Setup](operations/cluster-setup.md) - New Hopsworks cluster onboarding
+- [OpenCost Collection](operations/opencost-collection.md) - Hourly metrics collection job
 - [Health Checks](operations/health-checks.md) - Monitoring and diagnostics
 
 ## Reference

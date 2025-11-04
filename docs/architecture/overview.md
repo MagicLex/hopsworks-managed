@@ -40,14 +40,17 @@
 
 ### Cost Collection (Hourly via OpenCost)
 1. Cron job runs every hour on Vercel
-2. For each active cluster:
+2. For **each active cluster** (multi-cluster support):
    - Uses `kubectl exec` to query OpenCost API inside cluster
    - Gets costs per namespace for the last hour
    - No external exposure needed (secure)
+   - Verifies namespace owner is on correct cluster
 3. Maps namespaces to users via `user_projects` table
 4. Accumulates hourly costs in `usage_daily` table
 5. Updates `project_breakdown` JSONB with per-project details
 6. Persists totals in `usage_daily` for reporting and Stripe sync.
+
+**See**: [OpenCost Collection Documentation](../operations/opencost-collection.md) for detailed flow.
 
 ### OpenCost Integration
 ```

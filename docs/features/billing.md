@@ -82,6 +82,9 @@ We use Stripe's metered billing with the following products:
 ## Data Flow
 
 ### 1. Usage Collection (Hourly)
+
+**See**: [OpenCost Collection Documentation](../operations/opencost-collection.md) for complete flow details.
+
 ```typescript
 import { calculateCreditsUsed, calculateDollarAmount } from '@/config/billing-rates';
 
@@ -105,6 +108,8 @@ const creditsUsed = calculateCreditsUsed({
 
 const hourlyTotalCost = calculateDollarAmount(creditsUsed); // -> $4.29
 ```
+
+**Multi-cluster**: The collection job processes all active clusters independently. Each namespace is verified to belong to a user on the correct cluster to prevent cross-cluster billing errors.
 
 ### 2. Cost Storage
 ```sql
