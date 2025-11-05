@@ -197,7 +197,7 @@ export default function AdminPage() {
                               <Box>
                                 <Badge size="sm" variant="warning">Suspended</Badge>
                                 <Text className="text-xs text-gray mt-1">
-                                  Payment issue
+                                  Requires review
                                 </Text>
                               </Box>
                             ) : user.account_owner_id ? (
