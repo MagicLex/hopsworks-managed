@@ -197,6 +197,13 @@ export default function Dashboard() {
     }
   }, [user, authLoading, router]);
 
+  // Redirect suspended users to billing setup
+  useEffect(() => {
+    if (!billingLoading && billing?.isSuspended) {
+      router.push('/billing-setup');
+    }
+  }, [billing?.isSuspended, billingLoading, router]);
+
   // Handle tab query parameter
   useEffect(() => {
     if (router.query.tab && typeof router.query.tab === 'string') {
