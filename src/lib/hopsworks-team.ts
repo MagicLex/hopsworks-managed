@@ -117,6 +117,17 @@ export async function getUserProjects(
         const projectOwner = typeof project.owner === 'object'
           ? project.owner?.username
           : project.owner;
+
+        // Debug: log first project to see structure
+        if (allProjects.indexOf(project) === 0) {
+          console.log('Sample project structure:', JSON.stringify({
+            name: project.name,
+            owner: project.owner,
+            ownerType: typeof project.owner,
+            extractedOwner: projectOwner
+          }));
+        }
+
         return projectOwner === ownerIdentifier;
       });
 
