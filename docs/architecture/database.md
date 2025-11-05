@@ -36,6 +36,46 @@ PGPASSWORD="$POSTGRES_PASSWORD" psql -h aws-0-us-east-1.pooler.supabase.com -p 6
 
 ## Useful Queries
 
+### User Hopsworks Assignment Status
+
+```sql
+-- Check if user has valid Hopsworks assignment
+SELECT
+  u.email,
+  u.hopsworks_user_id,
+  u.hopsworks_username,
+  uha.hopsworks_cluster_id,
+  hc.name as cluster_name,
+  uha.assigned_at
+FROM users u
+LEFT JOIN user_hopsworks_assignments uha ON u.id = uha.user_id
+LEFT JOIN hopsworks_clusters hc ON uha.hopsworks_cluster_id = hc.id
+WHERE u.email = 'user@example.com';
+
+-- Find users with invalid hopsworks_user_id (0 or NULL)
+SELECT
+  u.email,
+  u.hopsworks_user_id,
+  u.hopsworks_username,
+  uha.hopsworks_user_id as assignment_id
+FROM users u
+JOIN user_hopsworks_assignments uha ON u.id = uha.user_id
+WHERE u.hopsworks_user_id IS NULL
+   OR u.hopsworks_user_id = 0
+   OR uha.hopsworks_user_id IS NULL
+   OR uha.hopsworks_user_id = 0;
+
+-- Fix user with incorrect hopsworks_user_id
+-- (First verify the correct ID in Hopsworks, then update)
+UPDATE users
+SET hopsworks_user_id = 11209, hopsworks_username = 'correctusername'
+WHERE id = 'auth0|userid';
+
+UPDATE user_hopsworks_assignments
+SET hopsworks_user_id = 11209
+WHERE user_id = 'auth0|userid';
+```
+
 ### Team Member Project Access
 
 ```sql

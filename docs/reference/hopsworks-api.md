@@ -40,11 +40,28 @@ Authorization: ApiKey {API_KEY}
 }
 ```
 
+**⚠️ Important**: The creation response does NOT include the numeric `id` field. After creating a user, you MUST fetch the complete user object via `GET /admin/users/{username}` to retrieve the user ID for subsequent operations (project limit updates, etc.).
+
 ### Get User
 
-`GET /admin/users/{username}` - Returns user details
+`GET /admin/users/{username}` - Returns complete user details including numeric `id`
 
-`GET /admin/users` - List all users (supports `offset`, `limit`, `sort_by`, `filter_by`)
+**Response**:
+```json
+{
+  "id": 11209,
+  "username": "john1234",
+  "email": "user@example.com",
+  "firstname": "John",
+  "lastname": "Doe",
+  "accountType": "REMOTE_ACCOUNT_TYPE",
+  "maxNumProjects": 5,
+  "numActiveProjects": 0,
+  "status": 2
+}
+```
+
+`GET /admin/users` - List all users (supports `offset`, `limit`)
 
 ### Update User
 
