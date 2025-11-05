@@ -73,13 +73,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
 
       // Query Hopsworks directly for member's projects
-      // This is the source of truth - members may be added via Hopsworks UI
+      // We get all projects and check which ones have this member
       let projects = [];
 
       try {
-        // Get member's projects from Hopsworks
+        // Get all projects from Hopsworks
         const response = await fetch(
-          `${credentials.apiUrl}/hopsworks-api/api/admin/users/${teamMember.hopsworks_username}/projects`,
+          `${credentials.apiUrl}/hopsworks-api/api/admin/projects`,
           {
             headers: {
               'Authorization': `ApiKey ${credentials.apiKey}`
@@ -88,19 +88,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         );
 
         if (response.ok) {
-          const hopsworksProjects = await response.json();
-          const projectsList = Array.isArray(hopsworksProjects)
-            ? hopsworksProjects
-            : (hopsworksProjects.items || []);
+          const allProjects = await response.json();
+          const projectsList = Array.isArray(allProjects)
+            ? allProjects
+            : (allProjects.items || []);
 
-          projects = projectsList.map((p: any) => ({
-            id: p.id || 0,
-            name: p.projectName || p.name,
-            role: p.projectTeam || p.role || 'Data scientist',
-            synced: true, // Coming from Hopsworks so it's synced by definition
-          }));
+          // For each project, check if this member has access
+          for (const project of projectsList) {
+            try {
+              // Get project members
+              const membersResponse = await fetch(
+                `${credentials.apiUrl}/hopsworks-api/api/project/${project.id}/projectMembers`,
+                {
+                  headers: {
+                    'Authorization': `ApiKey ${credentials.apiKey}`
+                  }
+                }
+              );
 
-          console.log(`Found ${projects.length} projects for ${teamMember.hopsworks_username} from Hopsworks`);
+              if (membersResponse.ok) {
+                const members = await membersResponse.json();
+                const membersList = Array.isArray(members) ? members : (members.items || []);
+
+                // Check if our member is in this project
+                const memberInProject = membersList.find((m: any) =>
+                  m.user?.email === teamMember.email || m.email === teamMember.email
+                );
+
+                if (memberInProject) {
+                  projects.push({
+                    id: project.id,
+                    name: project.name,
+                    role: memberInProject.projectTeam || memberInProject.role || 'Data scientist',
+                    synced: true
+                  });
+                }
+              }
+            } catch (error) {
+              // Continue to next project if this one fails
+              console.error(`Failed to check members for project ${project.name}:`, error);
+            }
+          }
+
+          console.log(`Found ${projects.length} projects for ${teamMember.email} from Hopsworks`);
         } else {
           console.error('Failed to fetch projects from Hopsworks:', response.statusText);
         }
