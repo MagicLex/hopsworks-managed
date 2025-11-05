@@ -164,7 +164,7 @@ export default function TeamMemberProjects({
         className="text-xs"
       >
         <FolderOpen size={14} />
-        {expanded ? 'Hide' : (isOwner ? 'Manage' : 'View')} Projects
+        {expanded ? 'Hide' : 'View'} Projects
       </Button>
 
       {expanded && (
@@ -172,6 +172,14 @@ export default function TeamMemberProjects({
           <Text className="text-sm font-medium mb-3">
             Project Access for {memberName || memberEmail}
           </Text>
+
+          {isOwner && (
+            <Box className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded">
+              <Text className="text-sm text-blue-800">
+                💡 To add team members to projects, use the Hopsworks UI: Project → Members → Add Member
+              </Text>
+            </Box>
+          )}
 
           {message && (
             <StatusMessage
@@ -194,12 +202,12 @@ export default function TeamMemberProjects({
                 {syncing ? 'Syncing...' : 'Loading...'}
               </Text>
             </Flex>
-          ) : allProjects.length === 0 ? (
+          ) : memberProjects.length === 0 ? (
             <Text className="text-sm text-gray-500 py-4">No projects found</Text>
           ) : (
             <>
-              {/* Show sync warning if needed */}
-              {memberProjects.some(p => !p.synced) && isOwner && (
+              {/* Removed sync warning - we now query Hopsworks directly */}
+              {false && memberProjects.some(p => !p.synced) && isOwner && (
                 <Box className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
                   <Flex justify="between" align="center">
                     <Text className="text-sm text-yellow-800">
@@ -241,140 +249,20 @@ export default function TeamMemberProjects({
                 </Box>
               )}
 
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="border-b border-gray-300">
-                    <th className="text-left py-2 px-2 font-medium text-gray-700">Project</th>
-                    <th className="text-left py-2 px-2 font-medium text-gray-700">Status</th>
-                    <th className="text-left py-2 px-2 font-medium text-gray-700">Role</th>
-                    {isOwner && <th className="text-right py-2 px-2 font-medium text-gray-700">Action</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {allProjects.map(project => {
-                    const isAssigned = project.status === 'assigned';
-                    const hasPendingChange = pendingChanges.has(project.name);
-
-                    return (
-                      <tr
-                        key={project.name}
-                        className={`border-b border-gray-200 ${
-                          !project.synced && isAssigned ? 'bg-yellow-50' : ''
-                        }`}
-                      >
-                        <td className="py-2 px-2">
-                          <Text className="font-medium">{project.name}</Text>
-                          {project.syncError && (
-                            <Text className="text-xs text-red-600">Error: {project.syncError}</Text>
-                          )}
-                        </td>
-                        <td className="py-2 px-2">
-                          {isAssigned ? (
-                            project.synced ? (
-                              <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 border border-green-300">
-                                Active
-                              </span>
-                            ) : (
-                              <span className="text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 border border-yellow-300">
-                                Pending
-                              </span>
-                            )
-                          ) : (
-                            <span className="text-xs text-gray-500">Not added</span>
-                          )}
-                        </td>
-                        <td className="py-2 px-2">
-                          {isAssigned && project.role && (
-                            <Text className="text-sm">{project.role}</Text>
-                          )}
-                          {hasPendingChange && !isAssigned && (
-                            <Text className="text-sm text-blue-600">{pendingChanges.get(project.name)}</Text>
-                          )}
-                        </td>
-                        {isOwner && (
-                          <td className="py-2 px-2 text-right">
-                            <Select
-                              value={pendingChanges.get(project.name) || (isAssigned ? project.role : 'select')}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                const newChanges = new Map(pendingChanges);
-                                if (value !== 'select' && value !== project.role) {
-                                  newChanges.set(project.name, value);
-                                } else {
-                                  newChanges.delete(project.name);
-                                }
-                                setPendingChanges(newChanges);
-                              }}
-                              disabled={saving || updating === project.name}
-                              className={`text-xs ${hasPendingChange ? 'border-blue-500' : ''}`}
-                              style={{ width: '140px' }}
-                            >
-                              <option value="select" disabled>
-                                {isAssigned ? `Current: ${project.role}` : 'Select role...'}
-                              </option>
-                              <option value="Data owner">Data owner</option>
-                              <option value="Data scientist">Data scientist</option>
-                              <option value="Observer">Observer</option>
-                            </Select>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              {/* Save button */}
-              {isOwner && pendingChanges.size > 0 && (
-                <Flex justify="end" className="mt-3">
-                  <Button
-                    size="sm"
-                    intent="primary"
-                    onClick={async () => {
-                      setSaving(true);
-                      setMessage(null);
-                      let successCount = 0;
-                      let errorCount = 0;
-
-                      const changes = Array.from(pendingChanges.entries());
-                      for (const [projectName, role] of changes) {
-                        const project = [...memberProjects, ...ownerProjects].find(p => p.name === projectName);
-                        if (project && role && role !== 'select') {
-                          try {
-                            await updateProjectRole(projectName, project.id, role);
-                            successCount++;
-                          } catch (error) {
-                            errorCount++;
-                          }
-                        }
-                      }
-
-                      if (successCount > 0 && errorCount === 0) {
-                        setMessage({
-                          type: 'success',
-                          text: `Successfully updated ${successCount} role${successCount > 1 ? 's' : ''}`
-                        });
-                        setPendingChanges(new Map());
-                      } else if (errorCount > 0) {
-                        setMessage({
-                          type: 'error',
-                          text: `${errorCount} update(s) failed`
-                        });
-                      }
-
-                      setSaving(false);
-                      setTimeout(() => setMessage(null), 5000);
-                    }}
-                    disabled={saving}
-                  >
-                    {saving ? (
-                      <><Loader className="animate-spin mr-1" size={14} /> Saving...</>
-                    ) : (
-                      `Save Changes (${pendingChanges.size})`
-                    )}
-                  </Button>
-                </Flex>
-              )}
+              <Box className="space-y-2">
+                {memberProjects.map(project => (
+                  <Box key={project.name} className="p-3 bg-gray-50 rounded border border-gray-200">
+                    <Flex justify="between" align="center">
+                      <Box>
+                        <Text className="font-medium">{project.name}</Text>
+                        <Text className="text-xs text-gray-600">Role: {project.role}</Text>
+                      </Box>
+                      <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 border border-green-300">
+                        Active
+                      </span>
+                    </Flex>
+                  </Box>
+                ))}</Box>
             </>
           )}
         </Box>

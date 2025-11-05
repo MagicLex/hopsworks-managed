@@ -72,36 +72,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         apiKey: assignment.hopsworks_clusters.api_key
       };
 
-      // First, get projects from our database
-      const { data: dbProjects, error: dbError } = await supabaseAdmin
-        .from('project_member_roles')
-        .select('*')
-        .eq('member_id', memberId)
-        .eq('account_owner_id', userId);
+      // Query Hopsworks directly for member's projects
+      // This is the source of truth - members may be added via Hopsworks UI
+      let projects = [];
 
-      if (dbError) {
-        console.error('Failed to fetch projects from database:', dbError);
+      try {
+        // Get member's projects from Hopsworks
+        const response = await fetch(
+          `${credentials.apiUrl}/hopsworks-api/api/admin/users/${teamMember.hopsworks_username}/projects`,
+          {
+            headers: {
+              'Authorization': `ApiKey ${credentials.apiKey}`
+            }
+          }
+        );
+
+        if (response.ok) {
+          const hopsworksProjects = await response.json();
+          const projectsList = Array.isArray(hopsworksProjects)
+            ? hopsworksProjects
+            : (hopsworksProjects.items || []);
+
+          projects = projectsList.map((p: any) => ({
+            id: p.id || 0,
+            name: p.projectName || p.name,
+            role: p.projectTeam || p.role || 'Data scientist',
+            synced: true, // Coming from Hopsworks so it's synced by definition
+          }));
+
+          console.log(`Found ${projects.length} projects for ${teamMember.hopsworks_username} from Hopsworks`);
+        } else {
+          console.error('Failed to fetch projects from Hopsworks:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching member projects from Hopsworks:', error);
       }
 
-      // Format the response
-      const projects = dbProjects?.map(p => ({
-        id: p.project_id,
-        name: p.project_name,
-        namespace: p.project_namespace,
-        role: p.role,
-        synced: p.synced_to_hopsworks,
-        lastSyncAt: p.last_sync_at,
-        syncError: p.sync_error,
-        pending: !p.synced_to_hopsworks // Flag for UI to show pending state
-      })) || [];
-
-      // Count how many are pending sync
-      const pendingCount = projects.filter(p => !p.synced).length;
-      
-      return res.status(200).json({ 
+      return res.status(200).json({
         projects,
-        pendingCount,
-        hasPendingSync: pendingCount > 0
+        pendingCount: 0,
+        hasPendingSync: false
       });
 
     } catch (error) {
@@ -109,6 +119,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Failed to fetch projects' });
     }
 
+  } else {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+}
+
+/* POST method removed - team member project assignment should be done via Hopsworks UI
   } else if (req.method === 'POST') {
     const { memberId, projectName, projectId, role, action } = req.body;
 
@@ -271,8 +287,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('Failed to manage project role:', error);
       return res.status(500).json({ error: 'Failed to update project role' });
     }
-
-  } else {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-}
+*/
