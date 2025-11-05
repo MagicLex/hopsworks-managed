@@ -33,76 +33,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Only account owners can access this endpoint' });
     }
 
-    // Get owner's cluster credentials
-    const { data: owner } = await supabaseAdmin
-      .from('users')
-      .select(`
-        user_hopsworks_assignments!inner (
-          hopsworks_cluster_id,
-          hopsworks_clusters!inner (
-            api_url,
-            api_key
-          )
-        )
-      `)
-      .eq('id', userId)
-      .single();
-
-    if (!owner?.user_hopsworks_assignments?.[0]) {
-      return res.status(404).json({ error: 'No cluster assignment found' });
-    }
-
-    const assignment = owner.user_hopsworks_assignments[0] as any;
-    const credentials = {
-      apiUrl: assignment.hopsworks_clusters.api_url,
-      apiKey: assignment.hopsworks_clusters.api_key
-    };
-
-    // First check our database for cached projects
-    const { data: dbProjects } = await supabaseAdmin
+    // Get projects directly from user_projects table - this is the source of truth
+    // for project ownership and namespace mappings
+    const { data: dbProjects, error: dbError } = await supabaseAdmin
       .from('user_projects')
       .select('*')
       .eq('user_id', userId)
       .eq('status', 'active');
 
-    let projects = [];
-
-    if (dbProjects && dbProjects.length > 0) {
-      // We have cached projects
-      projects = dbProjects.map(p => ({
-        id: p.project_id,
-        name: p.project_name,
-        namespace: p.namespace,
-        fromCache: true
-      }));
-    } else if (currentUser.hopsworks_username) {
-      // No cached projects, try to fetch from Hopsworks
-      try {
-        const hopsworksProjects = await getUserProjects(credentials, currentUser.hopsworks_username);
-        projects = hopsworksProjects;
-        
-        // Cache these projects in our database
-        if (projects.length > 0) {
-          const projectsToInsert = projects.map(p => ({
-            user_id: userId,
-            project_id: p.id || 0,
-            project_name: p.name,
-            namespace: p.namespace || `project-${p.name}`,
-            status: 'active'
-          }));
-          
-          await supabaseAdmin
-            .from('user_projects')
-            .upsert(projectsToInsert, { 
-              onConflict: 'user_id,project_id',
-              ignoreDuplicates: false 
-            });
-        }
-      } catch (error) {
-        console.error('Failed to fetch projects from Hopsworks:', error);
-      }
+    if (dbError) {
+      console.error('Failed to fetch projects from database:', dbError);
+      return res.status(500).json({ error: 'Failed to fetch projects from database' });
     }
 
+    const projects = (dbProjects || []).map(p => ({
+      id: p.project_id,
+      name: p.project_name,
+      namespace: p.namespace
+    }));
+
+    console.log(`Found ${projects.length} active projects for user ${userId}`);
     return res.status(200).json({ projects });
 
   } catch (error) {
