@@ -92,7 +92,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       case 'payment_method.detached': {
         const paymentMethod = event.data.object as Stripe.PaymentMethod;
-        await handlePaymentMethodDetached(paymentMethod);
+        const previousAttributes = (event.data as any).previous_attributes;
+        await handlePaymentMethodDetached(paymentMethod, previousAttributes);
         break;
       }
 
@@ -268,12 +269,12 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   }
 }
 
-async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod) {
-  // Get customer ID from previous_attributes (event shows old customer)
-  const customerId = (paymentMethod as any).customer;
+async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, previousAttributes?: any) {
+  // Get customer ID from previous_attributes (current customer is null after detach)
+  const customerId = previousAttributes?.customer;
 
   if (!customerId) {
-    console.log('Payment method detached but no customer associated');
+    console.log('Payment method detached but no customer in previous_attributes');
     return;
   }
 
