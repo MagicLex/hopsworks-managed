@@ -1317,17 +1317,27 @@ mr = project.get_model_registry()`;
                   <Trash2 size={20} className="text-red-500" />
                   <Title as="h2" className="text-lg">Danger Zone</Title>
                 </Flex>
-                <Text className="text-sm text-gray-600 mb-4">
-                  Delete your account and revoke access to all resources. Billing data will be retained for compliance.
-                </Text>
-                <Button
-                  intent="secondary"
-                  size="md"
-                  className="border-red-500 text-red-600 hover:bg-red-50 focus:ring-red-500"
-                  onClick={() => setShowDeleteModal(true)}
-                >
-                  Delete Account
-                </Button>
+                {billing?.isTeamMember ? (
+                  <Box className="p-4 bg-gray-50 border border-gray-200 rounded">
+                    <Text className="text-sm text-gray-700">
+                      Team members cannot self-delete. Contact your account owner ({teamData?.account_owner?.email}) to be removed from the team.
+                    </Text>
+                  </Box>
+                ) : (
+                  <>
+                    <Text className="text-sm text-gray-600 mb-4">
+                      Delete your account and revoke access to all resources. Billing data will be retained for compliance.
+                    </Text>
+                    <Button
+                      intent="secondary"
+                      size="md"
+                      className="border-red-500 text-red-600 hover:bg-red-50 focus:ring-red-500"
+                      onClick={() => setShowDeleteModal(true)}
+                    >
+                      Delete Account
+                    </Button>
+                  </>
+                )}
               </Card>
 
               <Flex justify="center">
