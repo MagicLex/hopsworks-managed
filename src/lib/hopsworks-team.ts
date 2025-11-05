@@ -15,7 +15,8 @@ interface HopsworksCredentials {
 
 /**
  * Add a user to a project with a specific role
- * FOR OAUTH USERS: This uses group mappings which is the ONLY way that works
+ * FOR OAUTH USERS: Use group mappings via admin endpoint
+ * FALLBACK: Try direct project member endpoint if group mapping fails
  */
 export async function addUserToProject(
   credentials: HopsworksCredentials,
@@ -28,16 +29,29 @@ export async function addUserToProject(
   if (!project) {
     throw new Error(`Project '${projectName}' does not exist in Hopsworks`);
   }
-  
-  // OAuth users MUST use group mappings - individual user adds don't work
-  // Create a unique group for this specific user-project combination
-  const userGroup = `user_${username.replace(/[^a-zA-Z0-9]/g, '_')}`;
-  
-  console.log(`Adding user ${username} to project ${projectName} (id: ${project.id}) via group mapping ${userGroup}`);
-  
-  // Use the group mapping endpoint - this is what actually works
+
+  // Get user email from username (OAuth users have email-based identifiers)
+  const userResponse = await fetch(
+    `${credentials.apiUrl}${ADMIN_API_BASE}/users/${username}`,
+    {
+      headers: {
+        'Authorization': `ApiKey ${credentials.apiKey}`
+      }
+    }
+  );
+
+  if (!userResponse.ok) {
+    throw new Error(`User ${username} not found in Hopsworks`);
+  }
+
+  const userData = await userResponse.json();
+  const userEmail = userData.email;
+
+  console.log(`Adding user ${username} (${userEmail}) to project ${projectName} (id: ${project.id}) as ${role}`);
+
+  // Try the project members endpoint directly (works with OAuth users)
   const response = await fetch(
-    `${credentials.apiUrl}${ADMIN_API_BASE}/group/mapping/bulk`,
+    `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${project.id}/projectMembers/${encodeURIComponent(userEmail)}`,
     {
       method: 'POST',
       headers: {
@@ -45,27 +59,30 @@ export async function addUserToProject(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        projectName,
-        group: [userGroup], // Array of group names
-        projectRole: role,
-        groupType: 'OAUTH'
+        projectTeam: role
       })
     }
   );
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`Failed to create group mapping for ${username}:`, errorText);
-    
+    console.error(`Failed to add user to project:`, errorText);
+
     // Check if it's a project not found error
     if (errorText.includes('404') || errorText.includes('Not Found')) {
       throw new Error(`Project '${projectName}' not found or inaccessible`);
     }
-    
-    throw new Error(`Failed to add user to project via group mapping: ${response.statusText} - ${errorText}`);
+
+    // Check if user is already a member
+    if (errorText.includes('already') || errorText.includes('exist')) {
+      console.log(`User ${username} is already a member of ${projectName}`);
+      return; // Not an error if already member
+    }
+
+    throw new Error(`Failed to add user to project: ${response.statusText} - ${errorText}`);
   }
-  
-  console.log(`Successfully added ${username} to ${projectName} as ${role} via group ${userGroup}`);
+
+  console.log(`Successfully added ${username} to ${projectName} as ${role}`);
 }
 
 // createGroupMapping removed - use addUserToProject which now uses group mappings internally
