@@ -207,7 +207,12 @@ export default function Dashboard() {
         setActiveTab(router.query.tab);
       }
     }
-  }, [router.query.tab, billing?.billingMode]);
+
+    // Force suspended users to billing tab
+    if (billing?.isSuspended && activeTab !== 'billing') {
+      setActiveTab('billing');
+    }
+  }, [router.query.tab, billing?.billingMode, billing?.isSuspended, activeTab]);
 
   // Fetch team invites when user and team data is available
   useEffect(() => {
@@ -343,8 +348,12 @@ export default function Dashboard() {
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="mb-6">
-              <TabsTrigger value="cluster">Cluster</TabsTrigger>
-              <TabsTrigger value="team">Team</TabsTrigger>
+              <TabsTrigger value="cluster" disabled={billing?.isSuspended} className={billing?.isSuspended ? 'opacity-50 cursor-not-allowed' : ''}>
+                Cluster
+              </TabsTrigger>
+              <TabsTrigger value="team" disabled={billing?.isSuspended} className={billing?.isSuspended ? 'opacity-50 cursor-not-allowed' : ''}>
+                Team
+              </TabsTrigger>
               {billingLoading ? (
                 <TabsTrigger value="billing" disabled className="opacity-50">
                   Billing
@@ -354,7 +363,9 @@ export default function Dashboard() {
                   <TabsTrigger value="billing">Billing</TabsTrigger>
                 )
               )}
-              <TabsTrigger value="settings">Settings</TabsTrigger>
+              <TabsTrigger value="settings" disabled={billing?.isSuspended} className={billing?.isSuspended ? 'opacity-50 cursor-not-allowed' : ''}>
+                Settings
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="cluster">
@@ -913,6 +924,27 @@ mr = project.get_model_registry()`;
                 </Box>
               ) : billing ? (
                 <>
+                  {/* Suspended account notice */}
+                  {billing.isSuspended ? (
+                    <Card className="p-8 border-red-500 bg-red-50">
+                      <Flex direction="column" gap={16} align="center" className="text-center">
+                        <AlertTriangle size={48} className="text-red-600" />
+                        <Box>
+                          <Title as="h2" className="text-2xl text-red-800 mb-3">
+                            Account Suspended
+                          </Title>
+                          <Text className="text-base text-red-700 mb-4">
+                            Your payment method was removed and your account has been suspended.
+                            Add a payment method below to restore access to all features.
+                          </Text>
+                          <Text className="text-sm text-red-600">
+                            If you believe this is an error, please contact support at support@hopsworks.ai
+                          </Text>
+                        </Box>
+                      </Flex>
+                    </Card>
+                  ) : null}
+
                   {/* Team member billing notice */}
                   {billing.isTeamMember ? (
                     <Card className="p-6 border-blue-200 bg-blue-50">
