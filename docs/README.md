@@ -28,6 +28,7 @@
 ## Reference
 
 - [API](reference/api.md) - Endpoints and admin tools
+- [Hopsworks API](reference/hopsworks-api.md) - Hopsworks cluster API endpoints
 - [Database Schema](reference/database/) - Detailed table documentation
 - [Metering Queries](reference/metering-queries.md) - Quick reference for compute and storage queries
 
