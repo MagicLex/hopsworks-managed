@@ -733,11 +733,6 @@ mr = project.get_model_registry()`;
                                   {member.name && member.name !== member.email && (
                                     <Text className="text-sm text-gray-600">{member.email}</Text>
                                   )}
-                                  {member.hopsworks_username && (
-                                    <Text className="text-xs text-gray-500">
-                                      Hopsworks: {member.hopsworks_username}
-                                    </Text>
-                                  )}
                                 </Box>
                                 <Flex align="center" gap={12}>
                                   {member.last_login_at && (
@@ -881,11 +876,6 @@ mr = project.get_model_registry()`;
                               <Box>
                                 <Text className="font-medium">{member.name || member.email}</Text>
                                 <Text className="text-sm text-gray-600">{member.email}</Text>
-                                {member.hopsworks_username && (
-                                  <Text className="text-xs text-gray-500">
-                                    Hopsworks: {member.hopsworks_username}
-                                  </Text>
-                                )}
                               </Box>
                             </Card>
                           ))}
