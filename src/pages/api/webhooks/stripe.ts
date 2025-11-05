@@ -104,15 +104,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {
   const customerId = session.customer as string;
   console.log(`Payment method setup completed for customer ${customerId}`);
-  
+
   // Get user by Stripe customer ID
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, email, billing_mode, stripe_subscription_id')
+    .select('id, email, billing_mode, stripe_subscription_id, status')
     .eq('stripe_customer_id', customerId)
     .single();
 
   if (user) {
+    // Reactivate suspended users when payment method is added
+    if (user.status === 'suspended') {
+      await supabaseAdmin
+        .from('users')
+        .update({ status: 'active' })
+        .eq('id', user.id);
+
+      console.log(`Reactivated suspended user ${user.id} after payment method setup`);
+    }
     // For postpaid users (or null billing_mode), create subscription if not exists
     if ((!user.billing_mode || user.billing_mode === 'postpaid') && !user.stripe_subscription_id) {
       try {

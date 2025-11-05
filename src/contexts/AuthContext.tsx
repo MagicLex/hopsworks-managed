@@ -42,11 +42,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.removeItem('corporate_ref');
         sessionStorage.removeItem('promo_code');
 
+        // Check if account is suspended (removed payment method)
+        if (data.isSuspended && router.pathname !== '/billing-setup') {
+          sessionStorage.setItem('account_suspended', 'true');
+          router.push('/billing-setup');
+          return;
+        }
+
         // Check if user needs to set up payment (new users, not team members)
         if (data.needsPayment && router.pathname !== '/billing-setup') {
-          // Store flag to show payment setup is required
           sessionStorage.setItem('payment_required', 'true');
-          // Redirect to billing setup
           router.push('/billing-setup');
         }
       })

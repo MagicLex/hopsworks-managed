@@ -713,19 +713,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     const { data: currentUser } = await supabaseAdmin
       .from('users')
-      .select('account_owner_id, stripe_customer_id, billing_mode')
+      .select('account_owner_id, stripe_customer_id, billing_mode, status')
       .eq('id', userId)
       .single();
-    
+
     // Check if user needs to set up payment (only for account owners)
     const needsPayment = !currentUser?.account_owner_id && // Not a team member
                         !currentUser?.stripe_customer_id && // No Stripe customer
                         currentUser?.billing_mode !== 'prepaid'; // Not prepaid corporate
 
-    return res.status(200).json({ 
+    // Check if account is suspended (postpaid user who removed payment method)
+    const isSuspended = currentUser?.status === 'suspended';
+
+    return res.status(200).json({
       success: true,
       healthChecks: healthCheckResults,
       needsPayment,
+      isSuspended,
       isTeamMember: !!existingUser?.account_owner_id,
       hasBilling: !!existingUser?.stripe_customer_id || existingUser?.billing_mode === 'prepaid',
       projectSync: projectSyncResult

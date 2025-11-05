@@ -88,6 +88,7 @@ interface TeamInvite {
 interface BillingInfo {
   billingMode: 'prepaid' | 'postpaid' | 'team';
   hasPaymentMethod: boolean;
+  isSuspended?: boolean;
   isTeamMember?: boolean;
   accountOwner?: {
     email: string;
@@ -359,12 +360,13 @@ export default function Dashboard() {
             <TabsContent value="cluster">
               {/* Cluster Access Status */}
               <Box className="mb-6">
-                <ClusterAccessStatus 
+                <ClusterAccessStatus
                   hasCluster={hopsworksInfo?.hasCluster || false}
                   hasPaymentMethod={billing?.hasPaymentMethod || false}
                   billingMode={billing?.billingMode}
                   clusterName={hopsworksInfo?.clusterName}
                   loading={hopsworksLoading || billingLoading}
+                  isSuspended={billing?.isSuspended}
                 />
               </Box>
 
@@ -488,11 +490,11 @@ export default function Dashboard() {
                     </Box>
                     
                     <Flex gap={12} className="mt-6">
-                      <Button 
+                      <Button
                         intent={instance.endpoint ? "primary" : "secondary"}
                         size="md"
                         className="uppercase flex-1"
-                        disabled={!instance.endpoint}
+                        disabled={!instance.endpoint || billing?.isSuspended}
                         onClick={() => {
                           if (instance.endpoint) {
                             // Redirect to auto-OAuth URL for automatic login with Auth0
