@@ -1,7 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
-import { addUserToProject, getUserProjects } from '../../../lib/hopsworks-team';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,7 +9,7 @@ const supabaseAdmin = createClient(
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getSession(req, res);
-  
+
   if (!session?.user) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -29,125 +28,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === 'GET') {
-    const { memberId } = req.query;
-    
-    if (!memberId || typeof memberId !== 'string') {
-      return res.status(400).json({ error: 'Member ID required' });
-    }
-
-    try {
-      // Verify the member belongs to this owner's team
-      const { data: teamMember } = await supabaseAdmin
-        .from('users')
-        .select('account_owner_id, hopsworks_username')
-        .eq('id', memberId)
-        .single();
-
-      if (!teamMember || teamMember.account_owner_id !== userId) {
-        return res.status(403).json({ error: 'Member not in your team' });
-      }
-
-      // Get owner's cluster credentials
-      const { data: owner } = await supabaseAdmin
-        .from('users')
-        .select(`
-          user_hopsworks_assignments!inner (
-            hopsworks_cluster_id,
-            hopsworks_clusters!inner (
-              api_url,
-              api_key
-            )
-          )
-        `)
-        .eq('id', userId)
-        .single();
-
-      if (!owner?.user_hopsworks_assignments?.[0]) {
-        return res.status(404).json({ error: 'No cluster assignment found' });
-      }
-
-      const assignment = owner.user_hopsworks_assignments[0] as any;
-      const credentials = {
-        apiUrl: assignment.hopsworks_clusters.api_url,
-        apiKey: assignment.hopsworks_clusters.api_key
-      };
-
-      // Query Hopsworks directly for member's projects
-      // We get all projects and check which ones have this member
-      let projects = [];
-
-      try {
-        // Get all projects from Hopsworks
-        const response = await fetch(
-          `${credentials.apiUrl}/hopsworks-api/api/admin/projects`,
-          {
-            headers: {
-              'Authorization': `ApiKey ${credentials.apiKey}`
-            }
-          }
-        );
-
-        if (response.ok) {
-          const allProjects = await response.json();
-          const projectsList = Array.isArray(allProjects)
-            ? allProjects
-            : (allProjects.items || []);
-
-          // For each project, check if this member has access
-          for (const project of projectsList) {
-            try {
-              // Get project members
-              const membersResponse = await fetch(
-                `${credentials.apiUrl}/hopsworks-api/api/project/${project.id}/projectMembers`,
-                {
-                  headers: {
-                    'Authorization': `ApiKey ${credentials.apiKey}`
-                  }
-                }
-              );
-
-              if (membersResponse.ok) {
-                const members = await membersResponse.json();
-                const membersList = Array.isArray(members) ? members : (members.items || []);
-
-                // Check if our member is in this project
-                const memberInProject = membersList.find((m: any) =>
-                  m.user?.email === teamMember.email || m.email === teamMember.email
-                );
-
-                if (memberInProject) {
-                  projects.push({
-                    id: project.id,
-                    name: project.name,
-                    role: memberInProject.projectTeam || memberInProject.role || 'Data scientist',
-                    synced: true
-                  });
-                }
-              }
-            } catch (error) {
-              // Continue to next project if this one fails
-              console.error(`Failed to check members for project ${project.name}:`, error);
-            }
-          }
-
-          console.log(`Found ${projects.length} projects for ${teamMember.email} from Hopsworks`);
-        } else {
-          console.error('Failed to fetch projects from Hopsworks:', response.statusText);
-        }
-      } catch (error) {
-        console.error('Error fetching member projects from Hopsworks:', error);
-      }
-
-      return res.status(200).json({
-        projects,
-        pendingCount: 0,
-        hasPendingSync: false
-      });
-
-    } catch (error) {
-      console.error('Failed to fetch member projects:', error);
-      return res.status(500).json({ error: 'Failed to fetch projects' });
-    }
+    // Team member project tracking removed - too complex for read-only display
+    // Users should manage projects directly in Hopsworks UI
+    // See docs/reference/hopsworks-api.md for implementation details
+    return res.status(200).json({
+      projects: [],
+      pendingCount: 0,
+      hasPendingSync: false,
+      message: 'Project management is handled in Hopsworks UI'
+    });
 
   } else {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -222,22 +111,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (existingRole) {
           // User already has access to this project - check if it's just a role change
           if (existingRole.role === role) {
-            return res.status(400).json({ 
-              error: `${teamMember.email} already has ${role} access to ${projectName}` 
+            return res.status(400).json({
+              error: `${teamMember.email} already has ${role} access to ${projectName}`
             });
           }
-          
+
           // This is a role change - only allow if already synced to Hopsworks
           if (!existingRole.synced_to_hopsworks) {
-            return res.status(400).json({ 
-              error: `Cannot change role for ${teamMember.email} in ${projectName} - initial sync pending or failed` 
+            return res.status(400).json({
+              error: `Cannot change role for ${teamMember.email} in ${projectName} - initial sync pending or failed`
             });
           }
-          
+
           // For role changes, we should update not create
           // But Hopsworks doesn't support role updates via API yet
-          return res.status(400).json({ 
-            error: 'Role changes are not yet supported. Please remove the user and re-add with the new role.' 
+          return res.status(400).json({
+            error: 'Role changes are not yet supported. Please remove the user and re-add with the new role.'
           });
         }
 
@@ -260,44 +149,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         try {
           // Then sync to Hopsworks
           await addUserToProject(credentials, projectName, teamMember.hopsworks_username, role as any);
-          
+
           // Mark as synced if successful
           if (roleRecord) {
             await supabaseAdmin
               .from('project_member_roles')
-              .update({ 
-                synced_to_hopsworks: true, 
+              .update({
+                synced_to_hopsworks: true,
                 last_sync_at: new Date().toISOString(),
-                sync_error: null 
+                sync_error: null
               })
               .eq('id', roleRecord);
           }
-          
-          return res.status(200).json({ 
+
+          return res.status(200).json({
             message: `Successfully added ${teamMember.email} to ${projectName} as ${role}`,
             project: projectName,
             role,
             synced: true
           });
-          
+
         } catch (hopsworksError: any) {
           // If Hopsworks sync fails, keep the record but mark it as unsynced
           const errorMessage = hopsworksError.message || 'Failed to sync to Hopsworks';
           console.error('Hopsworks sync failed:', errorMessage);
-          
+
           if (roleRecord) {
             await supabaseAdmin
               .from('project_member_roles')
-              .update({ 
+              .update({
                 synced_to_hopsworks: false,
                 last_sync_at: new Date().toISOString(),
                 sync_error: errorMessage
               })
               .eq('id', roleRecord);
           }
-          
+
           // Return success but with sync warning
-          return res.status(200).json({ 
+          return res.status(200).json({
             message: `Added ${teamMember.email} to ${projectName} as ${role} (pending sync)`,
             project: projectName,
             role,

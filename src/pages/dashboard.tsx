@@ -754,23 +754,14 @@ mr = project.get_model_registry()`;
                                   </Button>
                                 </Flex>
                               </Flex>
-                              {member.hopsworks_username ? (
-                                <Box className="mt-4">
-                                  <TeamMemberProjects
-                                    memberId={member.id}
-                                    memberEmail={member.email}
-                                    memberName={member.name || member.email}
-                                    isOwner={true}
-                                    ownerId={teamData.account_owner.id}
-                                  />
-                                </Box>
-                              ) : (
-                                <Box className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                                  <Text className="text-sm text-yellow-800">
-                                    ⚠️ User is syncing with Hopsworks cluster. Project assignment will be available once sync completes. If this persists, please contact an admin.
-                                  </Text>
-                                </Box>
-                              )}
+                              <Box className="mt-4">
+                                <TeamMemberProjects
+                                  memberId={member.id}
+                                  memberEmail={member.email}
+                                  memberName={member.name || member.email}
+                                  hopsworksUsername={member.hopsworks_username}
+                                />
+                              </Box>
                             </Box>
                           </Card>
                         ))}
@@ -858,8 +849,7 @@ mr = project.get_model_registry()`;
                         memberId={user?.sub || ''}
                         memberEmail={user?.email || ''}
                         memberName={user?.name || user?.email || ''}
-                        isOwner={false}
-                        ownerId={teamData?.account_owner.id || ''}
+                        hopsworksUsername={teamData?.team_members.find(m => m.id === user?.sub)?.hopsworks_username}
                       />
                     </Card>
 

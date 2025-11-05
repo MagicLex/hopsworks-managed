@@ -32,6 +32,39 @@
 
 ---
 
+## Team Member Project Tracking Removed
+
+**Discovery Date**: 2025-11-05
+
+**Issue**: Initial implementation attempted to track which Hopsworks projects team members had access to via SaaS dashboard.
+
+**Implementation Complexity**:
+- Required kubectl exec to query MySQL directly
+- API endpoint `/project/{projectId}/projectMembers` requires member-specific API key (admin keys fail with "No valid role found")
+- Alternative `/admin/users/{username}/projects` endpoint doesn't exist in this Hopsworks version
+- Necessitated storing kubeconfig in database, SQL injection risk, synchronous kubectl blocking API requests
+
+**Value vs Risk Assessment**:
+- **Value**: Low - read-only display of information already available in Hopsworks UI
+- **Risk**: High - security vulnerabilities, reliability issues, operational complexity
+- **Business logic**: None - no billing, access control, or automation depends on this data
+
+**Decision**: Feature removed (commit 3a14039)
+- Replaced with simple status check: user has `hopsworks_username` = active
+- Users directed to manage projects directly in Hopsworks UI
+- Single source of truth: Hopsworks, not SaaS
+- Eliminates security risks and maintenance burden
+
+**API Findings** (documented in `docs/reference/hopsworks-api.md`):
+- ✅ `/admin/projects?expand=creator` works for getting project owners
+- ❌ `/admin/users/{username}/projects` returns 404
+- ❌ `/project/{projectId}/projectMembers` requires project-member API key
+- ✅ MySQL direct query via kubectl works but not worth the complexity for read-only display
+
+**Recommendation**: Keep it simple. Hopsworks UI is the authoritative source for project management.
+
+---
+
 ## SSL Certificate Verification Disabled
 
 **Discovery Date**: 2025-09-12

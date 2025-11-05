@@ -97,9 +97,9 @@ export async function getUserProjects(
   ownerIdentifier: string
 ): Promise<any[]> {
   try {
-    // Get ALL projects via admin endpoint
+    // Get ALL projects via admin endpoint with expanded creator info
     const adminResponse = await fetch(
-      `${credentials.apiUrl}${ADMIN_API_BASE}/projects`,
+      `${credentials.apiUrl}${ADMIN_API_BASE}/projects?expand=creator`,
       {
         headers: {
           'Authorization': `ApiKey ${credentials.apiKey}`
@@ -111,24 +111,42 @@ export async function getUserProjects(
       const adminData = await adminResponse.json();
       const allProjects = adminData.items || adminData || [];
 
+      console.log(`Total projects from Hopsworks: ${allProjects.length}`);
+
       // Filter to only projects owned by this identifier (email or username)
       const userProjects = allProjects.filter((project: any) => {
-        // owner can be an object {username: "foo"} or a string "foo"
-        const projectOwner = typeof project.owner === 'object'
-          ? project.owner?.username
-          : project.owner;
+        // With expand=creator, project.creator contains: {email, username, firstname, lastname, href}
+        // Legacy: project.owner might exist as string or object
+        let projectOwnerEmail: string | undefined;
+        let projectOwnerUsername: string | undefined;
+
+        if (project.creator) {
+          // New API format with expanded creator
+          projectOwnerEmail = project.creator.email;
+          projectOwnerUsername = project.creator.username;
+        } else if (project.owner) {
+          // Legacy format
+          if (typeof project.owner === 'object') {
+            projectOwnerEmail = project.owner.email;
+            projectOwnerUsername = project.owner.username;
+          } else {
+            // Direct string (could be email or username)
+            projectOwnerUsername = project.owner;
+          }
+        }
 
         // Debug: log first project to see structure
         if (allProjects.indexOf(project) === 0) {
           console.log('Sample project structure:', JSON.stringify({
             name: project.name,
-            owner: project.owner,
-            ownerType: typeof project.owner,
-            extractedOwner: projectOwner
+            creator: project.creator,
+            extractedEmail: projectOwnerEmail,
+            extractedUsername: projectOwnerUsername
           }));
         }
 
-        return projectOwner === ownerIdentifier;
+        // Match by email OR username
+        return projectOwnerEmail === ownerIdentifier || projectOwnerUsername === ownerIdentifier;
       });
 
       console.log(`Found ${userProjects.length} projects owned by ${ownerIdentifier} (out of ${allProjects.length} total)`);
@@ -155,10 +173,22 @@ export async function getUserProjects(
 
       // Filter by owner just in case
       return projects.filter((project: any) => {
-        const projectOwner = typeof project.owner === 'object'
-          ? project.owner?.username
-          : project.owner;
-        return projectOwner === ownerIdentifier;
+        let projectOwnerEmail: string | undefined;
+        let projectOwnerUsername: string | undefined;
+
+        if (project.creator) {
+          projectOwnerEmail = project.creator.email;
+          projectOwnerUsername = project.creator.username;
+        } else if (project.owner) {
+          if (typeof project.owner === 'object') {
+            projectOwnerEmail = project.owner.email;
+            projectOwnerUsername = project.owner.username;
+          } else {
+            projectOwnerUsername = project.owner;
+          }
+        }
+
+        return projectOwnerEmail === ownerIdentifier || projectOwnerUsername === ownerIdentifier;
       });
     }
   } catch (error) {
@@ -169,6 +199,10 @@ export async function getUserProjects(
   console.log(`No projects found for owner ${ownerIdentifier}`);
   return [];
 }
+
+// getMemberProjects removed - too complex for read-only display
+// Team member project management should be done directly in Hopsworks UI
+// See docs/reference/hopsworks-api.md for API findings and alternatives
 
 // addTeamMemberToOwnerProjects removed - use addUserToProject directly
 
