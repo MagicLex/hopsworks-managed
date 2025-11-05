@@ -23,7 +23,7 @@ export default function BillingSetup() {
   useEffect(() => {
     const checkBillingStatus = async () => {
       if (!user) return;
-      
+
       try {
         const response = await fetch('/api/billing');
         const data = await response.json();
@@ -31,8 +31,41 @@ export default function BillingSetup() {
         // Check if user is suspended
         setIsSuspended(data.isSuspended || false);
 
+        // If user has payment method but is still suspended, poll for webhook completion
+        if (data.hasPaymentMethod && data.isSuspended) {
+          console.log('User has payment method but is suspended - polling for status update...');
+
+          let pollCount = 0;
+          const MAX_POLLS = 10;
+
+          const pollInterval = setInterval(async () => {
+            pollCount++;
+            try {
+              const retryResponse = await fetch('/api/billing');
+              const retryData = await retryResponse.json();
+
+              if (!retryData.isSuspended) {
+                console.log('User unsuspended - redirecting to dashboard');
+                clearInterval(pollInterval);
+                sessionStorage.removeItem('payment_required');
+                router.push('/dashboard');
+              } else if (pollCount >= MAX_POLLS) {
+                console.log('Polling timeout - user still suspended after 20s');
+                clearInterval(pollInterval);
+                setCheckingPayment(false);
+              }
+            } catch (error) {
+              console.error('Polling error:', error);
+              clearInterval(pollInterval);
+              setCheckingPayment(false);
+            }
+          }, 2000);
+
+          return;
+        }
+
         // If user already has payment method or is prepaid, redirect to dashboard
-        if (data.hasPaymentMethod || data.billingMode === 'prepaid' || data.isTeamMember) {
+        if ((data.hasPaymentMethod || data.billingMode === 'prepaid' || data.isTeamMember) && !data.isSuspended) {
           sessionStorage.removeItem('payment_required');
           router.push('/dashboard');
         }

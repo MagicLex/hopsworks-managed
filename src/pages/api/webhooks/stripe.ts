@@ -90,6 +90,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         break;
       }
 
+      case 'payment_method.attached': {
+        const paymentMethod = event.data.object as Stripe.PaymentMethod;
+        await handlePaymentMethodAttached(paymentMethod);
+        break;
+      }
+
       case 'payment_method.detached': {
         const paymentMethod = event.data.object as Stripe.PaymentMethod;
         const previousAttributes = (event.data as any).previous_attributes;
@@ -266,6 +272,87 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       .eq('id', user.id);
     
     console.log(`Subscription canceled for user ${user.id}`);
+  }
+}
+
+async function handlePaymentMethodAttached(paymentMethod: Stripe.PaymentMethod) {
+  const customerId = paymentMethod.customer as string;
+
+  if (!customerId) {
+    console.log('Payment method attached but no customer');
+    return;
+  }
+
+  console.log(`Payment method attached for customer ${customerId}`);
+
+  // Get user by customer ID
+  const { data: user } = await supabaseAdmin
+    .from('users')
+    .select('id, email, billing_mode, stripe_subscription_id, status')
+    .eq('stripe_customer_id', customerId)
+    .single();
+
+  if (user) {
+    // Reactivate suspended users when payment method is added
+    if (user.status === 'suspended') {
+      await supabaseAdmin
+        .from('users')
+        .update({ status: 'active' })
+        .eq('id', user.id);
+
+      console.log(`Reactivated suspended user ${user.id} after payment method attached`);
+    }
+
+    // For postpaid users without subscription, create one
+    if ((!user.billing_mode || user.billing_mode === 'postpaid') && !user.stripe_subscription_id) {
+      try {
+        const { data: stripeProducts } = await supabaseAdmin
+          .from('stripe_products')
+          .select('*')
+          .eq('active', true);
+
+        if (stripeProducts && stripeProducts.length > 0) {
+          const subscription = await stripe.subscriptions.create({
+            customer: customerId,
+            items: stripeProducts.map(product => ({
+              price: product.stripe_price_id
+            })),
+            metadata: {
+              user_id: user.id,
+              email: user.email
+            }
+          });
+
+          await supabaseAdmin
+            .from('users')
+            .update({
+              stripe_subscription_id: subscription.id,
+              stripe_subscription_status: subscription.status
+            })
+            .eq('id', user.id);
+
+          console.log(`Created subscription ${subscription.id} for user ${user.id} after payment attached`);
+        }
+      } catch (error) {
+        console.error(`Failed to create subscription for user ${user.id}:`, error);
+      }
+    }
+
+    // Assign cluster if needed
+    const { data: assignment } = await supabaseAdmin
+      .from('user_hopsworks_assignments')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!assignment) {
+      const { success, error } = await assignUserToCluster(supabaseAdmin, user.id, true);
+      if (success) {
+        console.log(`Assigned cluster to user ${user.id} after payment method attached`);
+      } else {
+        console.error(`Failed to assign cluster to user ${user.id}: ${error}`);
+      }
+    }
   }
 }
 
