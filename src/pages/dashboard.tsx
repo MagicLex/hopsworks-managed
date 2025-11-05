@@ -752,7 +752,7 @@ mr = project.get_model_registry()`;
                                   </Button>
                                 </Flex>
                               </Flex>
-                              {member.hopsworks_username && (
+                              {member.hopsworks_username ? (
                                 <Box className="mt-4">
                                   <TeamMemberProjects
                                     memberId={member.id}
@@ -761,6 +761,12 @@ mr = project.get_model_registry()`;
                                     isOwner={true}
                                     ownerId={teamData.account_owner.id}
                                   />
+                                </Box>
+                              ) : (
+                                <Box className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                                  <Text className="text-sm text-yellow-800">
+                                    ⚠️ User is syncing with Hopsworks cluster. Project assignment will be available once sync completes. If this persists, please contact an admin.
+                                  </Text>
                                 </Box>
                               )}
                             </Box>
