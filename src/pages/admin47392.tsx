@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Box, Flex, Title, Text, Button, Card, Badge } from 'tailwind-quartz';
 import Navbar from '@/components/Navbar';
-import UserProjectsViewer from '@/components/admin/ProjectRoleManager';
 
 interface User {
   id: string;
@@ -45,8 +44,6 @@ export default function AdminPage() {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncingProjects, setSyncingProjects] = useState(false);
-  const [syncingUserProjects, setSyncingUserProjects] = useState<string | null>(null);
-  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 20;
 
@@ -100,40 +97,6 @@ export default function AdminPage() {
     } finally {
       setSyncingProjects(false);
     }
-  };
-
-  const syncUserProjects = async (userId: string, userEmail: string) => {
-    setSyncingUserProjects(userId);
-    try {
-      const response = await fetch('/api/admin/sync-user-projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
-      });
-      const data = await response.json();
-      
-      if (response.ok) {
-        alert(`Synced projects for ${userEmail}:\n- Found: ${data.projectsFound}\n- Synced: ${data.projectsSynced}`);
-        fetchUsers();
-      } else {
-        alert(`Failed to sync: ${data.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Failed to sync user projects:', error);
-      alert('Failed to sync user projects');
-    } finally {
-      setSyncingUserProjects(null);
-    }
-  };
-
-  const toggleUserExpanded = (userId: string) => {
-    const newExpanded = new Set(expandedUsers);
-    if (newExpanded.has(userId)) {
-      newExpanded.delete(userId);
-    } else {
-      newExpanded.add(userId);
-    }
-    setExpandedUsers(newExpanded);
   };
 
   const getUserTodayCost = (user: User) => {
@@ -190,124 +153,80 @@ export default function AdminPage() {
                     <th className="text-left py-3">Cluster</th>
                     <th className="text-right py-3">Today&apos;s Cost</th>
                     <th className="text-right py-3">Projects</th>
-                    <th className="text-center py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-gray">
+                      <td colSpan={5} className="py-8 text-center text-gray">
                         No users found in the system.
                       </td>
                     </tr>
                   ) : (
                     paginatedUsers.map(user => {
                       const todayCost = getUserTodayCost(user);
-                      const isExpanded = expandedUsers.has(user.id);
                       const isDeleted = !!user.deleted_at;
 
                       return (
-                        <>
-                          <tr key={user.id} className={`border-b border-grayShade1 hover:bg-grayShade1/30 ${isDeleted ? 'opacity-60' : ''}`}>
-                            <td className="py-3">
+                        <tr key={user.id} className={`border-b border-grayShade1 hover:bg-grayShade1/30 ${isDeleted ? 'opacity-60' : ''}`}>
+                          <td className="py-3">
+                            <Box>
+                              <Text className="font-medium">{user.name || 'Unknown User'}</Text>
+                              <Text className="text-xs text-gray">{user.email}</Text>
+                              {user.hopsworks_username && (
+                                <Text className="text-xs font-mono text-gray mt-1">
+                                  HW: {user.hopsworks_username}
+                                </Text>
+                              )}
+                            </Box>
+                          </td>
+                          <td className="py-3">
+                            {isDeleted ? (
                               <Box>
-                                <Text className="font-medium">{user.name || 'Unknown User'}</Text>
-                                <Text className="text-xs text-gray">{user.email}</Text>
-                                {user.hopsworks_username && (
-                                  <Text className="text-xs font-mono text-gray mt-1">
-                                    HW: {user.hopsworks_username}
+                                <Badge size="sm" variant="error">Deleted</Badge>
+                                <Text className="text-xs text-gray mt-1">
+                                  {new Date(user.deleted_at!).toLocaleDateString()}
+                                </Text>
+                                {user.deletion_reason && (
+                                  <Text className="text-xs text-gray">
+                                    {user.deletion_reason.replace('_', ' ')}
                                   </Text>
                                 )}
                               </Box>
-                            </td>
-                            <td className="py-3">
-                              {isDeleted ? (
-                                <Box>
-                                  <Badge size="sm" variant="error">Deleted</Badge>
-                                  <Text className="text-xs text-gray mt-1">
-                                    {new Date(user.deleted_at!).toLocaleDateString()}
-                                  </Text>
-                                  {user.deletion_reason && (
-                                    <Text className="text-xs text-gray">
-                                      {user.deletion_reason.replace('_', ' ')}
-                                    </Text>
-                                  )}
-                                </Box>
-                              ) : user.account_owner_id ? (
-                                <Badge size="sm" variant="default">Team Member</Badge>
-                              ) : (
-                                <Badge size="sm" variant="success">Active</Badge>
-                              )}
-                            </td>
-                            <td className="py-3">
-                              {user.user_hopsworks_assignments?.[0] ? (
-                                <Badge size="sm" variant="default">
-                                  {user.user_hopsworks_assignments[0].hopsworks_clusters.name}
-                                </Badge>
-                              ) : (
-                                <Text className="text-xs text-gray">No cluster</Text>
-                              )}
-                            </td>
-                            <td className="py-3 text-right">
-                              {todayCost > 0 ? (
-                                <Text className="font-mono">
-                                  ${todayCost.toFixed(4)}
-                                </Text>
-                              ) : (
-                                <Text className="text-xs text-gray">-</Text>
-                              )}
-                            </td>
-                            <td className="py-3 text-right">
-                              {user.projects && user.projects.length > 0 ? (
-                                <Badge size="sm" variant="default">
-                                  {user.projects.length}
-                                </Badge>
-                              ) : (
-                                <Text className="text-xs text-gray">0</Text>
-                              )}
-                            </td>
-                            <td className="py-3 text-center">
-                              <Flex gap={8} justify="center">
-                                {user.hopsworks_username && !isDeleted && (
-                                  <Button
-                                    onClick={() => syncUserProjects(user.id, user.email)}
-                                    size="sm"
-                                    intent="primary"
-                                    disabled={syncingUserProjects === user.id}
-                                  >
-                                    {syncingUserProjects === user.id ? 'Syncing...' : 'Sync'}
-                                  </Button>
-                                )}
-                                {(user.hopsworks_username || user.user_hopsworks_assignments?.[0]) && (
-                                  <Button
-                                    onClick={() => toggleUserExpanded(user.id)}
-                                    size="sm"
-                                    intent="secondary"
-                                  >
-                                    {isExpanded ? 'Hide' : 'Show'}
-                                  </Button>
-                                )}
-                              </Flex>
-                            </td>
-                          </tr>
-                          
-                          {/* Expanded details row */}
-                          {isExpanded && (
-                            <tr key={`${user.id}-expanded`}>
-                              <td colSpan={6} className="bg-grayShade1/20 p-4">
-                                <Box className="ml-8 space-y-4">
-                                  {/* User's Projects Viewer */}
-                                  <UserProjectsViewer
-                                    userId={user.id}
-                                    userEmail={user.email}
-                                    isTeamMember={!!user.account_owner_id}
-                                    accountOwnerId={user.account_owner_id}
-                                  />
-                                </Box>
-                              </td>
-                            </tr>
-                          )}
-                        </>
+                            ) : user.account_owner_id ? (
+                              <Badge size="sm" variant="default">Team Member</Badge>
+                            ) : (
+                              <Badge size="sm" variant="success">Active</Badge>
+                            )}
+                          </td>
+                          <td className="py-3">
+                            {user.user_hopsworks_assignments?.[0] ? (
+                              <Badge size="sm" variant="default">
+                                {user.user_hopsworks_assignments[0].hopsworks_clusters.name}
+                              </Badge>
+                            ) : (
+                              <Text className="text-xs text-gray">No cluster</Text>
+                            )}
+                          </td>
+                          <td className="py-3 text-right">
+                            {todayCost > 0 ? (
+                              <Text className="font-mono">
+                                ${todayCost.toFixed(4)}
+                              </Text>
+                            ) : (
+                              <Text className="text-xs text-gray">-</Text>
+                            )}
+                          </td>
+                          <td className="py-3 text-right">
+                            {user.projects && user.projects.length > 0 ? (
+                              <Badge size="sm" variant="default">
+                                {user.projects.length}
+                              </Badge>
+                            ) : (
+                              <Text className="text-xs text-gray">0</Text>
+                            )}
+                          </td>
+                        </tr>
                       );
                     })
                   )}
