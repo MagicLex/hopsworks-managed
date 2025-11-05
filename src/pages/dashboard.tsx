@@ -730,7 +730,9 @@ mr = project.get_model_registry()`;
                               <Flex justify="between" align="center">
                                 <Box>
                                   <Text className="font-medium">{member.name || member.email}</Text>
-                                  <Text className="text-sm text-gray-600">{member.email}</Text>
+                                  {member.name && (
+                                    <Text className="text-sm text-gray-600">{member.email}</Text>
+                                  )}
                                   {member.hopsworks_username && (
                                     <Text className="text-xs text-gray-500">
                                       Hopsworks: {member.hopsworks_username}
