@@ -275,12 +275,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 })
                 .eq('id', userId);
             } else {
-              // No active subscription found - check if we should create one
-              console.log(`[Health Check] No active subscription found for ${email} - NOT auto-creating`);
-              await logHealthCheckFailure(userId, email, 'missing_subscription', 
-                'User has no active subscription - requires manual setup', 
-                { customer_id: existingUser.stripe_customer_id });
-              // DO NOT AUTO-CREATE SUBSCRIPTIONS - this should be an intentional action
+              // No active subscription found - check if customer has payment method
+              console.log(`[Health Check] No active subscription found for ${email} - checking for payment method`);
+
+              const paymentMethods = await stripe.paymentMethods.list({
+                customer: existingUser.stripe_customer_id,
+                limit: 1
+              });
+
+              if (paymentMethods.data.length > 0) {
+                // Has payment method - create subscription
+                console.log(`[Health Check] Customer has payment method - creating subscription`);
+                const { data: stripeProducts } = await supabaseAdmin
+                  .from('stripe_products')
+                  .select('*')
+                  .eq('active', true);
+
+                if (stripeProducts && stripeProducts.length > 0) {
+                  const subscription = await stripe.subscriptions.create({
+                    customer: existingUser.stripe_customer_id,
+                    items: stripeProducts.map(product => ({
+                      price: product.stripe_price_id
+                    })),
+                    metadata: {
+                      user_id: userId,
+                      email: email
+                    }
+                  });
+
+                  await supabaseAdmin
+                    .from('users')
+                    .update({
+                      stripe_subscription_id: subscription.id,
+                      stripe_subscription_status: subscription.status
+                    })
+                    .eq('id', userId);
+
+                  console.log(`[Health Check] Created subscription ${subscription.id} for ${email}`);
+                } else {
+                  console.log(`[Health Check] No active stripe products found - cannot create subscription`);
+                }
+              } else {
+                // No payment method - cannot create subscription
+                console.log(`[Health Check] No payment method found - cannot create subscription`);
+                await logHealthCheckFailure(userId, email, 'missing_subscription',
+                  'User has no active subscription and no payment method',
+                  { customer_id: existingUser.stripe_customer_id });
+              }
             }
           } catch (error) {
             await logHealthCheckFailure(userId, email, 'subscription_check', 
