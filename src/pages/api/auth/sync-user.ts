@@ -479,8 +479,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             // Get names from Auth0 token (guaranteed by Auth0 Action)
             const firstName = (session.user as any).given_name || email.split('@')[0];
             const lastName = (session.user as any).family_name || '.';
-            const expectedMaxProjects = isTeamMember ? 0 : 
-                                      (existingUser.stripe_customer_id || existingUser.billing_mode === 'prepaid') ? 5 : 0;
+            const expectedMaxProjects = isTeamMember ? 0 :
+                                      (existingUser.stripe_subscription_id || existingUser.billing_mode === 'prepaid') ? 5 : 0;
             
             const newHopsworksUser = await createHopsworksOAuthUser(
               credentials,
