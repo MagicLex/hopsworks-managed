@@ -16,24 +16,28 @@ CREATE TABLE IF NOT EXISTS users (
   last_login_at TIMESTAMPTZ,
   login_count INTEGER DEFAULT 0,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'deleted')),
-  
+
   -- Account ownership
   account_owner_id TEXT REFERENCES users(id),
-  
+
   -- Billing
   billing_mode TEXT DEFAULT 'postpaid' CHECK (billing_mode IN ('prepaid', 'postpaid')),
   stripe_customer_id TEXT,
   stripe_test_customer_id TEXT,
   stripe_subscription_id TEXT,
   stripe_subscription_status TEXT,
-  
+
   -- Features
   is_admin BOOLEAN DEFAULT false,
   feature_flags JSONB DEFAULT '{}'::jsonb,
-  
+
   -- Hopsworks
   hopsworks_username TEXT,
-  
+
+  -- Soft delete
+  deleted_at TIMESTAMPTZ DEFAULT NULL,
+  deletion_reason TEXT DEFAULT NULL,
+
   -- Metadata
   registration_source TEXT,
   registration_ip INET,
@@ -182,6 +186,8 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 CREATE INDEX IF NOT EXISTS idx_users_account_owner ON users(account_owner_id) WHERE account_owner_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_stripe_customer_id ON users(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_active ON users(id) WHERE deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_team_invites_token ON team_invites(token) WHERE accepted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_team_invites_email ON team_invites(email) WHERE accepted_at IS NULL;

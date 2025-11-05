@@ -73,6 +73,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('id', userId)
       .single();
 
+    // Block deleted users from logging in
+    if (existingUser?.deleted_at) {
+      console.log(`[Auth] Blocked login attempt from deleted user ${email}`);
+      return res.status(403).json({
+        error: 'Account has been deleted',
+        deletedAt: existingUser.deleted_at
+      });
+    }
+
     if (!existingUser) {
       let billingMode = null;
       let metadata: any = {};

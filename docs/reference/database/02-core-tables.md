@@ -32,7 +32,11 @@ CREATE TABLE users (
   
   -- Hopsworks
   hopsworks_username TEXT,                  -- Username in Hopsworks system
-  
+
+  -- Soft delete
+  deleted_at TIMESTAMPTZ DEFAULT NULL,      -- Timestamp of soft delete
+  deletion_reason TEXT DEFAULT NULL,        -- Reason: 'user_requested', 'team_member_removed', 'admin_action'
+
   -- Metadata
   registration_source TEXT,                 -- How user found us
   registration_ip INET,                     -- IP at registration
@@ -46,6 +50,8 @@ CREATE TABLE users (
 - `idx_users_created_at` - For sorting by creation date
 - `idx_users_account_owner` - For finding team members
 - `idx_users_stripe_customer_id` - For Stripe lookups
+- `idx_users_deleted_at` - For filtering deleted users
+- `idx_users_active` - For efficiently querying active users (deleted_at IS NULL)
 
 ### Constraints
 - `users_status_check` - Status must be one of: 'active', 'suspended', 'deleted'
@@ -58,14 +64,25 @@ CREATE TABLE users (
 
 ### Usage Examples
 ```sql
--- Find all account owners
-SELECT * FROM users WHERE account_owner_id IS NULL;
+-- Find all active account owners
+SELECT * FROM users
+WHERE account_owner_id IS NULL
+AND deleted_at IS NULL;
 
--- Find team members for an owner
-SELECT * FROM users WHERE account_owner_id = 'auth0|123';
+-- Find active team members for an owner
+SELECT * FROM users
+WHERE account_owner_id = 'auth0|123'
+AND deleted_at IS NULL;
 
 -- Find user with Stripe customer
-SELECT * FROM users WHERE stripe_customer_id = 'cus_ABC123';
+SELECT * FROM users
+WHERE stripe_customer_id = 'cus_ABC123';
+
+-- Find recently deleted accounts (last 30 days)
+SELECT * FROM users
+WHERE deleted_at IS NOT NULL
+AND deleted_at > NOW() - INTERVAL '30 days'
+ORDER BY deleted_at DESC;
 ```
 
 ## team_invites

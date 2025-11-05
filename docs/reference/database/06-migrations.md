@@ -83,7 +83,7 @@ This document tracks all database migrations applied to the Hopsworks Managed Se
 - Retained `stripe_products` for active Stripe metered billing mappings
 
 ### 008_complete_cleanup_schema.sql
-**Date**: 2025-01-31  
+**Date**: 2025-01-31
 **Purpose**: Complete team support implementation
 
 **Changes**:
@@ -91,6 +91,19 @@ This document tracks all database migrations applied to the Hopsworks Managed Se
 - Added `account_owner_id` to usage_daily
 - Created `account_usage_summary` view
 - Migrated existing usage data to set account_owner_id
+
+### 004_add_soft_delete.sql
+**Date**: 2025-11-05
+**Purpose**: Implement soft delete for user accounts
+
+**Changes**:
+- Added `deleted_at` column to users table
+- Added `deletion_reason` column to users table
+- Created `idx_users_deleted_at` index for deleted users
+- Created `idx_users_active` index for active users
+- Self-deletion now preserves audit trail and billing data
+- Login blocked for deleted users via auth check
+- Cluster access revoked by setting maxNumProjects to 0
 
 ## Current Schema Status
 

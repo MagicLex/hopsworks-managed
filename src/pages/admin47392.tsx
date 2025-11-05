@@ -13,11 +13,11 @@ interface User {
   last_login_at: string;
   login_count: number;
   status: string;
+  deleted_at?: string;
+  deletion_reason?: string;
   is_admin: boolean;
   account_owner_id?: string;
   hopsworks_username?: string;
-  last_24h_cost?: number;
-  active_namespaces?: string[];
   projects?: {
     namespace: string;
     name: string;
@@ -44,12 +44,8 @@ export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [checkingOpenCost, setCheckingOpenCost] = useState(false);
-  const [checkingDatabase, setCheckingDatabase] = useState(false);
   const [syncingProjects, setSyncingProjects] = useState(false);
   const [syncingUserProjects, setSyncingUserProjects] = useState<string | null>(null);
-  const [openCostData, setOpenCostData] = useState<any | null>(null);
-  const [databaseData, setDatabaseData] = useState<any | null>(null);
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 20;
@@ -80,48 +76,6 @@ export default function AdminPage() {
       setError(err instanceof Error ? err.message : 'Failed to load users');
     } finally {
       setLoadingUsers(false);
-    }
-  };
-
-  const checkOpenCost = async () => {
-    setCheckingOpenCost(true);
-    setOpenCostData(null);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/admin/usage/check-opencost');
-      const data = await response.json();
-      
-      if (response.ok) {
-        setOpenCostData(data);
-      } else {
-        setError(data.error || 'Failed to check OpenCost');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to check OpenCost');
-    } finally {
-      setCheckingOpenCost(false);
-    }
-  };
-
-  const checkDatabase = async () => {
-    setCheckingDatabase(true);
-    setDatabaseData(null);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/admin/usage/check-database');
-      const data = await response.json();
-      
-      if (response.ok) {
-        setDatabaseData(data);
-      } else {
-        setError(data.error || 'Failed to check database');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to check database');
-    } finally {
-      setCheckingDatabase(false);
     }
   };
 
@@ -182,12 +136,6 @@ export default function AdminPage() {
     setExpandedUsers(newExpanded);
   };
 
-  // Calculate total PAYG amount for a user
-  const getUserTotalPayg = (user: User) => {
-    return 0; // Credits system removed - using Stripe metered billing
-  };
-
-  // Get today's cost for a user
   const getUserTodayCost = (user: User) => {
     if (!user.projects || user.projects.length === 0) return 0;
     return user.projects.reduce((sum, project) => sum + project.total_cost, 0);
@@ -222,77 +170,24 @@ export default function AdminPage() {
 
           <Card withShadow>
             <Flex justify="between" align="center" className="mb-6">
-              <Title as="h2" className="text-lg">User Billing Overview</Title>
-              <Flex gap={8}>
-                <Button
-                  onClick={syncProjects}
-                  disabled={syncingProjects}
-                  intent="primary"
-                  size="md"
-                >
-                  {syncingProjects ? 'Syncing...' : 'Sync Projects'}
-                </Button>
-                <Button
-                  onClick={checkOpenCost}
-                  disabled={checkingOpenCost}
-                  intent="secondary"
-                  size="md"
-                >
-                  {checkingOpenCost ? 'Checking...' : 'Check OpenCost'}
-                </Button>
-                <Button
-                  onClick={checkDatabase}
-                  disabled={checkingDatabase}
-                  intent="secondary"
-                  size="md"
-                >
-                  {checkingDatabase ? 'Checking...' : 'Check Database'}
-                </Button>
-              </Flex>
+              <Title as="h2" className="text-lg">Users Overview</Title>
+              <Button
+                onClick={syncProjects}
+                disabled={syncingProjects}
+                intent="primary"
+                size="md"
+              >
+                {syncingProjects ? 'Syncing...' : 'Sync Projects'}
+              </Button>
             </Flex>
-            
-            {/* OpenCost Check Result */}
-            {openCostData && (
-              <Card className="mb-4 border border-infoDefault bg-infoShade1">
-                <Text className="text-infoDefault font-semibold mb-2">OpenCost Data ({openCostData?.window || 'Last 24 hours'})</Text>
-                <Text className="text-sm mb-1">
-                  Namespaces: {openCostData.totalNamespaces} | Total Cost: ${openCostData.totalCost?.toFixed(4)}
-                </Text>
-                {openCostData.namespaces?.length > 0 && (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-sm text-gray">View Details</summary>
-                    <Box className="mt-2 p-2 bg-grayShade1 rounded space-y-1">
-                      {openCostData.namespaces.slice(0, 10).map((ns: any, i: number) => (
-                        <Text key={i} className="text-xs font-mono">
-                          {ns.namespace}: ${ns.totalCost.toFixed(4)} ({ns.cpuHours.toFixed(2)} CPU hrs)
-                        </Text>
-                      ))}
-                    </Box>
-                  </details>
-                )}
-              </Card>
-            )}
-
-            {/* Database Check Result */}
-            {databaseData && (
-              <Card className="mb-4 border border-infoDefault bg-infoShade1">
-                <Text className="text-infoDefault font-semibold mb-2">Database Status (Today)</Text>
-                <Text className="text-sm mb-1">
-                  Users: {databaseData.totalUsers} | Total Cost: ${databaseData.totalCost?.toFixed(2)}
-                </Text>
-                <Text className="text-xs text-gray">
-                  Last collection: {databaseData.lastCollectionTime ? new Date(databaseData.lastCollectionTime).toLocaleString() : 'Never'}
-                </Text>
-              </Card>
-            )}
             
             <Box className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-grayShade2 text-xs font-semibold uppercase text-gray">
                     <th className="text-left py-3">User</th>
+                    <th className="text-left py-3">Status</th>
                     <th className="text-left py-3">Cluster</th>
-                    <th className="text-right py-3">Total PAYG</th>
                     <th className="text-right py-3">Today&apos;s Cost</th>
                     <th className="text-right py-3">Projects</th>
                     <th className="text-center py-3">Actions</th>
@@ -307,13 +202,13 @@ export default function AdminPage() {
                     </tr>
                   ) : (
                     paginatedUsers.map(user => {
-                      const totalPayg = getUserTotalPayg(user);
                       const todayCost = getUserTodayCost(user);
                       const isExpanded = expandedUsers.has(user.id);
-                      
+                      const isDeleted = !!user.deleted_at;
+
                       return (
                         <>
-                          <tr key={user.id} className="border-b border-grayShade1 hover:bg-grayShade1/30">
+                          <tr key={user.id} className={`border-b border-grayShade1 hover:bg-grayShade1/30 ${isDeleted ? 'opacity-60' : ''}`}>
                             <td className="py-3">
                               <Box>
                                 <Text className="font-medium">{user.name || 'Unknown User'}</Text>
@@ -326,6 +221,25 @@ export default function AdminPage() {
                               </Box>
                             </td>
                             <td className="py-3">
+                              {isDeleted ? (
+                                <Box>
+                                  <Badge size="sm" variant="error">Deleted</Badge>
+                                  <Text className="text-xs text-gray mt-1">
+                                    {new Date(user.deleted_at!).toLocaleDateString()}
+                                  </Text>
+                                  {user.deletion_reason && (
+                                    <Text className="text-xs text-gray">
+                                      {user.deletion_reason.replace('_', ' ')}
+                                    </Text>
+                                  )}
+                                </Box>
+                              ) : user.account_owner_id ? (
+                                <Badge size="sm" variant="default">Team Member</Badge>
+                              ) : (
+                                <Badge size="sm" variant="success">Active</Badge>
+                              )}
+                            </td>
+                            <td className="py-3">
                               {user.user_hopsworks_assignments?.[0] ? (
                                 <Badge size="sm" variant="default">
                                   {user.user_hopsworks_assignments[0].hopsworks_clusters.name}
@@ -333,11 +247,6 @@ export default function AdminPage() {
                               ) : (
                                 <Text className="text-xs text-gray">No cluster</Text>
                               )}
-                            </td>
-                            <td className="py-3 text-right">
-                              <Text className="font-mono font-semibold">
-                                ${totalPayg.toFixed(2)}
-                              </Text>
                             </td>
                             <td className="py-3 text-right">
                               {todayCost > 0 ? (
@@ -359,7 +268,7 @@ export default function AdminPage() {
                             </td>
                             <td className="py-3 text-center">
                               <Flex gap={8} justify="center">
-                                {user.hopsworks_username && (
+                                {user.hopsworks_username && !isDeleted && (
                                   <Button
                                     onClick={() => syncUserProjects(user.id, user.email)}
                                     size="sm"

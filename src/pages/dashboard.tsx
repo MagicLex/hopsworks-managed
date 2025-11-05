@@ -161,6 +161,9 @@ export default function Dashboard() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [invites, setInvites] = useState<TeamInvite[]>([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Fetch billing data based on selected month
   const fetchBillingData = async () => {
@@ -1315,26 +1318,13 @@ mr = project.get_model_registry()`;
                   <Title as="h2" className="text-lg">Danger Zone</Title>
                 </Flex>
                 <Text className="text-sm text-gray-600 mb-4">
-                  Permanently delete your account and all associated data. This action cannot be undone.
+                  Delete your account and revoke access to all resources. Billing data will be retained for compliance.
                 </Text>
-                <Button 
+                <Button
                   intent="secondary"
                   size="md"
                   className="border-red-500 text-red-600 hover:bg-red-50 focus:ring-red-500"
-                  onClick={async () => {
-                    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-                      try {
-                        const response = await fetch('/api/account/delete', { method: 'DELETE' });
-                        if (response.ok) {
-                          await signOut();
-                        } else {
-                          alert('Failed to delete account. Please try again.');
-                        }
-                      } catch (error) {
-                        alert('Failed to delete account. Please try again.');
-                      }
-                    }
-                  }}
+                  onClick={() => setShowDeleteModal(true)}
                 >
                   Delete Account
                 </Button>
@@ -1503,6 +1493,88 @@ mr = project.get_model_registry()`;
               className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
             >
               Remove Member
+            </Button>
+          </Flex>
+        </Flex>
+      </Modal>
+
+      {/* Delete Account Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeleteReason('');
+        }}
+        title="Delete Account"
+        size="sm"
+      >
+        <Flex direction="column" gap={16}>
+          <Box className="p-4 bg-red-50 border border-red-200 rounded">
+            <Flex align="start" gap={8}>
+              <AlertTriangle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+              <Box>
+                <Text className="text-sm font-medium text-red-800 mb-2">
+                  This will immediately revoke access to all resources
+                </Text>
+                <Text className="text-sm text-red-700">
+                  You will be logged out and unable to access your cluster or projects.
+                </Text>
+              </Box>
+            </Flex>
+          </Box>
+
+          <Box>
+            <Text className="text-sm font-medium mb-2">Why are you deleting your account? (optional)</Text>
+            <textarea
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder="Help us improve by sharing your reason..."
+              className="w-full p-3 border border-gray-300 rounded text-sm resize-none"
+              rows={3}
+              disabled={deletingAccount}
+            />
+          </Box>
+
+          <Flex justify="end" gap={8}>
+            <Button
+              intent="secondary"
+              size="md"
+              onClick={() => {
+                setShowDeleteModal(false);
+                setDeleteReason('');
+              }}
+              disabled={deletingAccount}
+            >
+              Cancel
+            </Button>
+            <Button
+              intent="primary"
+              size="md"
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
+              disabled={deletingAccount}
+              onClick={async () => {
+                setDeletingAccount(true);
+                try {
+                  const response = await fetch('/api/account/delete', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: deleteReason || undefined })
+                  });
+
+                  if (response.ok) {
+                    await signOut();
+                  } else {
+                    const data = await response.json();
+                    alert(data.error || 'Failed to delete account. Please try again.');
+                    setDeletingAccount(false);
+                  }
+                } catch (error) {
+                  alert('Failed to delete account. Please try again.');
+                  setDeletingAccount(false);
+                }
+              }}
+            >
+              {deletingAccount ? 'Deleting...' : 'Delete Account'}
             </Button>
           </Flex>
         </Flex>
