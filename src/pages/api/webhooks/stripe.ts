@@ -90,6 +90,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         break;
       }
 
+      case 'payment_method.detached': {
+        const paymentMethod = event.data.object as Stripe.PaymentMethod;
+        await handlePaymentMethodDetached(paymentMethod);
+        break;
+      }
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
@@ -262,9 +268,57 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   }
 }
 
+async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod) {
+  // Get customer ID from previous_attributes (event shows old customer)
+  const customerId = (paymentMethod as any).customer;
+
+  if (!customerId) {
+    console.log('Payment method detached but no customer associated');
+    return;
+  }
+
+  console.log(`Payment method detached for customer ${customerId}`);
+
+  // Get user by customer ID
+  const { data: user } = await supabaseAdmin
+    .from('users')
+    .select('id, email, billing_mode')
+    .eq('stripe_customer_id', customerId)
+    .single();
+
+  if (user) {
+    // Only suspend postpaid users who lose their payment method
+    if (user.billing_mode === 'postpaid' || !user.billing_mode) {
+      // Check if customer has any other payment methods
+      try {
+        const paymentMethods = await stripe.paymentMethods.list({
+          customer: customerId,
+          limit: 1
+        });
+
+        // If no payment methods left, suspend the account
+        if (paymentMethods.data.length === 0) {
+          await supabaseAdmin
+            .from('users')
+            .update({ status: 'suspended' })
+            .eq('id', user.id);
+
+          console.log(`Suspended user ${user.id} (${user.email}) - no payment methods remaining`);
+        } else {
+          console.log(`User ${user.id} still has ${paymentMethods.data.length} payment method(s)`);
+        }
+      } catch (error) {
+        console.error(`Failed to check remaining payment methods for user ${user.id}:`, error);
+      }
+    } else {
+      console.log(`User ${user.id} is ${user.billing_mode} mode - not suspending`);
+    }
+  }
+}
+
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
   const customerId = invoice.customer as string;
-  
+
   const { data: user } = await supabaseAdmin
     .from('users')
     .select('id, email')
@@ -273,7 +327,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
 
   if (user) {
     console.error(`Payment failed for user ${user.email} (${user.id})`);
-    
+
     // Future enhancement: Send payment failure notification email
     // Future enhancement: Consider account suspension after multiple failures
   }
