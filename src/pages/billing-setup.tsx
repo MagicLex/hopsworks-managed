@@ -11,6 +11,7 @@ export default function BillingSetup() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(true);
+  const [isSuspended, setIsSuspended] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -26,7 +27,10 @@ export default function BillingSetup() {
       try {
         const response = await fetch('/api/billing');
         const data = await response.json();
-        
+
+        // Check if user is suspended
+        setIsSuspended(data.isSuspended || false);
+
         // If user already has payment method or is prepaid, redirect to dashboard
         if (data.hasPaymentMethod || data.billingMode === 'prepaid' || data.isTeamMember) {
           sessionStorage.removeItem('payment_required');
@@ -101,6 +105,18 @@ export default function BillingSetup() {
       <Box className="min-h-screen bg-gray-50">
         <Navbar />
         <Box className="container mx-auto px-4 py-12 max-w-2xl">
+          {isSuspended && (
+            <Card className="p-4 mb-4 border-red-500 bg-red-50">
+              <Flex align="center" gap={12}>
+                <AlertTriangle size={20} className="text-red-600" />
+                <Box>
+                  <Text className="font-semibold text-red-800">Account Suspended</Text>
+                  <Text className="text-sm text-red-700">Your payment method was removed. Add a new payment method below to restore access.</Text>
+                </Box>
+              </Flex>
+            </Card>
+          )}
+
           <Card className="p-8">
             <Flex align="center" gap={16} className="mb-6">
               <Box className="p-3 bg-yellow-100 rounded-lg">

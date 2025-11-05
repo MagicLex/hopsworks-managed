@@ -8,7 +8,6 @@ interface ClusterAccessStatusProps {
   billingMode?: string;
   clusterName?: string;
   loading?: boolean;
-  isSuspended?: boolean;
 }
 
 export default function ClusterAccessStatus({
@@ -16,8 +15,7 @@ export default function ClusterAccessStatus({
   hasPaymentMethod,
   billingMode,
   clusterName,
-  loading = false,
-  isSuspended = false
+  loading = false
 }: ClusterAccessStatusProps) {
   // Show skeleton loader while loading
   if (loading) {
@@ -30,29 +28,6 @@ export default function ClusterAccessStatus({
             <Box className="h-4 bg-gray-200 rounded w-56 animate-pulse" />
           </Box>
         </Flex>
-      </Card>
-    );
-  }
-
-  // Suspended accounts
-  if (isSuspended) {
-    return (
-      <Card className="p-4 border-red-200 bg-red-50">
-        <StatusMessage variant="error" icon={<AlertTriangle size={20} />} className="items-start border-0 p-0">
-          <Box>
-            <Text className="font-semibold text-red-800 mb-2">
-              Account Suspended
-            </Text>
-            <Text className="text-sm text-red-700 mb-3">
-              Your payment method was removed. Add a payment method to restore access.
-            </Text>
-            <Link href="/billing">
-              <Button intent="primary" size="md">
-                Add Payment Method
-              </Button>
-            </Link>
-          </Box>
-        </StatusMessage>
       </Card>
     );
   }

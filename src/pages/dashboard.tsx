@@ -207,12 +207,6 @@ export default function Dashboard() {
   // Handle tab query parameter
   useEffect(() => {
     if (router.query.tab && typeof router.query.tab === 'string') {
-      // Force suspended users to billing tab
-      if (billing?.isSuspended && router.query.tab !== 'billing') {
-        router.replace('/dashboard?tab=billing', undefined, { shallow: true });
-        return;
-      }
-
       // Redirect prepaid users away from billing tab
       if (router.query.tab === 'billing' && billing?.billingMode === 'prepaid') {
         setActiveTab('cluster');
@@ -220,7 +214,7 @@ export default function Dashboard() {
         setActiveTab(router.query.tab);
       }
     }
-  }, [router, router.query.tab, billing?.billingMode, billing?.isSuspended]);
+  }, [router, router.query.tab, billing?.billingMode]);
 
   // Fetch team invites when user and team data is available
   useEffect(() => {
@@ -356,12 +350,8 @@ export default function Dashboard() {
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="mb-6">
-              <TabsTrigger value="cluster" disabled={billing?.isSuspended} className={billing?.isSuspended ? 'opacity-50 cursor-not-allowed' : ''}>
-                Cluster
-              </TabsTrigger>
-              <TabsTrigger value="team" disabled={billing?.isSuspended} className={billing?.isSuspended ? 'opacity-50 cursor-not-allowed' : ''}>
-                Team
-              </TabsTrigger>
+              <TabsTrigger value="cluster">Cluster</TabsTrigger>
+              <TabsTrigger value="team">Team</TabsTrigger>
               {billingLoading ? (
                 <TabsTrigger value="billing" disabled className="opacity-50">
                   Billing
@@ -371,9 +361,7 @@ export default function Dashboard() {
                   <TabsTrigger value="billing">Billing</TabsTrigger>
                 )
               )}
-              <TabsTrigger value="settings" disabled={billing?.isSuspended} className={billing?.isSuspended ? 'opacity-50 cursor-not-allowed' : ''}>
-                Settings
-              </TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
 
             <TabsContent value="cluster">
@@ -385,7 +373,6 @@ export default function Dashboard() {
                   billingMode={billing?.billingMode}
                   clusterName={hopsworksInfo?.clusterName}
                   loading={hopsworksLoading || billingLoading}
-                  isSuspended={billing?.isSuspended}
                 />
               </Box>
 
@@ -513,7 +500,7 @@ export default function Dashboard() {
                         intent={instance.endpoint ? "primary" : "secondary"}
                         size="md"
                         className="uppercase flex-1"
-                        disabled={!instance.endpoint || billing?.isSuspended}
+                        disabled={!instance.endpoint}
                         onClick={() => {
                           if (instance.endpoint) {
                             // Redirect to auto-OAuth URL for automatic login with Auth0
@@ -932,27 +919,6 @@ mr = project.get_model_registry()`;
                 </Box>
               ) : billing ? (
                 <>
-                  {/* Suspended account notice */}
-                  {billing.isSuspended ? (
-                    <Card className="p-8 border-red-500 bg-red-50">
-                      <Flex direction="column" gap={16} align="center" className="text-center">
-                        <AlertTriangle size={48} className="text-red-600" />
-                        <Box>
-                          <Title as="h2" className="text-2xl text-red-800 mb-3">
-                            Account Suspended
-                          </Title>
-                          <Text className="text-base text-red-700 mb-4">
-                            Your payment method was removed and your account has been suspended.
-                            Add a payment method below to restore access to all features.
-                          </Text>
-                          <Text className="text-sm text-red-600">
-                            If you believe this is an error, please contact support at support@hopsworks.ai
-                          </Text>
-                        </Box>
-                      </Flex>
-                    </Card>
-                  ) : null}
-
                   {/* Team member billing notice */}
                   {billing.isTeamMember ? (
                     <Card className="p-6 border-blue-200 bg-blue-50">
