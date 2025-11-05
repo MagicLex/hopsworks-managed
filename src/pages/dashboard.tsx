@@ -256,19 +256,30 @@ export default function Dashboard() {
     }
   };
 
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+
   const handleRemoveMember = async (memberId: string) => {
-    if (!confirm('Are you sure you want to remove this team member?')) return;
+    setRemovingMemberId(memberId);
+    setShowRemoveModal(true);
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!removingMemberId) return;
 
     try {
-      const response = await fetch(`/api/team/members?memberId=${memberId}`, {
+      const response = await fetch(`/api/team/members?memberId=${removingMemberId}`, {
         method: 'DELETE'
       });
 
       if (!response.ok) throw new Error('Failed to remove member');
-      
+
+      setShowRemoveModal(false);
+      setRemovingMemberId(null);
       await refetchTeamData();
     } catch (error) {
       console.error('Error removing member:', error);
+      alert('Failed to remove team member. Please try again.');
     }
   };
 
@@ -1429,6 +1440,69 @@ mr = project.get_model_registry()`;
               disabled={!inviteEmail || inviteLoading}
             >
               {inviteLoading ? 'Sending...' : 'Send Invite'}
+            </Button>
+          </Flex>
+        </Flex>
+      </Modal>
+
+      {/* Remove Team Member Modal */}
+      <Modal
+        isOpen={showRemoveModal}
+        onClose={() => {
+          setShowRemoveModal(false);
+          setRemovingMemberId(null);
+        }}
+        title="Remove Team Member"
+      >
+        <Flex direction="column" gap={16}>
+          <Box className="p-4 bg-yellow-50 border border-yellow-200 rounded">
+            <Flex align="start" gap={8}>
+              <AlertTriangle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+              <Box>
+                <Text className="text-sm font-medium text-yellow-800 mb-2">
+                  Manual action required in Hopsworks
+                </Text>
+                <Text className="text-sm text-yellow-700">
+                  This will remove the team member from your SaaS account, but you must manually remove them from your Hopsworks projects.
+                </Text>
+              </Box>
+            </Flex>
+          </Box>
+
+          <Box>
+            <Text className="text-sm text-gray-700 mb-2">
+              After removing this member:
+            </Text>
+            <Box as="ol" className="list-decimal list-inside text-sm text-gray-600 space-y-1 ml-2">
+              <li>Go to your Hopsworks cluster</li>
+              <li>Open each project they have access to</li>
+              <li>Navigate to Settings → Members</li>
+              <li>Remove the user from the project</li>
+            </Box>
+          </Box>
+
+          <Text className="text-sm text-gray-600">
+            The user will be converted to a standalone account and can create their own billing.
+          </Text>
+
+          <Flex justify="end" gap={8}>
+            <Button
+              intent="secondary"
+              size="md"
+              onClick={() => {
+                setShowRemoveModal(false);
+                setRemovingMemberId(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              intent="primary"
+              size="md"
+              onClick={confirmRemoveMember}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
+            >
+              Remove Member
             </Button>
           </Flex>
         </Flex>
