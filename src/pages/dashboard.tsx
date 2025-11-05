@@ -1264,31 +1264,20 @@ mr = project.get_model_registry()`;
 
                       {/* Pricing Info */}
                       <Card className="p-6">
-                        <Title as="h2" className="text-lg mb-4">Pay-As-You-Go Pricing</Title>
-                        
-                        <Box className="space-y-3">
-                          <Card variant="readOnly" className="p-4">
-                            <Flex justify="between">
-                              <Text className="text-sm text-gray-600">Hops Credits</Text>
-                              <Text className="text-sm font-medium">${pricing.compute_credits.toFixed(2)} / credit</Text>
-                            </Flex>
-                          </Card>
-                          <Card variant="readOnly" className="p-4">
-                            <Flex justify="between">
-                              <Text className="text-sm text-gray-600">Online Storage</Text>
-                              <Text className="text-sm font-medium">${pricing.storage_online_gb.toFixed(2)} / GB-month</Text>
-                            </Flex>
-                          </Card>
-                          <Card variant="readOnly" className="p-4">
-                            <Flex justify="between">
-                              <Text className="text-sm text-gray-600">Offline Storage</Text>
-                              <Text className="text-sm font-medium">${pricing.storage_offline_gb.toFixed(3)} / GB-month</Text>
-                            </Flex>
-                          </Card>
-                          
-                          <Text className="text-xs text-gray-500 mt-2">
-                            Usage calculated hourly, billed monthly
-                          </Text>
+                        <Title as="h2" className="text-lg mb-3">Pay-As-You-Go Pricing</Title>
+                        <Box className="space-y-2 text-sm">
+                          <Flex justify="between">
+                            <Text className="text-gray-600">Hops Credits</Text>
+                            <Text className="font-medium">${pricing.compute_credits.toFixed(2)} / credit</Text>
+                          </Flex>
+                          <Flex justify="between">
+                            <Text className="text-gray-600">Online Storage</Text>
+                            <Text className="font-medium">${pricing.storage_online_gb.toFixed(2)} / GB-month</Text>
+                          </Flex>
+                          <Flex justify="between">
+                            <Text className="text-gray-600">Offline Storage</Text>
+                            <Text className="font-medium">${pricing.storage_offline_gb.toFixed(3)} / GB-month</Text>
+                          </Flex>
                         </Box>
                       </Card>
                     </>
