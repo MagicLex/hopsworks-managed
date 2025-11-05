@@ -65,7 +65,7 @@ const Navbar: React.FC = () => {
                 <Button
                   intent="primary"
                   size="md"
-                  onClick={() => signIn(undefined, 'signup')}
+                  onClick={() => signIn(undefined, undefined, 'signup')}
                 >
                   Sign Up
                 </Button>
