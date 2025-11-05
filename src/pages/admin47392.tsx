@@ -193,6 +193,13 @@ export default function AdminPage() {
                                   </Text>
                                 )}
                               </Box>
+                            ) : user.status === 'suspended' ? (
+                              <Box>
+                                <Badge size="sm" variant="warning">Suspended</Badge>
+                                <Text className="text-xs text-gray mt-1">
+                                  Payment issue
+                                </Text>
+                              </Box>
                             ) : user.account_owner_id ? (
                               <Badge size="sm" variant="default">Team Member</Badge>
                             ) : (
