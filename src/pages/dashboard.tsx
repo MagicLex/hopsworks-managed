@@ -199,16 +199,13 @@ export default function Dashboard() {
 
   // Handle tab query parameter
   useEffect(() => {
-    // Force suspended users to billing tab (do this first to avoid loops)
-    if (billing?.isSuspended && activeTab !== 'billing') {
-      setActiveTab('billing');
-      if (router.query.tab && router.query.tab !== 'billing') {
-        router.replace('/dashboard?tab=billing', undefined, { shallow: true });
-      }
-      return;
-    }
-
     if (router.query.tab && typeof router.query.tab === 'string') {
+      // Force suspended users to billing tab
+      if (billing?.isSuspended && router.query.tab !== 'billing') {
+        router.replace('/dashboard?tab=billing', undefined, { shallow: true });
+        return;
+      }
+
       // Redirect prepaid users away from billing tab
       if (router.query.tab === 'billing' && billing?.billingMode === 'prepaid') {
         setActiveTab('cluster');
@@ -216,7 +213,7 @@ export default function Dashboard() {
         setActiveTab(router.query.tab);
       }
     }
-  }, [router, router.query.tab, billing?.billingMode, billing?.isSuspended, activeTab]);
+  }, [router, router.query.tab, billing?.billingMode, billing?.isSuspended]);
 
   // Fetch team invites when user and team data is available
   useEffect(() => {
