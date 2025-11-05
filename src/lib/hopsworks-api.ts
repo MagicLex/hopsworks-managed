@@ -122,12 +122,22 @@ export async function createHopsworksOAuthUser(
 
   const data = await response.json();
   // Response format: {uuid, givenName, surname, email, username}
+  const username = data.username;
+
+  // Fetch the complete user object to get the actual ID
+  // The creation response doesn't include the numeric user ID
+  const fullUser = await getHopsworksUserByUsername(credentials, username);
+
+  if (!fullUser) {
+    throw new Error(`User ${username} created but could not be retrieved`);
+  }
+
   return {
-    username: data.username,
-    email: data.email,
-    firstname: data.givenName,
-    lastname: data.surname,
-    id: 0 // Will be populated when we fetch full user details if needed
+    username: fullUser.username,
+    email: fullUser.email,
+    firstname: fullUser.firstname,
+    lastname: fullUser.lastname,
+    id: fullUser.id
   };
 }
 
