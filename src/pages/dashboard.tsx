@@ -1338,6 +1338,12 @@ mr = project.get_model_registry()`;
                       Team members cannot self-delete. Contact your account owner ({teamData?.account_owner?.email}) to be removed from the team.
                     </Text>
                   </Box>
+                ) : teamData?.team_members && teamData.team_members.length > 0 ? (
+                  <Box className="p-4 bg-gray-50 border border-gray-200 rounded">
+                    <Text className="text-sm text-gray-700">
+                      Cannot delete account with active team members. Remove all team members first.
+                    </Text>
+                  </Box>
                 ) : (
                   <>
                     <Text className="text-sm text-gray-600 mb-4">

@@ -481,8 +481,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         // HEALTH CHECK 4: Verify maxNumProjects is correct
         if (hopsworksUser && hopsworksUserId) {
-          const expectedMaxProjects = isTeamMember ? 0 : 
-                                    (existingUser.stripe_customer_id || existingUser.billing_mode === 'prepaid') ? 5 : 0;
+          const expectedMaxProjects = isTeamMember ? 0 :
+                                    (existingUser.stripe_subscription_id || existingUser.billing_mode === 'prepaid') ? 5 : 0;
           
           const currentMaxProjects = hopsworksUser.maxNumProjects ?? 0;
           
