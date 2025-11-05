@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Check if user is an account owner
     const { data: currentUser } = await supabaseAdmin
       .from('users')
-      .select('account_owner_id, hopsworks_username')
+      .select('account_owner_id, hopsworks_username, email')
       .eq('id', userId)
       .single();
 
@@ -33,26 +33,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Only account owners can access this endpoint' });
     }
 
-    // Get projects directly from user_projects table - this is the source of truth
-    // for project ownership and namespace mappings
-    const { data: dbProjects, error: dbError } = await supabaseAdmin
-      .from('user_projects')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'active');
-
-    if (dbError) {
-      console.error('Failed to fetch projects from database:', dbError);
-      return res.status(500).json({ error: 'Failed to fetch projects from database' });
+    if (!currentUser.email) {
+      return res.status(400).json({ error: 'No email found for user' });
     }
 
-    const projects = (dbProjects || []).map(p => ({
-      id: p.project_id,
-      name: p.project_name,
-      namespace: p.namespace
+    // Get owner's cluster credentials
+    const { data: owner } = await supabaseAdmin
+      .from('users')
+      .select(`
+        user_hopsworks_assignments!inner (
+          hopsworks_cluster_id,
+          hopsworks_clusters!inner (
+            api_url,
+            api_key
+          )
+        )
+      `)
+      .eq('id', userId)
+      .single();
+
+    if (!owner?.user_hopsworks_assignments?.[0]) {
+      return res.status(404).json({ error: 'No cluster assignment found' });
+    }
+
+    const assignment = owner.user_hopsworks_assignments[0] as any;
+    const credentials = {
+      apiUrl: assignment.hopsworks_clusters.api_url,
+      apiKey: assignment.hopsworks_clusters.api_key
+    };
+
+    // Get ALL projects from Hopsworks then filter by owner email
+    // Note: Hopsworks stores project owner as email, not hopsworks_username
+    const hopsworksProjects = await getUserProjects(credentials, currentUser.email);
+
+    const projects = hopsworksProjects.map(p => ({
+      id: p.id,
+      name: p.name,
+      namespace: p.namespace || `${p.name}`
     }));
 
-    console.log(`Found ${projects.length} active projects for user ${userId}`);
+    console.log(`Found ${projects.length} projects owned by ${currentUser.email}`);
     return res.status(200).json({ projects });
 
   } catch (error) {

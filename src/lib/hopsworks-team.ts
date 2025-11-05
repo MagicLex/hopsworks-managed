@@ -88,15 +88,16 @@ export async function addUserToProject(
 // createGroupMapping removed - use addUserToProject which now uses group mappings internally
 
 /**
- * Get all projects from the cluster
- * Since we use an admin API key, this should return all projects
+ * Get projects owned by a specific user
+ * Filters projects by owner identifier (email or username)
+ * Note: Hopsworks stores project.owner as email for OAuth users
  */
 export async function getUserProjects(
   credentials: HopsworksCredentials,
-  username: string
+  ownerIdentifier: string
 ): Promise<any[]> {
   try {
-    // Try admin endpoint to get ALL projects
+    // Get ALL projects via admin endpoint
     const adminResponse = await fetch(
       `${credentials.apiUrl}${ADMIN_API_BASE}/projects`,
       {
@@ -105,18 +106,29 @@ export async function getUserProjects(
         }
       }
     );
-    
+
     if (adminResponse.ok) {
       const adminData = await adminResponse.json();
-      // Return all projects for now - we can filter by owner later if needed
-      return adminData.items || adminData || [];
+      const allProjects = adminData.items || adminData || [];
+
+      // Filter to only projects owned by this identifier (email or username)
+      const userProjects = allProjects.filter((project: any) => {
+        // owner can be an object {username: "foo"} or a string "foo"
+        const projectOwner = typeof project.owner === 'object'
+          ? project.owner?.username
+          : project.owner;
+        return projectOwner === ownerIdentifier;
+      });
+
+      console.log(`Found ${userProjects.length} projects owned by ${ownerIdentifier} (out of ${allProjects.length} total)`);
+      return userProjects;
     }
   } catch (error) {
     console.error('Failed to fetch from admin endpoint:', error);
   }
 
   try {
-    // Fallback: try regular project endpoint
+    // Fallback: try regular project endpoint (already filtered by user auth)
     const response = await fetch(
       `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project`,
       {
@@ -128,15 +140,22 @@ export async function getUserProjects(
 
     if (response.ok) {
       const data = await response.json();
-      // Handle both array response and object with items
-      return Array.isArray(data) ? data : (data.items || []);
+      const projects = Array.isArray(data) ? data : (data.items || []);
+
+      // Filter by owner just in case
+      return projects.filter((project: any) => {
+        const projectOwner = typeof project.owner === 'object'
+          ? project.owner?.username
+          : project.owner;
+        return projectOwner === ownerIdentifier;
+      });
     }
   } catch (error) {
     console.error('Failed to fetch from project endpoint:', error);
   }
 
   // If all else fails, return empty array
-  console.log(`No projects found for user ${username}`);
+  console.log(`No projects found for owner ${ownerIdentifier}`);
   return [];
 }
 
