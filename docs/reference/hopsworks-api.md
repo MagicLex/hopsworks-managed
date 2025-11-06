@@ -444,11 +444,11 @@ curl -X POST 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/projects/crea
 
 ## Team Management
 
-### Add Project Member
+### Add Project Members
 
-**Endpoint**: `POST /project/{projectId}/projectMembers/{email}`
+**Endpoint**: `POST /project/{projectId}/projectMembers`
 
-Add a user to a project with a specific role (JSON body).
+Add one or more users to a project with specific roles (JSON body with MembersDTO).
 
 **⚠️ Limitation**: This endpoint requires the API key to belong to a user who is already a member of the project. Admin API keys may fail with error `160000: "No valid role found for this user"`.
 
@@ -457,22 +457,73 @@ Add a user to a project with a specific role (JSON body).
 - `Data scientist` - Read/write access to datasets and jobs
 - `Observer` - Read-only access
 
+**Request Body (MembersDTO)**:
+```json
+{
+  "projectTeam": [
+    {
+      "projectTeamPK": {
+        "projectId": 120,
+        "teamMember": "newuser@example.com"
+      },
+      "teamRole": "Data scientist"
+    }
+  ]
+}
+```
+
 **Example**:
 ```bash
-curl -X POST 'https://cluster.hopsworks.ai/hopsworks-api/api/project/120/projectMembers/newuser@example.com' \
+curl -X POST 'https://cluster.hopsworks.ai/hopsworks-api/api/project/120/projectMembers' \
   -H "Authorization: ApiKey YOUR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"projectTeam": "Data scientist"}'
+  -d '{
+    "projectTeam": [
+      {
+        "projectTeamPK": {
+          "projectId": 120,
+          "teamMember": "newuser@example.com"
+        },
+        "teamRole": "Data scientist"
+      }
+    ]
+  }'
 ```
 
 **Response** (200 OK):
 ```json
 {
-  "email": "newuser@example.com",
-  "role": "Data scientist",
-  "added": "2025-11-06T10:35:00Z"
+  "successMessage": "Members added successfully"
 }
 ```
+
+**Source**: `hopsworks-api/src/main/java/io/hops/hopsworks/api/project/ProjectMembersService.java:120`
+
+---
+
+### Update Project Member Role
+
+**Endpoint**: `POST /project/{projectId}/projectMembers/{email}`
+
+Update the role of an existing project member (form parameter, NOT JSON).
+
+**Example**:
+```bash
+curl -X POST 'https://cluster.hopsworks.ai/hopsworks-api/api/project/120/projectMembers/user@example.com' \
+  -H "Authorization: ApiKey YOUR_API_KEY" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d 'role=Data owner'
+```
+
+**Response** (200 OK):
+```json
+{
+  "email": "user@example.com",
+  "role": "Data owner"
+}
+```
+
+**Source**: `hopsworks-api/src/main/java/io/hops/hopsworks/api/project/ProjectMembersService.java:200`
 
 ---
 
@@ -539,8 +590,8 @@ All errors return JSON with the following structure:
 **Common Error Codes**:
 - `120004` - HTTP 404 Not Found / Invalid parameter
 - `160000` - Authorization error (no valid role)
-- `160001` - Cannot delete user (has active projects)
 - `160002` - User not found
+- `160054` - ACCOUNT_DELETION_ERROR (cannot delete user that owns projects)
 
 ---
 

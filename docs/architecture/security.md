@@ -104,6 +104,43 @@ if (typeof process !== 'undefined') {
   - `api_key` - Hopsworks cluster API keys
   - `kubeconfig` - Kubernetes cluster access (stored as text)
 
+### Row Level Security (RLS)
+
+All tables have RLS enabled with policies enforcing data isolation. Service role (used in API endpoints) bypasses RLS.
+
+**Tables with RLS Policies**:
+
+| Table | Policies | Description |
+|-------|----------|-------------|
+| `users` | 3 policies | Users can view own profile, team members (if owner), and their account owner |
+| `usage_daily` | 1 policy | Users can only view their own usage records |
+| `user_credits` | 1 policy | Users can only view their own credit balance |
+| `user_hopsworks_assignments` | 1 policy | Users can only view their own cluster assignment |
+| `team_invites` | 2 policies | Users can view invites they sent or received |
+| `hopsworks_clusters` | 1 policy | Users can only view their assigned cluster |
+| `stripe_products` | 1 policy | Public read access for pricing information |
+| `user_projects` | 1 policy | Users can only view their own project mappings |
+| `project_member_roles` | 2 policies | Members view own roles, owners view team member roles |
+| `health_check_failures` | 3 policies | Admin-only access, service role can insert |
+
+**Database Views**:
+
+All views (`account_usage`, `account_usage_summary`, `team_members`, `pending_role_syncs`, `project_members_detail`) have NO public/authenticated/anon grants. Access is restricted to service role only through API endpoints.
+
+**Defense in Depth**:
+- RLS policies prevent unauthorized data access even if client-side code is compromised
+- API endpoints use service role which bypasses RLS
+- Anon key exists but is unused in codebase
+- Even if anon key is leaked, RLS prevents data exposure
+
+**Adding New Tables**:
+
+When creating new tables, always:
+1. Enable RLS: `ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;`
+2. Create SELECT policies based on ownership/team relationships
+3. Service role handles INSERT/UPDATE/DELETE (no policies needed)
+4. For views: `REVOKE ALL ON view_name FROM authenticated, anon, public;`
+
 ### Environment Variables
 Required security-related environment variables:
 ```bash
