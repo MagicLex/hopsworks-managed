@@ -29,9 +29,9 @@ export const UserProfile: React.FC = () => {
         intent="ghost"
         size="md"
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="flex items-center gap-2"
+        className="flex items-center gap-2 max-w-[200px]"
       >
-        {user.email}
+        <span className="truncate">{user.email}</span>
       </Button>
 
       {isDropdownOpen && (
@@ -39,7 +39,7 @@ export const UserProfile: React.FC = () => {
           <Card className="p-0" withShadow>
             <Box className="p-4 border-b border-grayShade2">
               <Labeling gray className="text-xs uppercase mb-1">Account</Labeling>
-              <Text className="font-mono text-sm">{user.email}</Text>
+              <Text className="font-mono text-sm truncate">{user.email}</Text>
             </Box>
 
             <Box className="p-2">

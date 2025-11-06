@@ -206,12 +206,12 @@ export default function AdminPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-grayShade2 text-xs font-semibold uppercase text-gray">
-                    <th className="text-left py-3">User</th>
-                    <th className="text-left py-3">Status</th>
-                    <th className="text-left py-3">Cluster</th>
-                    <th className="text-right py-3">Today&apos;s Cost</th>
-                    <th className="text-right py-3">Projects</th>
-                    <th className="text-right py-3">Actions</th>
+                    <th className="text-left py-4 px-4">User</th>
+                    <th className="text-left py-4 px-4">Status</th>
+                    <th className="text-left py-4 px-4">Cluster</th>
+                    <th className="text-right py-4 px-4">Today&apos;s Cost</th>
+                    <th className="text-right py-4 px-4">Projects</th>
+                    <th className="text-right py-4 px-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -228,7 +228,7 @@ export default function AdminPage() {
 
                       return (
                         <tr key={user.id} className={`border-b border-grayShade1 hover:bg-grayShade1/30 ${isDeleted ? 'opacity-60' : ''}`}>
-                          <td className="py-3">
+                          <td className="py-4 px-4">
                             <Box>
                               <Text className="font-medium">{user.name || 'Unknown User'}</Text>
                               <Text className="text-xs text-gray">{user.email}</Text>
@@ -239,7 +239,7 @@ export default function AdminPage() {
                               )}
                             </Box>
                           </td>
-                          <td className="py-3">
+                          <td className="py-4 px-4">
                             {isDeleted ? (
                               <Box>
                                 <Badge size="sm" variant="error">Deleted</Badge>
@@ -265,7 +265,7 @@ export default function AdminPage() {
                               <Badge size="sm" variant="success">Active</Badge>
                             )}
                           </td>
-                          <td className="py-3">
+                          <td className="py-4 px-4">
                             {user.user_hopsworks_assignments?.[0] ? (
                               <Badge size="sm" variant="default">
                                 {user.user_hopsworks_assignments[0].hopsworks_clusters.name}
@@ -274,7 +274,7 @@ export default function AdminPage() {
                               <Text className="text-xs text-gray">No cluster</Text>
                             )}
                           </td>
-                          <td className="py-3 text-right">
+                          <td className="py-4 px-4 text-right">
                             {todayCost > 0 ? (
                               <Text className="font-mono">
                                 ${todayCost.toFixed(4)}
@@ -283,7 +283,7 @@ export default function AdminPage() {
                               <Text className="text-xs text-gray">-</Text>
                             )}
                           </td>
-                          <td className="py-3 text-right">
+                          <td className="py-4 px-4 text-right">
                             {user.projects && user.projects.length > 0 ? (
                               <Badge size="sm" variant="default">
                                 {user.projects.length}
@@ -292,7 +292,7 @@ export default function AdminPage() {
                               <Text className="text-xs text-gray">0</Text>
                             )}
                           </td>
-                          <td className="py-3 text-right">
+                          <td className="py-4 px-4 text-right">
                             {isDeleted ? (
                               <Text className="text-xs text-gray">-</Text>
                             ) : user.status === 'suspended' ? (
