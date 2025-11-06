@@ -1,8 +1,10 @@
-# Hopsworks API Reference
+# Hopsworks Admin API Reference
 
-Quick reference for Hopsworks API endpoints used in the SaaS service.
+Reference for Hopsworks Admin API endpoints used in the SaaS service.
 
 ## Authentication
+
+All endpoints require an API key with admin privileges:
 
 ```bash
 Authorization: ApiKey {API_KEY}
@@ -10,29 +12,41 @@ Authorization: ApiKey {API_KEY}
 
 ## Base URLs
 
-- API: `{cluster_url}/hopsworks-api/api`
-- Admin: `{cluster_url}/hopsworks-api/api/admin`
+- **Public API**: `{cluster_url}/hopsworks-api/api`
+- **Admin API**: `{cluster_url}/hopsworks-api/api/admin`
+
+---
 
 ## User Management
 
 ### Create OAuth2 User
 
-`POST /admin/users` - Query params only (NOT JSON body)
+**Endpoint**: `POST /admin/users`
 
-**Required Params**:
+**⚠️ Important**: Uses **query parameters**, NOT JSON body.
+
+**Required Parameters**:
 - `accountType=REMOTE_ACCOUNT_TYPE`
-- `email`, `givenName`, `surname`
-- `maxNumProjects` (0-N)
-- `subject` (Auth0 ID, URL-encode `|` as `%7C`)
-- `clientId` (Auth0 client ID)
 - `type=OAUTH2`
+- `email` - User email address
+- `givenName` - First name
+- `surname` - Last name
+- `maxNumProjects` - Project limit (0-N, use 5 for account owners, 0 for team members)
+- `subject` - Auth0 user ID (URL-encode `|` as `%7C`, e.g., `auth0%7C123456`)
+- `clientId` - OAuth2 client ID from Hopsworks config
 
-**Do NOT include** `status` parameter.
+**Do NOT include**: `status` parameter (automatically set to ACTIVATED_ACCOUNT)
 
-**Response** (201):
+**Example**:
+```bash
+curl -X POST 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users?accountType=REMOTE_ACCOUNT_TYPE&email=user@example.com&givenName=John&surname=Doe&maxNumProjects=5&subject=auth0%7C123456&clientId=YOUR_CLIENT_ID&type=OAUTH2' \
+  -H "Authorization: ApiKey YOUR_API_KEY"
+```
+
+**Response** (201 Created):
 ```json
 {
-  "uuid": "clientId.subject",
+  "uuid": "clientId.auth0|123456",
   "givenName": "John",
   "surname": "Doe",
   "email": "user@example.com",
@@ -40,72 +54,357 @@ Authorization: ApiKey {API_KEY}
 }
 ```
 
-**⚠️ Important**: The creation response does NOT include the numeric `id` field. After creating a user, you MUST fetch the complete user object via `GET /admin/users/{username}` to retrieve the user ID for subsequent operations (project limit updates, etc.).
+**⚠️ Critical**: The response does NOT include the numeric `id` field. You must query the user afterward to retrieve the ID for subsequent operations.
 
-### Get User
+---
 
-`GET /admin/users/{username}` - Returns complete user details including numeric `id`
+### Get User by ID
 
-**Response**:
+**Endpoint**: `GET /admin/users/{id}`
+
+Returns complete user details including numeric ID.
+
+**Example**:
+```bash
+curl -X GET 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users/11209' \
+  -H "Authorization: ApiKey YOUR_API_KEY"
+```
+
+**Response** (200 OK):
 ```json
 {
+  "href": "http://cluster.hopsworks.ai/hopsworks-api/api/users/11209",
   "id": 11209,
-  "username": "john1234",
-  "email": "user@example.com",
   "firstname": "John",
   "lastname": "Doe",
+  "email": "user@example.com",
+  "username": "john1234",
   "accountType": "REMOTE_ACCOUNT_TYPE",
+  "twoFactor": false,
+  "toursState": 0,
+  "status": 2,
   "maxNumProjects": 5,
-  "numActiveProjects": 0,
-  "status": 2
+  "numActiveProjects": 1,
+  "activated": "2025-11-05T12:51:03.000Z",
+  "role": [
+    {
+      "groupName": "HOPS_USER",
+      "groupDesc": "Registered users in the system",
+      "gid": 1006
+    }
+  ],
+  "lastVisitedAt": "2025-11-05T12:51:03.000Z"
 }
 ```
 
-`GET /admin/users` - List all users (supports `offset`, `limit`)
+**Status values**:
+- `0` - NEW_MOBILE_ACCOUNT (unverified)
+- `1` - VERIFIED_ACCOUNT (email verified)
+- `2` - ACTIVATED_ACCOUNT (active, can login)
+- `3` - DEACTIVATED_ACCOUNT (blocked from login)
+- `4` - BLOCKED_ACCOUNT (blocked for abuse)
+- `5` - LOST_MOBILE (2FA reset required)
+- `6` - SPAM_ACCOUNT (marked as spam)
+- `7` - TEMP_PASSWORD (must change password)
+
+---
+
+### Get User by UUID
+
+**Endpoint**: `GET /admin/user/{uuid}`
+
+Lookup user by OAuth UUID (useful after user creation).
+
+**UUID Format**: `{clientId}.{auth0_subject}` (URL-encode `|` as `%7C`)
+
+**Example**:
+```bash
+curl -X GET 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/user/clientId.auth0%7C123456' \
+  -H "Authorization: ApiKey YOUR_API_KEY"
+```
+
+**Response** (200 OK):
+```json
+{
+  "uuid": "clientId.auth0|123456",
+  "givenName": "John",
+  "surname": "Doe",
+  "email": "user@example.com"
+}
+```
+
+**⚠️ Note**: This endpoint returns minimal user data (no numeric `id`).
+
+---
+
+### List Users
+
+**Endpoint**: `GET /admin/users`
+
+**Query Parameters**:
+- `offset` - Pagination offset (default: 0)
+- `limit` - Results per page (default: all)
+- `filter_by` - Filter results (can use multiple times)
+- `sort_by` - Sort results (format: `field:asc|desc`)
+
+**Supported Filters** (`filter_by`):
+- `type:REMOTE_ACCOUNT_TYPE` - OAuth2 users only
+- `status:2` - Filter by account status (0-7)
+- Can combine multiple filters
+
+**Supported Sort Fields** (`sort_by`):
+- `email:asc` or `email:desc`
+- **NOT supported**: `id` (returns error)
+
+**Example**:
+```bash
+# Get active OAuth2 users, sorted by email
+curl -X GET 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users?filter_by=type:REMOTE_ACCOUNT_TYPE&filter_by=status:2&sort_by=email:asc&limit=20' \
+  -H "Authorization: ApiKey YOUR_API_KEY"
+```
+
+**Response** (200 OK):
+```json
+{
+  "href": "http://cluster.hopsworks.ai/hopsworks-api/api/admin/users",
+  "items": [
+    {
+      "href": "http://cluster.hopsworks.ai/hopsworks-api/api/users/11210",
+      "id": 11210,
+      "firstname": "John",
+      "lastname": "Doe",
+      "email": "user@example.com",
+      "username": "john1234",
+      "accountType": "OAUTH2",
+      "status": 2,
+      "maxNumProjects": 5,
+      "numActiveProjects": 1,
+      "role": [
+        {
+          "groupName": "HOPS_USER",
+          "groupDesc": "Registered users in the system",
+          "gid": 1006
+        }
+      ]
+    }
+  ],
+  "count": 1
+}
+```
+
+**⚠️ Note**: Filter `type:REMOTE_ACCOUNT_TYPE` returns users with `accountType: "OAUTH2"` in response.
+
+---
 
 ### Update User
 
-`PUT /admin/users/{userId}` - JSON body: `{"maxNumProjects": 10}`
+**Endpoint**: `PUT /admin/users/{id}`
 
-## Project Management
+Update user properties (JSON body).
 
-### Get Projects
+**Supported Fields**:
+- `status` - Account status (0-7, see status values above)
+- `maxNumProjects` - Project limit
+- `bbcGroupCollection` - User groups/roles (advanced)
 
-`GET /admin/projects` - All projects
-
-**Important**: Use `?expand=creator` to get owner details:
+**Example - Update Project Limit**:
 ```bash
-GET /admin/projects?expand=creator
+curl -X PUT 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users/11209' \
+  -H "Authorization: ApiKey YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"maxNumProjects": 10}'
 ```
 
-**Response structure**:
+**Example - Deactivate User**:
+```bash
+curl -X PUT 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users/11209' \
+  -H "Authorization: ApiKey YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"status": 3}'
+```
+
+**Response** (200 OK):
 ```json
 {
-  "items": [
+  "id": 11209,
+  "email": "user@example.com",
+  "status": 3,
+  "maxNumProjects": 10
+}
+```
+
+**Common Status Changes**:
+- `{"status": 2}` - Activate user (allow login)
+- `{"status": 3}` - Deactivate user (block login)
+- `{"status": 4}` - Block user (for abuse)
+- `{"status": 6}` - Mark as spam
+
+---
+
+### Change User Role
+
+**Endpoint**: `PUT /admin/users/{id}/role`
+
+**⚠️ Important**: Uses **plain text** body, NOT JSON.
+
+**Available Roles**:
+- `HOPS_USER` (gid: 1006) - Standard user
+- `HOPS_ADMIN` (gid: 1005) - System administrator
+
+**Example**:
+```bash
+curl -X PUT 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users/11209/role' \
+  -H "Authorization: ApiKey YOUR_API_KEY" \
+  -H "Content-Type: text/plain" \
+  -d 'HOPS_ADMIN'
+```
+
+**Response** (200 OK):
+```json
+{
+  "id": 11209,
+  "email": "user@example.com",
+  "role": [
     {
-      "id": 120,
-      "name": "testme",
-      "creator": {
-        "href": "http://cluster.hopsworks.ai/hopsworks-api/api/users/10182",
-        "firstname": "John",
-        "lastname": "Doe",
-        "email": "user@example.com",
-        "username": "user10182"
-      },
-      "created": "2024-10-31T08:36:00Z",
-      "paymentType": "PREPAID"
+      "groupName": "HOPS_ADMIN",
+      "groupDesc": "System administrator",
+      "gid": 1005
     }
   ]
 }
 ```
 
-Without `expand=creator`, the `creator` field only contains `href` and you must make additional API calls per project.
+---
 
-**Note**: `GET /admin/users/{username}/projects` endpoint does NOT exist in this Hopsworks version (returns 404)
+### Get Available Roles
+
+**Endpoint**: `GET /admin/users/groups`
+
+Returns list of available user groups/roles.
+
+**Example**:
+```bash
+curl -X GET 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users/groups' \
+  -H "Authorization: ApiKey YOUR_API_KEY"
+```
+
+**Response** (200 OK):
+```json
+{
+  "href": "http://cluster.hopsworks.ai/hopsworks-api/api/admin/users/groups",
+  "items": [
+    {
+      "groupName": "HOPS_ADMIN",
+      "groupDesc": "System administrator",
+      "gid": 1005
+    },
+    {
+      "groupName": "HOPS_USER",
+      "groupDesc": "Registered users in the system",
+      "gid": 1006
+    }
+  ],
+  "count": 2
+}
+```
+
+---
+
+### Delete User
+
+**Endpoint**: `DELETE /admin/users/{id}`
+
+Permanently delete a user account.
+
+**⚠️ Warning**: Deletion fails if user owns active projects.
+
+**Example**:
+```bash
+curl -X DELETE 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users/11209' \
+  -H "Authorization: ApiKey YOUR_API_KEY"
+```
+
+**Response** (204 No Content): Empty body on success.
+
+**Error Response** (400 Bad Request):
+```json
+{
+  "errorCode": 160001,
+  "usrMsg": "User still has active projects",
+  "errorMsg": "Cannot delete user with projects"
+}
+```
+
+---
+
+## Project Management
+
+### List Projects
+
+**Endpoint**: `GET /admin/projects`
+
+**⚠️ Critical**: Use `?expand=creator` to get owner details in-line. Without this, you only get an `href` and must make additional API calls per project.
+
+**Query Parameters**:
+- `expand=creator` - Include full creator details (HIGHLY RECOMMENDED)
+- `offset` - Pagination offset
+- `limit` - Results per page
+
+**Example**:
+```bash
+curl -X GET 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/projects?expand=creator&limit=20' \
+  -H "Authorization: ApiKey YOUR_API_KEY"
+```
+
+**Response with `expand=creator`** (200 OK):
+```json
+{
+  "href": "http://cluster.hopsworks.ai/hopsworks-api/api/admin/projects",
+  "items": [
+    {
+      "href": "http://cluster.hopsworks.ai/hopsworks-api/api/admin/projects/120",
+      "id": 120,
+      "name": "my-project",
+      "creator": {
+        "href": "http://cluster.hopsworks.ai/hopsworks-api/api/users/10182",
+        "firstname": "John",
+        "lastname": "Doe",
+        "email": "user@example.com",
+        "username": "john1234"
+      },
+      "created": "2025-10-31T08:36:00Z",
+      "paymentType": "PREPAID",
+      "lastQuotaUpdate": "2025-10-31T08:36:03Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+**Response without `expand=creator`** (requires N+1 queries):
+```json
+{
+  "items": [
+    {
+      "id": 120,
+      "name": "my-project",
+      "creator": {
+        "href": "http://cluster.hopsworks.ai/hopsworks-api/api/users/10182"
+      }
+    }
+  ]
+}
+```
+
+---
 
 ### Create Project
 
-`POST /admin/projects/createas` - JSON body:
+**Endpoint**: `POST /admin/projects/createas`
+
+Create a project on behalf of a user (JSON body).
+
+**Request Body**:
 ```json
 {
   "owner": "username",
@@ -114,30 +413,86 @@ Without `expand=creator`, the `creator` field only contains `href` and you must 
 }
 ```
 
+**Available Services**:
+- `JOBS` - Hopsworks Jobs
+- `FEATURESTORE` - Feature Store
+- `KAFKA` - Kafka topics
+- `JUPYTER` - Jupyter notebooks
+- `SERVING` - Model serving
+
+**Example**:
+```bash
+curl -X POST 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/projects/createas' \
+  -H "Authorization: ApiKey YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "owner": "john1234",
+    "projectName": "my-ml-project",
+    "services": ["JOBS", "FEATURESTORE"]
+  }'
+```
+
+**Response** (201 Created):
+```json
+{
+  "id": 121,
+  "name": "my-ml-project",
+  "owner": "john1234",
+  "created": "2025-11-06T10:30:00Z"
+}
+```
+
+---
+
 ## Team Management
 
-### Manage Project Members
+### Add Project Member
 
-`POST /project/{projectId}/projectMembers/{email}` - JSON body: `{"projectTeam": "Data scientist"}`
+**Endpoint**: `POST /project/{projectId}/projectMembers/{email}`
 
-**Roles**: `Data owner`, `Data scientist`, `Observer`
+Add a user to a project with a specific role (JSON body).
 
-`GET /project/{projectId}/projectMembers` - List members
+**⚠️ Limitation**: This endpoint requires the API key to belong to a user who is already a member of the project. Admin API keys may fail with error `160000: "No valid role found for this user"`.
 
-**⚠️ Important limitations:**
-- This endpoint requires the API key to belong to a user who is a member of the project
-- Admin API keys may return error: `"No valid role found for this user"` (errorCode: 160000)
-- For programmatic access to project memberships, use MySQL direct query (see below)
+**Available Roles**:
+- `Data owner` - Full project access
+- `Data scientist` - Read/write access to datasets and jobs
+- `Observer` - Read-only access
 
-### Alternative: Query Project Members via MySQL
+**Example**:
+```bash
+curl -X POST 'https://cluster.hopsworks.ai/hopsworks-api/api/project/120/projectMembers/newuser@example.com' \
+  -H "Authorization: ApiKey YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"projectTeam": "Data scientist"}'
+```
 
-For reliable access to project team memberships when API key restrictions apply:
+**Response** (200 OK):
+```json
+{
+  "email": "newuser@example.com",
+  "role": "Data scientist",
+  "added": "2025-11-06T10:35:00Z"
+}
+```
+
+---
+
+### List Project Members
+
+**Endpoint**: `GET /project/{projectId}/projectMembers`
+
+**⚠️ Limitation**: Same as adding members - requires member API key, not admin.
+
+**Alternative - Query via MySQL**:
+
+For programmatic access when API restrictions apply, query the internal MySQL database directly:
 
 ```bash
 # Get MySQL password
 kubectl get secret -n hopsworks mysql-users-secrets -o jsonpath='{.data.hopsworksroot}' | base64 -d
 
-# Query project_team table
+# Query project team memberships
 kubectl exec -n hopsworks mysqlds-0 -- mysql -u hopsworksroot -p<PASSWORD> -e "
 SELECT
   pt.project_id,
@@ -151,13 +506,29 @@ ORDER BY p.created DESC;
 "
 ```
 
-**Note**: Direct MySQL queries bypass Hopsworks audit trails and should only be used for read-only operations when API access is not feasible. Prefer using Hopsworks UI for project member management.
+**⚠️ Warning**: Direct MySQL queries bypass Hopsworks audit trails. Use read-only for monitoring purposes only.
 
-## System
+---
 
-`GET /variables/versions` - Software versions
+## System Information
 
-## Error Format
+### Get Software Versions
+
+**Endpoint**: `GET /variables/versions`
+
+Returns Hopsworks platform version information.
+
+**Example**:
+```bash
+curl -X GET 'https://cluster.hopsworks.ai/hopsworks-api/api/variables/versions' \
+  -H "Authorization: ApiKey YOUR_API_KEY"
+```
+
+---
+
+## Error Responses
+
+All errors return JSON with the following structure:
 
 ```json
 {
@@ -165,4 +536,62 @@ ORDER BY p.created DESC;
   "usrMsg": "HTTP 404 Not Found",
   "errorMsg": "Web application exception occurred"
 }
+```
+
+**Common Error Codes**:
+- `120004` - HTTP 404 Not Found / Invalid parameter
+- `160000` - Authorization error (no valid role)
+- `160001` - Cannot delete user (has active projects)
+- `160002` - User not found
+
+---
+
+## Quick Reference Examples
+
+### Complete User Lifecycle
+
+```bash
+# 1. Create user
+curl -X POST 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users?accountType=REMOTE_ACCOUNT_TYPE&email=user@example.com&givenName=John&surname=Doe&maxNumProjects=5&subject=auth0%7C123456&clientId=YOUR_CLIENT_ID&type=OAUTH2' \
+  -H "Authorization: ApiKey YOUR_API_KEY"
+
+# 2. Find user ID
+curl -X GET 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users?filter_by=type:REMOTE_ACCOUNT_TYPE' \
+  -H "Authorization: ApiKey YOUR_API_KEY" | jq '.items[] | select(.email == "user@example.com")'
+
+# 3. Update user
+curl -X PUT 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users/11209' \
+  -H "Authorization: ApiKey YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"maxNumProjects": 10}'
+
+# 4. Change role to admin
+curl -X PUT 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users/11209/role' \
+  -H "Authorization: ApiKey YOUR_API_KEY" \
+  -H "Content-Type: text/plain" \
+  -d 'HOPS_ADMIN'
+
+# 5. Deactivate user
+curl -X PUT 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users/11209' \
+  -H "Authorization: ApiKey YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"status": 3}'
+
+# 6. Delete user
+curl -X DELETE 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users/11209' \
+  -H "Authorization: ApiKey YOUR_API_KEY"
+```
+
+### Project Operations
+
+```bash
+# List all projects with owner details
+curl -X GET 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/projects?expand=creator' \
+  -H "Authorization: ApiKey YOUR_API_KEY"
+
+# Create project
+curl -X POST 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/projects/createas' \
+  -H "Authorization: ApiKey YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"owner": "john1234", "projectName": "ml-project", "services": ["JOBS", "FEATURESTORE"]}'
 ```
