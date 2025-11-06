@@ -129,7 +129,7 @@ async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {
   if (user) {
     // Reactivate suspended users when payment method is added
     if (user.status === 'suspended') {
-      await reactivateUser(supabaseAdmin, user.id, 'payment_method_setup');
+      await reactivateUser(supabaseAdmin as any, user.id, 'payment_method_setup');
     }
     // For postpaid users (or null billing_mode), create subscription if not exists
     if ((!user.billing_mode || user.billing_mode === 'postpaid') && !user.stripe_subscription_id) {
@@ -266,7 +266,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       .eq('id', user.id);
 
     // Suspend user account (includes Hopsworks deactivation)
-    await suspendUser(supabaseAdmin, user.id, 'subscription_deleted');
+    await suspendUser(supabaseAdmin as any, user.id, 'subscription_deleted');
   }
 }
 
@@ -290,7 +290,7 @@ async function handlePaymentMethodAttached(paymentMethod: Stripe.PaymentMethod) 
   if (user) {
     // Reactivate suspended users when payment method is added
     if (user.status === 'suspended') {
-      await reactivateUser(supabaseAdmin, user.id, 'payment_method_attached');
+      await reactivateUser(supabaseAdmin as any, user.id, 'payment_method_attached');
     }
 
     // For postpaid users without subscription, create one
@@ -376,7 +376,7 @@ async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, 
 
         // If no payment methods left, suspend the account
         if (paymentMethods.data.length === 0) {
-          await suspendUser(supabaseAdmin, user.id, 'payment_method_removed');
+          await suspendUser(supabaseAdmin as any, user.id, 'payment_method_removed');
         } else {
           console.log(`User ${user.id} still has ${paymentMethods.data.length} payment method(s)`);
         }

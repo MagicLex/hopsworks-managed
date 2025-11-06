@@ -308,7 +308,7 @@ export default function AdminPage() {
                               <Button
                                 onClick={() => suspendUser(user.id, user.email)}
                                 disabled={actionLoading[user.id]}
-                                intent="danger"
+                                intent="secondary"
                                 size="sm"
                               >
                                 {actionLoading[user.id] ? 'Loading...' : 'Suspend'}

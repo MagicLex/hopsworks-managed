@@ -47,7 +47,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     // Suspend the user (includes Hopsworks deactivation)
     const result = await suspendUser(
-      supabaseAdmin,
+      supabaseAdmin as any,
       userId,
       reason || 'admin_action'
     );

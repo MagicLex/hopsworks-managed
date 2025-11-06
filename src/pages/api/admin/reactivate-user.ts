@@ -45,7 +45,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     // Reactivate the user (includes Hopsworks reactivation)
     const result = await reactivateUser(
-      supabaseAdmin,
+      supabaseAdmin as any,
       userId,
       reason || 'admin_action'
     );

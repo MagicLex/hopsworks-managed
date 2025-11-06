@@ -63,7 +63,7 @@ export default withApiAuthRequired(async function handler(
     }
 
     // Deactivate user (soft delete - includes Hopsworks deactivation)
-    const result = await deactivateUser(supabase, userId, reason || 'user_requested');
+    const result = await deactivateUser(supabase as any, userId, reason || 'user_requested');
 
     if (!result.success) {
       console.error('Error deactivating user:', result.error);

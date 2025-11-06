@@ -35,3 +35,12 @@ export async function requireAdmin(
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+// Higher-order function wrapper for admin auth
+export function withAdminAuth(
+  handler: (req: NextApiRequest, res: NextApiResponse) => Promise<void>
+) {
+  return async (req: NextApiRequest, res: NextApiResponse) => {
+    return requireAdmin(req, res, handler);
+  };
+}
