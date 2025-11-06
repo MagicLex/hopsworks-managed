@@ -17,8 +17,8 @@ export default function ClusterAccessStatus({
   clusterName,
   loading = false
 }: ClusterAccessStatusProps) {
-  // Show skeleton loader while loading
-  if (loading) {
+  // Show skeleton loader while loading OR when billingMode is not yet loaded
+  if (loading || billingMode === undefined) {
     return (
       <Card className="p-4">
         <Flex align="center" gap={12}>
