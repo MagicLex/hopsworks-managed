@@ -116,6 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Handle promotional code registration
+      let normalizedPromoCode = null;
       if (promoCode && !billingMode) { // Only if not already set by corporate
         try {
           // Validate promotional code
@@ -132,7 +133,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
           if (validationResult.valid) {
             billingMode = 'prepaid';
-            metadata.promo_code = validationResult.promoCode; // Use normalized code
+            normalizedPromoCode = validationResult.promoCode; // Store for column
+            metadata.promo_code = validationResult.promoCode; // Also keep in metadata
             registrationSource = validationResult.promoCode; // Use promo code as source to track conversions
             console.log(`Promotional registration validated for ${email} with code ${validationResult.promoCode}`);
           } else {
@@ -156,6 +158,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           registration_ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress,
           status: 'active',
           billing_mode: billingMode || 'postpaid', // Default to postpaid for non-corporate users
+          promo_code: normalizedPromoCode, // Store promo code in dedicated column
           metadata
         });
 
