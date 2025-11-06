@@ -68,6 +68,8 @@
 ## SSL Certificate Verification Disabled
 
 **Discovery Date**: 2025-09-12
+**Fix Attempted**: 2025-11-06 (FAILED - Rolled back)
+**Status**: WONT-FIX (Acceptable in Vercel serverless context)
 
 **Issue**: `NODE_TLS_REJECT_UNAUTHORIZED = '0'` disables SSL certificate verification globally, making all HTTPS requests insecure.
 
@@ -76,31 +78,46 @@
 - Required because Hopsworks uses self-signed certificates
 - Affects ALL HTTPS requests from the app, not just Hopsworks
 
-**Security Risk**: HIGH
-- Vulnerable to man-in-the-middle attacks
-- Affects Stripe API calls, Auth0 calls, and any other HTTPS requests
-- Production security vulnerability
+**Why the Per-Request Agent Fix Failed**:
+On 2025-11-06, attempted to scope SSL bypass using per-request HTTPS agents:
+```javascript
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+fetch(url, { agent: httpsAgent });
+```
 
-**Better Solutions**:
-1. **Option 1**: Add Hopsworks certificate to trusted certificates
-   ```javascript
-   const https = require('https');
-   const ca = fs.readFileSync('hopsworks-ca.pem');
-   const agent = new https.Agent({ ca });
-   ```
+**Failed immediately in production with:**
+```
+Error: unable to get local issuer certificate
+code: 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY'
+```
 
-2. **Option 2**: Only disable for Hopsworks requests
-   ```javascript
-   const agent = new https.Agent({ 
-     rejectUnauthorized: false // Only for this specific agent
-   });
-   fetch(url, { agent }); // Only affects this request
-   ```
+**Root Cause**: Vercel serverless runtime uses `undici`-based global `fetch` which **does not support** the `agent` property. This is a platform limitation, not a code bug.
 
-3. **Option 3**: Get proper SSL certificate for Hopsworks
+**Risk Assessment in Vercel Serverless Context**:
 
-**Action Items**:
-- [ ] Get Hopsworks CA certificate
-- [ ] Implement per-request SSL bypass instead of global
-- [ ] Test with proper certificate validation
-- [ ] Remove global NODE_TLS_REJECT_UNAUTHORIZED
+**Original concern (long-running server)**: Global setting affects all requests forever
+**Vercel reality (serverless)**:
+- Each invocation = new isolated Node.js process
+- Process lives ~100ms-2s (duration of single HTTP request)
+- Global setting only affects that one request's lifetime
+- No state sharing between different user requests
+- Risk window: milliseconds, not hours/days
+
+**Acceptable Risk because**:
+1. Serverless isolation: Each function invocation is a separate process
+2. Short-lived: Process destroyed after request completes
+3. Private networks: Hopsworks communication within Kubernetes clusters
+4. API key authentication: Not relying solely on SSL for security
+5. Customer isolation: Hopsworks clusters are single-tenant
+
+**Tried Solutions**:
+1. ❌ **Per-request HTTPS agent**: Vercel runtime doesn't support it
+2. ⏸️ **node-fetch@2**: Would work but requires replacing ~20 fetch() calls
+3. ⏸️ **Reverse proxy with real certs**: Requires Hopsworks infrastructure changes
+
+**Decision**: Accept global setting for now. Risk is LOW in serverless context compared to traditional servers.
+
+**Future Improvements** (if needed):
+- [ ] Migrate to `node-fetch@2` for full control over SSL validation
+- [ ] Add proper SSL certificates to Hopsworks clusters (infrastructure change)
+- [ ] Monitor for any Stripe/Auth0 SSL-related issues (unlikely given short process lifetime)

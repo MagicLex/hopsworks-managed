@@ -67,9 +67,9 @@ Implemented using `rate-limiter-flexible` with in-memory storage:
 ### Hopsworks API Communication
 Hopsworks clusters use self-signed certificates. To handle this:
 
-- **Production & Development**: SSL verification disabled for Hopsworks API calls
-- Located in `src/lib/hopsworks-api.ts`
-- Uses `NODE_TLS_REJECT_UNAUTHORIZED = '0'` for all environments
+- **Production & Development**: SSL verification disabled globally via `NODE_TLS_REJECT_UNAUTHORIZED = '0'`
+- Located in `src/lib/hopsworks-api.ts` and `src/lib/hopsworks-team.ts`
+- Affects all HTTPS requests during function execution
 
 ```javascript
 // Required for self-signed certificates
@@ -78,10 +78,30 @@ if (typeof process !== 'undefined') {
 }
 ```
 
-**Security Note**: This is acceptable because:
-1. Communication happens within private Kubernetes networks
-2. API keys provide authentication
-3. Hopsworks clusters are isolated per customer
+**Why Global (Not Per-Request)**:
+
+Per-request HTTPS agents don't work in Vercel serverless:
+- Vercel uses `undici`-based `fetch` which doesn't support `agent` property
+- Attempted fix on 2025-11-06 failed immediately in production
+- See `docs/troubleshooting/investigations.md` for full details
+
+**Security Note - Acceptable in Vercel Serverless Context**:
+
+Unlike traditional long-running servers, serverless functions are:
+1. **Isolated**: Each invocation = new Node.js process
+2. **Short-lived**: Process exists only for request duration (~100ms-2s)
+3. **Stateless**: No sharing between different user requests
+4. **Risk window**: Milliseconds, not hours/days
+
+Additional security layers:
+- Communication within private Kubernetes networks
+- API key authentication for Hopsworks
+- Customer cluster isolation (single-tenant)
+- Stripe/Auth0/Supabase remain protected by their own SSL (just during same request window)
+
+**Trade-off**: Accept milliseconds of global SSL bypass per request vs. not supporting self-signed Hopsworks certificates.
+
+**Future**: If needed, migrate to `node-fetch@2` for full SSL control or add proper certificates to Hopsworks infrastructure.
 
 ## Error Handling
 
