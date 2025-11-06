@@ -133,8 +133,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
           if (validationResult.valid) {
             billingMode = 'prepaid';
-            normalizedPromoCode = validationResult.promoCode; // Store for column
-            metadata.promo_code = validationResult.promoCode; // Also keep in metadata
+            normalizedPromoCode = validationResult.promoCode; // Store in promo_code column
             registrationSource = validationResult.promoCode; // Use promo code as source to track conversions
             console.log(`Promotional registration validated for ${email} with code ${validationResult.promoCode}`);
           } else {
