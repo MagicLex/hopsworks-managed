@@ -52,13 +52,13 @@ export default function ClusterAccessStatus({
   // For prepaid users, show different message
   if (billingMode === 'prepaid' && !hasCluster) {
     return (
-      <Card className="p-4">
+      <Card className="p-6">
         <StatusMessage variant="info" icon={<AlertTriangle size={20} />} className="items-start border-0 p-0">
-          <Box>
-            <Text className="font-semibold text-blue-800 mb-2">
+          <Box className="pl-1">
+            <Text className="font-semibold text-blue-800 mb-3">
               Cluster Setup In Progress
             </Text>
-            <Text className="text-sm text-blue-700 mb-3">
+            <Text className="text-sm text-blue-700 mb-4">
               Your cluster is being provisioned. This typically takes a few minutes.
               If you continue to see this message, please contact support.
             </Text>
