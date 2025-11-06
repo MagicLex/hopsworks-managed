@@ -650,7 +650,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (cluster) {
           try {
             // Import the function to look up user by email
-            const { getHopsworksUserByAuth0Id } = await import('../../../lib/hopsworks-api');
+            const { getHopsworksUserByEmail } = await import('../../../lib/hopsworks-api');
             
             const credentials = {
               apiUrl: cluster.api_url,

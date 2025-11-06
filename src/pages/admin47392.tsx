@@ -46,6 +46,7 @@ export default function AdminPage() {
   const [syncingProjects, setSyncingProjects] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 20;
+  const [actionLoading, setActionLoading] = useState<{ [userId: string]: boolean }>({});
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -104,6 +105,63 @@ export default function AdminPage() {
     return user.projects.reduce((sum, project) => sum + project.total_cost, 0);
   };
 
+  const suspendUser = async (userId: string, email: string) => {
+    const reason = prompt(`Suspend user ${email}?\n\nOptional reason:`);
+    if (reason === null) return; // User cancelled
+
+    setActionLoading(prev => ({ ...prev, [userId]: true }));
+    setError(null);
+    try {
+      const response = await fetch('/api/admin/suspend-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, reason: reason || 'admin_action' })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`User ${email} suspended successfully.\n\nSupabase: ${data.supabaseUpdated ? '✓' : '✗'}\nHopsworks: ${data.hopsworksUpdated ? '✓' : '✗'}`);
+        fetchUsers(); // Refresh
+      } else {
+        setError(`Failed to suspend user: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Failed to suspend user:', error);
+      setError('Failed to suspend user');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const reactivateUser = async (userId: string, email: string) => {
+    if (!confirm(`Reactivate user ${email}?`)) return;
+
+    setActionLoading(prev => ({ ...prev, [userId]: true }));
+    setError(null);
+    try {
+      const response = await fetch('/api/admin/reactivate-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, reason: 'admin_action' })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`User ${email} reactivated successfully.\n\nSupabase: ${data.supabaseUpdated ? '✓' : '✗'}\nHopsworks: ${data.hopsworksUpdated ? '✓' : '✗'}`);
+        fetchUsers(); // Refresh
+      } else {
+        setError(`Failed to reactivate user: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Failed to reactivate user:', error);
+      setError('Failed to reactivate user');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
   if (isLoading || loadingUsers) {
     return (
       <Flex align="center" justify="center" className="min-h-screen">
@@ -153,12 +211,13 @@ export default function AdminPage() {
                     <th className="text-left py-3">Cluster</th>
                     <th className="text-right py-3">Today&apos;s Cost</th>
                     <th className="text-right py-3">Projects</th>
+                    <th className="text-right py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-gray">
+                      <td colSpan={6} className="py-8 text-center text-gray">
                         No users found in the system.
                       </td>
                     </tr>
@@ -231,6 +290,31 @@ export default function AdminPage() {
                               </Badge>
                             ) : (
                               <Text className="text-xs text-gray">0</Text>
+                            )}
+                          </td>
+                          <td className="py-3 text-right">
+                            {isDeleted ? (
+                              <Text className="text-xs text-gray">-</Text>
+                            ) : user.status === 'suspended' ? (
+                              <Button
+                                onClick={() => reactivateUser(user.id, user.email)}
+                                disabled={actionLoading[user.id]}
+                                intent="primary"
+                                size="sm"
+                              >
+                                {actionLoading[user.id] ? 'Loading...' : 'Unsuspend'}
+                              </Button>
+                            ) : user.status === 'active' && !user.account_owner_id ? (
+                              <Button
+                                onClick={() => suspendUser(user.id, user.email)}
+                                disabled={actionLoading[user.id]}
+                                intent="danger"
+                                size="sm"
+                              >
+                                {actionLoading[user.id] ? 'Loading...' : 'Suspend'}
+                              </Button>
+                            ) : (
+                              <Text className="text-xs text-gray">-</Text>
                             )}
                           </td>
                         </tr>

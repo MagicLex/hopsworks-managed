@@ -31,7 +31,7 @@ Authorization: ApiKey {API_KEY}
 - `email` - User email address
 - `givenName` - First name
 - `surname` - Last name
-- `maxNumProjects` - Project limit (0-N, use 5 for account owners, 0 for team members)
+- `maxNumProjects` - (Optional) Project limit (0-N, use 5 for account owners, 0 for team members). If omitted or negative, Hopsworks applies the default value from server config
 - `subject` - Auth0 user ID (URL-encode `|` as `%7C`, e.g., `auth0%7C123456`)
 - `clientId` - OAuth2 client ID from Hopsworks config
 
@@ -329,11 +329,13 @@ curl -X DELETE 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users/11209
 **Error Response** (400 Bad Request):
 ```json
 {
-  "errorCode": 160001,
-  "usrMsg": "User still has active projects",
-  "errorMsg": "Cannot delete user with projects"
+  "errorCode": 160054,
+  "usrMsg": "Can not delete a user that owns a project…",
+  "errorMsg": "ACCOUNT_DELETION_ERROR"
 }
 ```
+
+**Source**: `hopsworks-common/src/main/java/io/hops/hopsworks/common/user/UsersController.java:665`
 
 ---
 
@@ -432,15 +434,11 @@ curl -X POST 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/projects/crea
   }'
 ```
 
-**Response** (201 Created):
-```json
-{
-  "id": 121,
-  "name": "my-ml-project",
-  "owner": "john1234",
-  "created": "2025-11-06T10:30:00Z"
-}
-```
+**Response** (200 OK): Empty body (`Response.ok().build()`).
+
+**Source**: `hopsworks-api/src/main/java/io/hops/hopsworks/api/admin/projects/ProjectsAdminResource.java:242`
+
+**⚠️ Note**: No payload is returned. You must query `/admin/projects` to retrieve the created project details.
 
 ---
 

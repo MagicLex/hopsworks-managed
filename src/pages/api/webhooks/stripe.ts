@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { buffer } from 'micro';
 import { assignUserToCluster } from '../../../lib/cluster-assignment';
+import { suspendUser, reactivateUser } from '../../../lib/user-status';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-06-30.basil'
@@ -128,12 +129,7 @@ async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {
   if (user) {
     // Reactivate suspended users when payment method is added
     if (user.status === 'suspended') {
-      await supabaseAdmin
-        .from('users')
-        .update({ status: 'active' })
-        .eq('id', user.id);
-
-      console.log(`Reactivated suspended user ${user.id} after payment method setup`);
+      await reactivateUser(supabaseAdmin, user.id, 'payment_method_setup');
     }
     // For postpaid users (or null billing_mode), create subscription if not exists
     if ((!user.billing_mode || user.billing_mode === 'postpaid') && !user.stripe_subscription_id) {
@@ -255,23 +251,22 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const customerId = subscription.customer as string;
-  
+
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('id')
+    .select('id, email')
     .eq('stripe_customer_id', customerId)
     .single();
 
   if (user) {
+    // Update subscription status in DB
     await supabaseAdmin
       .from('users')
-      .update({
-        stripe_subscription_status: 'canceled',
-        status: 'suspended'
-      })
+      .update({ stripe_subscription_status: 'canceled' })
       .eq('id', user.id);
-    
-    console.log(`Subscription canceled for user ${user.id}`);
+
+    // Suspend user account (includes Hopsworks deactivation)
+    await suspendUser(supabaseAdmin, user.id, 'subscription_deleted');
   }
 }
 
@@ -295,12 +290,7 @@ async function handlePaymentMethodAttached(paymentMethod: Stripe.PaymentMethod) 
   if (user) {
     // Reactivate suspended users when payment method is added
     if (user.status === 'suspended') {
-      await supabaseAdmin
-        .from('users')
-        .update({ status: 'active' })
-        .eq('id', user.id);
-
-      console.log(`Reactivated suspended user ${user.id} after payment method attached`);
+      await reactivateUser(supabaseAdmin, user.id, 'payment_method_attached');
     }
 
     // For postpaid users without subscription, create one
@@ -386,12 +376,7 @@ async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, 
 
         // If no payment methods left, suspend the account
         if (paymentMethods.data.length === 0) {
-          await supabaseAdmin
-            .from('users')
-            .update({ status: 'suspended' })
-            .eq('id', user.id);
-
-          console.log(`Suspended user ${user.id} (${user.email}) - no payment methods remaining`);
+          await suspendUser(supabaseAdmin, user.id, 'payment_method_removed');
         } else {
           console.log(`User ${user.id} still has ${paymentMethods.data.length} payment method(s)`);
         }

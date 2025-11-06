@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession, withApiAuthRequired } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
+import { deactivateUser } from '../../../lib/user-status';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,50 +62,11 @@ export default withApiAuthRequired(async function handler(
       });
     }
 
-    // Get user's cluster assignment to revoke access
-    const { data: assignment } = await supabase
-      .from('user_hopsworks_assignments')
-      .select('hopsworks_user_id, hopsworks_cluster_id')
-      .eq('user_id', userId)
-      .single();
+    // Deactivate user (soft delete - includes Hopsworks deactivation)
+    const result = await deactivateUser(supabase, userId, reason || 'user_requested');
 
-    // Revoke cluster access by setting maxNumProjects to 0
-    if (assignment?.hopsworks_user_id && assignment.hopsworks_cluster_id) {
-      try {
-        const { data: cluster } = await supabase
-          .from('hopsworks_clusters')
-          .select('api_url, api_key')
-          .eq('id', assignment.hopsworks_cluster_id)
-          .single();
-
-        if (cluster) {
-          const { updateUserProjectLimit } = await import('../../../lib/hopsworks-api');
-          const credentials = {
-            apiUrl: cluster.api_url,
-            apiKey: cluster.api_key
-          };
-
-          await updateUserProjectLimit(credentials, assignment.hopsworks_user_id, 0);
-          console.log(`Revoked cluster access for deleted user ${userId}`);
-        }
-      } catch (error) {
-        console.error('Failed to revoke cluster access:', error);
-        // Continue with deletion even if this fails
-      }
-    }
-
-    // Soft delete: set deleted_at and status
-    const { error: deleteError } = await supabase
-      .from('users')
-      .update({
-        deleted_at: new Date().toISOString(),
-        deletion_reason: reason || 'user_requested',
-        status: 'deleted'
-      })
-      .eq('id', userId);
-
-    if (deleteError) {
-      console.error('Error soft deleting user:', deleteError);
+    if (!result.success) {
+      console.error('Error deactivating user:', result.error);
       return res.status(500).json({ error: 'Failed to delete account' });
     }
 

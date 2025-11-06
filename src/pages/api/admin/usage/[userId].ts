@@ -53,7 +53,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     };
 
     // Import Hopsworks API functions
-    const { getHopsworksUserByAuth0Id, getUserProjects } = await import('../../../../lib/hopsworks-api');
+    const { getUserProjects } = await import('../../../../lib/hopsworks-api');
 
     const metrics: any = {
       user: {

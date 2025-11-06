@@ -63,7 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     
     try {
-      const { getHopsworksUserByAuth0Id, getUserProjects } = await import('../../../lib/hopsworks-api');
+      const { getHopsworksUserByEmail, getUserProjects } = await import('../../../lib/hopsworks-api');
       
       const credentials = {
         apiUrl: cluster.api_url,
