@@ -25,7 +25,7 @@ export async function assignUserToCluster(
     // Get user details including account owner
     const { data: user } = await supabaseAdmin
       .from('users')
-      .select('stripe_customer_id, account_owner_id, email, name, hopsworks_user_id, hopsworks_username, billing_mode')
+      .select('stripe_customer_id, stripe_subscription_id, account_owner_id, email, name, hopsworks_user_id, hopsworks_username, billing_mode')
       .eq('id', userId)
       .single();
 
@@ -247,7 +247,7 @@ export async function assignUserToCluster(
           console.log(`Found existing Hopsworks user ${hopsworksUsername} for ${user.email}`);
           
           // Check and update maxNumProjects if needed
-          const expectedMaxProjects = (user.stripe_customer_id || isPrepaid) ? 5 : 0;
+          const expectedMaxProjects = (user.stripe_subscription_id || isPrepaid) ? 5 : 0;
           if (existingHopsworksUser.maxNumProjects !== expectedMaxProjects) {
             console.log(`Updating maxNumProjects from ${existingHopsworksUser.maxNumProjects} to ${expectedMaxProjects} for ${user.email}`);
             await updateUserProjectLimit(
@@ -274,8 +274,8 @@ export async function assignUserToCluster(
             const lastName = '.';
             
             // Account owners with payment or prepaid get 5 projects
-            const maxProjects = (user.stripe_customer_id || isPrepaid) ? 5 : 0;
-            
+            const maxProjects = (user.stripe_subscription_id || isPrepaid) ? 5 : 0;
+
             console.log(`Attempt ${attempt}/${maxRetries}: Creating Hopsworks user for ${user.email} with ${maxProjects} max projects`);
             
             const hopsworksUser = await createHopsworksOAuthUser(

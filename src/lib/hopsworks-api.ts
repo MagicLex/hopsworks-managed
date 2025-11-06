@@ -460,8 +460,9 @@ export async function getAllProjects(
   credentials: HopsworksCredentials,
   authToken: string
 ): Promise<HopsworksProject[]> {
+  // Use expand=creator to get owner details in single query (avoid N+1)
   const response = await fetch(
-    `${credentials.apiUrl}${ADMIN_API_BASE}/projects`,
+    `${credentials.apiUrl}${ADMIN_API_BASE}/projects?expand=creator`,
     {
       headers: {
         'Authorization': authToken
@@ -477,36 +478,14 @@ export async function getAllProjects(
 
   const data = await response.json();
   const projects = data.items || [];
-  
-  // Fetch owner details for each project
+
+  // Extract owner username from expanded creator object
   for (const project of projects) {
-    if (project.creator?.href) {
-      // Extract user ID from href
-      const userIdMatch = project.creator.href.match(/\/users\/(\d+)$/);
-      if (userIdMatch) {
-        const userId = userIdMatch[1];
-        try {
-          const userResponse = await fetch(
-            `${credentials.apiUrl}${ADMIN_API_BASE}/users/${userId}`,
-            {
-              headers: {
-                'Authorization': authToken
-              },
-              // @ts-ignore
-              agent: httpsAgent
-            }
-          );
-          if (userResponse.ok) {
-            const userData = await userResponse.json();
-            project.owner = userData.username;
-          }
-        } catch (error) {
-          console.error(`Failed to fetch user ${userId} for project ${project.name}:`, error);
-        }
-      }
+    if (project.creator?.username) {
+      project.owner = project.creator.username;
     }
   }
-  
+
   return projects;
 }
 
