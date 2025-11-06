@@ -83,6 +83,11 @@ export async function createHopsworksOAuthUser(
   auth0Id: string,
   maxNumProjects: number = 5
 ): Promise<HopsworksUser> {
+  // Validate Auth0 ID format
+  if (!auth0Id.includes('|')) {
+    console.warn(`[Hopsworks API] Auth0 ID missing pipe character: ${auth0Id} (email: ${email})`);
+  }
+
   // Build query params - must use query params, not JSON body
   const params = new URLSearchParams({
     accountType: 'REMOTE_ACCOUNT_TYPE',
@@ -94,6 +99,8 @@ export async function createHopsworksOAuthUser(
     clientId: process.env.AUTH0_CLIENT_ID!,
     type: 'OAUTH2'
   });
+
+  console.log(`[Hopsworks API] Creating OAuth user: ${email} (subject: ${auth0Id}, encoded: ${encodeURIComponent(auth0Id)}, cluster: ${credentials.apiUrl})`);
 
   const url = `${credentials.apiUrl}${HOPSWORKS_API_BASE}/admin/users?${params.toString()}`;
 
@@ -109,14 +116,14 @@ export async function createHopsworksOAuthUser(
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error(`Hopsworks OAuth user creation failed: ${response.status} ${response.statusText}`, errorBody);
+    console.error(`[Hopsworks API] OAuth user creation failed for ${email} on ${credentials.apiUrl}: ${response.status} ${response.statusText}`, errorBody);
 
     // Parse error message if available
     try {
       const errorJson = JSON.parse(errorBody);
-      throw new Error(`Failed to create Hopsworks user: ${errorJson.usrMsg || errorJson.errorMsg || response.statusText}`);
+      throw new Error(`Failed to create Hopsworks user ${email} on ${credentials.apiUrl}: ${errorJson.usrMsg || errorJson.errorMsg || response.statusText}`);
     } catch {
-      throw new Error(`Failed to create Hopsworks user: ${response.statusText}`);
+      throw new Error(`Failed to create Hopsworks user ${email} on ${credentials.apiUrl}: ${response.statusText}`);
     }
   }
 
@@ -129,8 +136,10 @@ export async function createHopsworksOAuthUser(
   const fullUser = await getHopsworksUserByUsername(credentials, username);
 
   if (!fullUser) {
-    throw new Error(`User ${username} created but could not be retrieved`);
+    throw new Error(`User ${username} (${email}) created on ${credentials.apiUrl} but could not be retrieved`);
   }
+
+  console.log(`[Hopsworks API] Successfully created OAuth user: ${email} (username: ${username}, id: ${fullUser.id})`);
 
   return {
     username: fullUser.username,
@@ -165,10 +174,13 @@ export async function createHopsworksProject(
   });
 
   if (!response.ok) {
+    const errorBody = await response.text();
+    console.error(`[Hopsworks API] Project creation failed for ${projectName} (owner: ${username}) on ${credentials.apiUrl}: ${response.status} ${response.statusText}`, errorBody);
+
     if (response.status === 409) {
-      throw new Error('Project name already exists');
+      throw new Error(`Project name already exists: ${projectName} (owner: ${username})`);
     }
-    throw new Error(`Failed to create project: ${response.statusText}`);
+    throw new Error(`Failed to create project ${projectName} on ${credentials.apiUrl}: ${response.statusText}`);
   }
 }
 
@@ -216,7 +228,7 @@ export async function getUserProjects(
   );
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch user projects: ${response.statusText}`);
+    throw new Error(`Failed to fetch user projects for ${username} on ${credentials.apiUrl}: ${response.statusText}`);
   }
 
   const data = await response.json();
@@ -300,12 +312,16 @@ export async function getHopsworksUserByEmail(
 
   const data = await response.json();
   const users = data.items || [];
-  
+
   // Find user by email - OAuth2 or REMOTE_ACCOUNT_TYPE
-  const user = users.find((u: any) => 
+  const user = users.find((u: any) =>
     u.email === email && (u.accountType === 'OAUTH2' || u.accountType === 'REMOTE_ACCOUNT_TYPE')
   );
-  
+
+  if (!user) {
+    console.log(`[Hopsworks API] User not found by email: ${email} on ${credentials.apiUrl}`);
+  }
+
   return user || null;
 }
 
@@ -349,7 +365,44 @@ export async function updateUserProjectLimit(
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to update user project limit: ${response.statusText}`);
+    const errorBody = await response.text();
+    console.error(`[Hopsworks API] Failed to update project limit for user ${hopsworksUserId} on ${credentials.apiUrl}: ${response.status} ${response.statusText}`, errorBody);
+    throw new Error(`Failed to update user ${hopsworksUserId} project limit to ${maxNumProjects} on ${credentials.apiUrl}: ${response.statusText}`);
+  }
+}
+
+/**
+ * Update user's account status in Hopsworks
+ * Status values:
+ * - 2: ACTIVATED_ACCOUNT (active, can login)
+ * - 3: DEACTIVATED_ACCOUNT (blocked from login)
+ * - 4: BLOCKED_ACCOUNT (blocked for abuse)
+ */
+export async function updateHopsworksUserStatus(
+  credentials: HopsworksCredentials,
+  hopsworksUserId: number,
+  status: 2 | 3 | 4
+): Promise<void> {
+  const response = await fetch(
+    `${credentials.apiUrl}${ADMIN_API_BASE}/users/${hopsworksUserId}`,
+    {
+      method: 'PUT',
+      headers: {
+        'Authorization': `ApiKey ${credentials.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        status
+      }),
+      // @ts-ignore
+      agent: httpsAgent
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error(`[Hopsworks API] Failed to update status for user ${hopsworksUserId} on ${credentials.apiUrl}: ${response.status} ${response.statusText}`, errorBody);
+    throw new Error(`Failed to update Hopsworks user ${hopsworksUserId} status to ${status} on ${credentials.apiUrl}: ${response.statusText} - ${errorBody}`);
   }
 }
 
@@ -374,14 +427,15 @@ export async function getHopsworksUserByUsername(
 
     if (!response.ok) {
       if (response.status === 404) {
+        console.log(`[Hopsworks API] User not found: ${username} on ${credentials.apiUrl}`);
         return null;
       }
-      throw new Error(`Failed to fetch user: ${response.statusText}`);
+      throw new Error(`Failed to fetch user ${username} on ${credentials.apiUrl}: ${response.statusText}`);
     }
 
     return await response.json();
   } catch (error) {
-    console.error(`Failed to fetch user ${username}:`, error);
+    console.error(`[Hopsworks API] Failed to fetch user ${username} on ${credentials.apiUrl}:`, error);
     return null;
   }
 }
