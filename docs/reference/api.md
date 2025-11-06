@@ -296,10 +296,10 @@ List every user with associated projects, costs, and cluster assignments (used b
 - `GET /api/admin/usage/[userId]` – Detailed per-namespace usage history for a single user.
 
 ### Project & Namespace Sync
-- `POST /api/admin/sync-projects` – Scan Hopsworks for new/removed projects and update `user_projects`.
-- `POST /api/admin/sync-user-projects` – Sync a specific user’s projects.
 - `POST /api/admin/sync-username` – Refresh cached Hopsworks username/ID for a user.
 - `GET|POST|PUT /api/admin/project-roles` – Inspect and manage project membership (adds members, bulk syncs, etc.).
+
+**Note:** Project syncing is handled automatically by the cron job at `/api/cron/sync-projects` which runs periodically.
 
 ### Cluster Management
 - `GET|POST|PUT /api/admin/clusters` – List, create, or update cluster records.

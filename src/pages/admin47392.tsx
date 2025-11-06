@@ -43,7 +43,6 @@ export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [syncingProjects, setSyncingProjects] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 20;
   const [actionLoading, setActionLoading] = useState<{ [userId: string]: boolean }>({});
@@ -74,29 +73,6 @@ export default function AdminPage() {
       setError(err instanceof Error ? err.message : 'Failed to load users');
     } finally {
       setLoadingUsers(false);
-    }
-  };
-
-  const syncProjects = async () => {
-    setSyncingProjects(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/admin/sync-projects', { method: 'POST' });
-      const data = await response.json();
-      
-      if (response.ok) {
-        console.log('Project sync result:', data);
-        alert(`Projects synced!\n- Found ${data.stats.projectsInHopsworks} projects in Hopsworks\n- Deleted ${data.stats.deletedProjects} stale projects\n- Updated ${data.stats.updatedProjects} projects`);
-        // Refresh users to show updated projects
-        fetchUsers();
-      } else {
-        setError(`Sync failed: ${data.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Failed to sync projects:', error);
-      setError('Failed to sync projects');
-    } finally {
-      setSyncingProjects(false);
     }
   };
 
@@ -181,7 +157,7 @@ export default function AdminPage() {
       <Navbar />
       <Box className="min-h-screen bg-surfaceShade1 p-4">
         <Box className="max-w-7xl mx-auto">
-          <Title as="h1" className="text-2xl mb-8">Admin Billing Dashboard</Title>
+          <Title as="h1" className="text-2xl mb-8">Admin</Title>
         
           {error && (
             <Card className="mb-4 border-errorDefault bg-errorShade1">
@@ -190,17 +166,7 @@ export default function AdminPage() {
           )}
 
           <Card withShadow>
-            <Flex justify="between" align="center" className="mb-6">
-              <Title as="h2" className="text-lg">Users Overview</Title>
-              <Button
-                onClick={syncProjects}
-                disabled={syncingProjects}
-                intent="primary"
-                size="md"
-              >
-                {syncingProjects ? 'Syncing...' : 'Sync Projects'}
-              </Button>
-            </Flex>
+            <Title as="h2" className="text-lg mb-6">Users Overview</Title>
             
             <Box className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -304,7 +270,7 @@ export default function AdminPage() {
                               >
                                 {actionLoading[user.id] ? 'Loading...' : 'Unsuspend'}
                               </Button>
-                            ) : user.status === 'active' && !user.account_owner_id ? (
+                            ) : user.status === 'active' ? (
                               <Button
                                 onClick={() => suspendUser(user.id, user.email)}
                                 disabled={actionLoading[user.id]}
