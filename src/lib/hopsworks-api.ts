@@ -325,20 +325,6 @@ export async function getHopsworksUserByEmail(
   return user || null;
 }
 
-/**
- * Get user by Auth0 ID
- * @deprecated Use getHopsworksUserByEmail instead
- */
-export async function getHopsworksUserByAuth0Id(
-  credentials: HopsworksCredentials,
-  auth0Id: string,
-  userEmail?: string
-): Promise<HopsworksUser | null> {
-  if (!userEmail) {
-    return null;
-  }
-  return getHopsworksUserByEmail(credentials, userEmail);
-}
 
 /**
  * Update user's max number of projects

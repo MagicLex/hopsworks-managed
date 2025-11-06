@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { createHopsworksOAuthUser, getHopsworksUserByAuth0Id, updateUserProjectLimit } from './hopsworks-api';
+import { createHopsworksOAuthUser, getHopsworksUserByEmail, updateUserProjectLimit } from './hopsworks-api';
 
 export async function assignUserToCluster(
   supabaseAdmin: SupabaseClient,
@@ -72,9 +72,8 @@ export async function assignUserToCluster(
       if (!hopsworksUserId || !hopsworksUsername) {
         // Try to find existing Hopsworks user first
         try {
-          const existingHopsworksUser = await getHopsworksUserByAuth0Id(
+          const existingHopsworksUser = await getHopsworksUserByEmail(
             { apiUrl: cluster.api_url, apiKey: cluster.api_key },
-            userId,
             user.email
           );
           
@@ -237,9 +236,8 @@ export async function assignUserToCluster(
     if (!hopsworksUserId || !hopsworksUsername) {
       // Try to find existing Hopsworks user first
       try {
-        const existingHopsworksUser = await getHopsworksUserByAuth0Id(
+        const existingHopsworksUser = await getHopsworksUserByEmail(
           { apiUrl: clusterDetails.api_url, apiKey: clusterDetails.api_key },
-          userId,
           user.email
         );
         

@@ -116,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           };
 
           // Get Hopsworks user
-          const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, userData.email);
+          const hopsworksUser = await getHopsworksUserByEmail(credentials, userData.email);
           
           if (hopsworksUser) {
             // Get actual projects count

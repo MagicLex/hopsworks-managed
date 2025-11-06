@@ -3,7 +3,7 @@ import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { assignUserToCluster } from '../../../lib/cluster-assignment';
-import { getHopsworksUserByUsername, getHopsworksUserByAuth0Id, updateUserProjectLimit, createHopsworksOAuthUser } from '../../../lib/hopsworks-api';
+import { getHopsworksUserByUsername, getHopsworksUserByEmail, updateUserProjectLimit, createHopsworksOAuthUser } from '../../../lib/hopsworks-api';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -442,7 +442,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // If still no user, try by email
         if (!hopsworksUser) {
           try {
-            hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, existingUser.email);
+            hopsworksUser = await getHopsworksUserByEmail(credentials, existingUser.email);
             if (hopsworksUser) {
               healthCheckResults.hopsworksUserExists = true;
               hopsworksUserId = hopsworksUser.id;
@@ -658,7 +658,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             };
             
             // Try to find existing Hopsworks user by email
-            const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, email);
+            const hopsworksUser = await getHopsworksUserByEmail(credentials, email);
             
             if (hopsworksUser?.username) {
               // Update both users table and assignment with the username

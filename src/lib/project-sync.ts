@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { getHopsworksUserByAuth0Id, getUserProjects } from './hopsworks-api';
+import { getHopsworksUserByEmail, getUserProjects } from './hopsworks-api';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -82,7 +82,7 @@ export async function syncUserProjects(userId: string): Promise<ProjectSyncResul
     };
 
     // Get Hopsworks user
-    const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, userData.email);
+    const hopsworksUser = await getHopsworksUserByEmail(credentials, userData.email);
     if (!hopsworksUser) {
       return { 
         success: false, 

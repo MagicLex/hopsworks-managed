@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import { addUserToProject } from '../../../lib/hopsworks-team';
-import { getUserProjects, getHopsworksUserByAuth0Id } from '../../../lib/hopsworks-api';
+import { getUserProjects, getHopsworksUserByEmail } from '../../../lib/hopsworks-api';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -73,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Get user's Hopsworks user ID first
-      const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, user.email);
+      const hopsworksUser = await getHopsworksUserByEmail(credentials, user.email);
       
       // Get user's projects from Hopsworks (properly filtered by user)
       const projects = await getUserProjects(credentials, hopsworksUsername, hopsworksUser?.id);
@@ -175,6 +175,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .from('users')
         .select(`
           id,
+          email,
           hopsworks_username,
           user_hopsworks_assignments!inner (
             hopsworks_cluster_id,
@@ -210,7 +211,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
 
       // Get owner's Hopsworks user info
-      const ownerHopsworksUser = await getHopsworksUserByAuth0Id(credentials, ownerId, '');
+      const ownerHopsworksUser = await getHopsworksUserByEmail(credentials, owner.email);
       
       // Get owner's projects (properly filtered)
       const ownerProjects = await getUserProjects(credentials, owner.hopsworks_username!, ownerHopsworksUser?.id);

@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { requireAdmin } from '../../../middleware/adminAuth';
 import { createClient } from '@supabase/supabase-js';
-import { getHopsworksUserByAuth0Id } from '../../../lib/hopsworks-api';
+import { getHopsworksUserByEmail } from '../../../lib/hopsworks-api';
 import https from 'https';
 
 const supabase = createClient(
@@ -54,7 +54,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     };
 
     // Try to find existing Hopsworks user by email
-    const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, userId, user.email);
+    const hopsworksUser = await getHopsworksUserByEmail(credentials, user.email);
     
     if (!hopsworksUser?.username) {
       return res.status(404).json({ error: 'Hopsworks user not found' });

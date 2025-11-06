@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node
 import { createClient } from '@supabase/supabase-js';
-import { getHopsworksUserByAuth0Id, getUserProjects } from '../src/lib/hopsworks-api';
+import { getHopsworksUserByEmail, getUserProjects } from '../src/lib/hopsworks-api';
 import * as dotenv from 'dotenv';
 
 // Load environment variables
@@ -85,7 +85,7 @@ async function syncUserProjects() {
       console.log(`\n👤 Processing ${user.email} (${user.hopsworks_username})...`);
 
       // Get Hopsworks user details
-      const hopsworksUser = await getHopsworksUserByAuth0Id(credentials, user.id, user.email);
+      const hopsworksUser = await getHopsworksUserByEmail(credentials, user.email);
       
       if (!hopsworksUser) {
         console.log(`  ⚠️  User not found in Hopsworks`);
