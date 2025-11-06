@@ -165,6 +165,7 @@ export default function Dashboard() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteReason, setDeleteReason] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [reloadProgress, setReloadProgress] = useState(0);
 
   // Fetch billing data based on selected month
   const fetchBillingData = async () => {
@@ -222,6 +223,33 @@ export default function Dashboard() {
       fetchInvites();
     }
   }, [user, teamData]);
+
+  // Auto-reload page when waiting for cluster provisioning with progress bar
+  useEffect(() => {
+    if (!billingLoading && billing?.billingMode === 'prepaid' && !hopsworksInfo?.hasCluster && !hopsworksLoading) {
+      const reloadDelay = 15000; // 15 seconds
+      const progressInterval = 100; // Update every 100ms
+      const steps = reloadDelay / progressInterval;
+      let currentStep = 0;
+
+      // Animate progress bar
+      const progressTimer = setInterval(() => {
+        currentStep++;
+        setReloadProgress((currentStep / steps) * 100);
+
+        if (currentStep >= steps) {
+          window.location.reload();
+        }
+      }, progressInterval);
+
+      return () => {
+        clearInterval(progressTimer);
+        setReloadProgress(0);
+      };
+    } else {
+      setReloadProgress(0);
+    }
+  }, [billingLoading, billing?.billingMode, hopsworksInfo?.hasCluster, hopsworksLoading]);
 
   const fetchInvites = async () => {
     try {
@@ -373,6 +401,7 @@ export default function Dashboard() {
                   billingMode={billing?.billingMode}
                   clusterName={hopsworksInfo?.clusterName}
                   loading={hopsworksLoading || billingLoading}
+                  reloadProgress={reloadProgress}
                 />
               </Box>
 

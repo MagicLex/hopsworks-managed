@@ -8,6 +8,7 @@ interface ClusterAccessStatusProps {
   billingMode?: string;
   clusterName?: string;
   loading?: boolean;
+  reloadProgress?: number;
 }
 
 export default function ClusterAccessStatus({
@@ -15,7 +16,8 @@ export default function ClusterAccessStatus({
   hasPaymentMethod,
   billingMode,
   clusterName,
-  loading = false
+  loading = false,
+  reloadProgress = 0
 }: ClusterAccessStatusProps) {
   // Show skeleton loader while loading OR when billingMode is not yet loaded
   if (loading || billingMode === undefined) {
@@ -56,10 +58,28 @@ export default function ClusterAccessStatus({
             <Text className="font-semibold text-blue-800 mb-2">
               Cluster Setup In Progress
             </Text>
-            <Text className="text-sm text-blue-700">
+            <Text className="text-sm text-blue-700 mb-3">
               Your cluster is being provisioned. This typically takes a few minutes.
               If you continue to see this message, please contact support.
             </Text>
+
+            {/* Retro progress bar */}
+            {reloadProgress > 0 && (
+              <Box className="mt-3">
+                <Text className="text-xs text-blue-600 mb-2 font-mono">
+                  Checking status... {Math.floor(reloadProgress)}%
+                </Text>
+                <Box className="w-full h-4 bg-blue-100 border-2 border-blue-300 rounded overflow-hidden">
+                  <Box
+                    className="h-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-100 ease-linear"
+                    style={{
+                      width: `${reloadProgress}%`,
+                      backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.2) 10px, rgba(255,255,255,.2) 20px)'
+                    }}
+                  />
+                </Box>
+              </Box>
+            )}
           </Box>
         </StatusMessage>
       </Card>
