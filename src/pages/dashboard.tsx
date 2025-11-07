@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBilling, BillingInfo } from '@/contexts/BillingContext';
 import { useApiData } from '@/hooks/useApiData';
 import { Box, Flex, Title, Text, Button, Card, Badge, Tabs, TabsContent, TabsList, TabsTrigger, Modal, Input, Select, IconLabel, StatusMessage } from 'tailwind-quartz';
 import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle, UserPlus, Mail, Download, Calendar, AlertTriangle, TrendingUp, Clock, FolderOpen } from 'lucide-react';
@@ -85,65 +86,9 @@ interface TeamInvite {
   created_at: string;
 }
 
-interface BillingInfo {
-  billingMode: 'prepaid' | 'postpaid' | 'team';
-  hasPaymentMethod: boolean;
-  isSuspended?: boolean;
-  isTeamMember?: boolean;
-  accountOwner?: {
-    email: string;
-    name?: string;
-  };
-  paymentMethodDetails?: {
-    type: string;
-    card?: {
-      brand: string;
-      last4: string;
-      expMonth: number;
-      expYear: number;
-    };
-  };
-  subscriptionStatus?: string;
-  prepaidEnabled: boolean;
-  currentUsage: {
-    cpuHours: string;
-    gpuHours: string;
-    ramGbHours: string;
-    onlineStorageGB: string;
-    offlineStorageGB: string;
-    currentMonth: {
-      computeCost: number;
-      storageCost: number;
-      total: number;
-    };
-  };
-  creditBalance?: {
-    total: number;
-    purchased: number;
-    free: number;
-  };
-  invoices: Array<{
-    id: string;
-    invoice_number: string;
-    amount: number;
-    status: string;
-    created_at: string;
-    invoice_url?: string;
-    pdf_url?: string;
-    total?: number;
-    currency?: string;
-  }>;
-  historicalUsage?: Array<{
-    date: string;
-    cpu_hours: number;
-    gpu_hours: number;
-    storage_gb: number;
-    total_cost: number;
-  }>;
-}
-
 export default function Dashboard() {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { billing: contextBilling, loading: contextBillingLoading } = useBilling();
   const { pricing } = usePricing();
   const router = useRouter();
   const [selectedMonth, setSelectedMonth] = useState('current');
@@ -151,8 +96,8 @@ export default function Dashboard() {
   const { data: hopsworksInfo, loading: hopsworksLoading } = useApiData<HopsworksInfo>('/api/user/hopsworks-info');
   const { data: instance, loading: instanceLoading } = useApiData<InstanceData>('/api/instance');
   const { data: teamData, loading: teamLoading, refetch: refetchTeamData } = useApiData<TeamData>('/api/team/members');
-  const [billing, setBilling] = useState<BillingInfo | null>(null);
-  const [billingLoading, setBillingLoading] = useState(true);
+  const [historicalBilling, setHistoricalBilling] = useState<BillingInfo | null>(null);
+  const [historicalBillingLoading, setHistoricalBillingLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('cluster');
   const [copied, setCopied] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -167,28 +112,21 @@ export default function Dashboard() {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [reloadProgress, setReloadProgress] = useState(0);
 
-  // Fetch billing data based on selected month
-  const fetchBillingData = async () => {
-    setBillingLoading(true);
-    try {
-      const url = selectedMonth === 'current' 
-        ? '/api/billing' 
-        : `/api/billing?month=${selectedMonth}`;
-      const response = await fetch(url);
-      if (response.ok) {
-        const data = await response.json();
-        setBilling(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch billing data:', error);
-    } finally {
-      setBillingLoading(false);
-    }
-  };
+  // Use context billing for current month, local state for historical
+  const billing = selectedMonth === 'current' ? contextBilling : historicalBilling;
+  const billingLoading = selectedMonth === 'current' ? contextBillingLoading : historicalBillingLoading;
 
+  // Fetch historical billing data when month changes
   useEffect(() => {
-    if (!authLoading && user) {
-      fetchBillingData();
+    if (!authLoading && user && selectedMonth !== 'current') {
+      setHistoricalBillingLoading(true);
+      fetch(`/api/billing?month=${selectedMonth}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data) setHistoricalBilling(data);
+        })
+        .catch(err => console.error('Failed to fetch historical billing:', err))
+        .finally(() => setHistoricalBillingLoading(false));
     }
   }, [selectedMonth, authLoading, user]);
 

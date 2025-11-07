@@ -2,16 +2,17 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBilling } from '@/contexts/BillingContext';
 import { Box, Flex, Title, Text, Button, Card } from 'tailwind-quartz';
 import { CreditCard, AlertTriangle, ArrowRight } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
 export default function BillingSetup() {
   const { user, loading: authLoading } = useAuth();
+  const { billing, loading: billingLoading, refetch: refetchBilling } = useBilling();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(true);
-  const [isSuspended, setIsSuspended] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -22,17 +23,11 @@ export default function BillingSetup() {
   // Check if user already has payment method
   useEffect(() => {
     const checkBillingStatus = async () => {
-      if (!user) return;
+      if (!user || billingLoading) return;
 
       try {
-        const response = await fetch('/api/billing');
-        const data = await response.json();
-
-        // Check if user is suspended
-        setIsSuspended(data.isSuspended || false);
-
         // If user has payment method but is still suspended, poll for webhook completion
-        if (data.hasPaymentMethod && data.isSuspended) {
+        if (billing?.hasPaymentMethod && billing?.isSuspended) {
           console.log('User has payment method but is suspended - polling for status update...');
 
           let pollCount = 0;
@@ -41,10 +36,10 @@ export default function BillingSetup() {
           const pollInterval = setInterval(async () => {
             pollCount++;
             try {
-              const retryResponse = await fetch('/api/billing');
-              const retryData = await retryResponse.json();
+              await refetchBilling();
 
-              if (!retryData.isSuspended) {
+              // Check updated billing from context
+              if (!billing?.isSuspended) {
                 console.log('User unsuspended - redirecting to dashboard');
                 clearInterval(pollInterval);
                 sessionStorage.removeItem('payment_required');
@@ -65,7 +60,7 @@ export default function BillingSetup() {
         }
 
         // If user already has payment method or is prepaid, redirect to dashboard
-        if ((data.hasPaymentMethod || data.billingMode === 'prepaid' || data.isTeamMember) && !data.isSuspended) {
+        if ((billing?.hasPaymentMethod || billing?.billingMode === 'prepaid' || billing?.isTeamMember) && !billing?.isSuspended) {
           sessionStorage.removeItem('payment_required');
           router.push('/dashboard');
         }
@@ -77,7 +72,7 @@ export default function BillingSetup() {
     };
 
     checkBillingStatus();
-  }, [user, router]);
+  }, [user, billing, billingLoading, refetchBilling, router]);
 
   const handleSetupPayment = async () => {
     setLoading(true);
@@ -138,7 +133,7 @@ export default function BillingSetup() {
       <Box className="min-h-screen bg-gray-50">
         <Navbar />
         <Box className="container mx-auto px-4 py-12 max-w-2xl">
-          {isSuspended && (
+          {billing?.isSuspended && (
             <Card className="p-4 mb-4 border-red-500 bg-red-50">
               <Flex align="center" gap={12}>
                 <AlertTriangle size={20} className="text-red-600" />
