@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import { getPostHogClient } from '@/lib/posthog-server';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -147,7 +148,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log(`Created new subscription ${subscription.id} for user ${email}`);
 
-    return res.status(201).json({ 
+    // Track subscription creation in PostHog
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: userId,
+      event: 'subscription_created',
+      properties: {
+        subscriptionId: subscription.id,
+        subscriptionStatus: subscription.status,
+        billingMode: user.billing_mode,
+        email: email,
+        stripeCustomerId: user.stripe_customer_id,
+        productCount: stripeProducts.length,
+      }
+    });
+    await posthog.shutdown();
+
+    return res.status(201).json({
       subscription: {
         id: subscription.id,
         status: subscription.status,

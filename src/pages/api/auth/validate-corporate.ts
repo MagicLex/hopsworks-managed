@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { getPostHogClient } from '@/lib/posthog-server';
 
 const HUBSPOT_API_KEY = process.env.HUBSPOT_API_KEY;
 const HUBSPOT_API_URL = 'https://api.hubapi.com';
@@ -170,8 +171,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get deal properties for logging
     const dealStage = dealData.properties?.dealstage;
     const dealName = dealData.properties?.dealname;
-    
+
     console.log(`Validated corporate registration: Deal ${dealId} (${dealName}), Stage: ${dealStage}, Email: ${email}`);
+
+    // Track corporate account validation in PostHog
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: email,
+      event: 'corporate_account_validated',
+      properties: {
+        dealId,
+        dealName,
+        dealStage,
+        email,
+        userDomain: email.toLowerCase().split('@')[1],
+      }
+    });
+    await posthog.shutdown();
 
     return res.status(200).json({
       valid: true,

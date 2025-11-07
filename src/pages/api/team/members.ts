@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
+import { getPostHogClient } from '@/lib/posthog-server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -123,6 +124,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error('Failed to remove team member:', error);
         return res.status(500).json({ error: 'Failed to remove team member' });
       }
+
+      // Track team member removal in PostHog
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: userId,
+        event: 'team_member_removed',
+        properties: {
+          removedMemberId: memberId,
+          removedMemberEmail: member.account_owner_id ? 'team_member' : 'unknown',
+        }
+      });
+      await posthog.shutdown();
 
       return res.status(200).json({ message: 'Team member removed successfully' });
 

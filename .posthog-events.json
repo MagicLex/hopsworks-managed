@@ -1,0 +1,72 @@
+[
+  {
+    "event_name": "subscription_created",
+    "event_description": "User successfully creates a Stripe subscription for postpaid billing",
+    "file_path": "src/pages/api/billing/create-subscription.ts"
+  },
+  {
+    "event_name": "payment_method_added",
+    "event_description": "User completes adding a payment method via Stripe checkout",
+    "file_path": "src/pages/api/billing/setup-payment.ts"
+  },
+  {
+    "event_name": "team_invite_sent",
+    "event_description": "Account owner sends invitation to a new team member",
+    "file_path": "src/pages/api/team/invite.ts"
+  },
+  {
+    "event_name": "team_invite_accepted",
+    "event_description": "User accepts a team invitation and joins an account",
+    "file_path": "src/pages/api/team/join.ts"
+  },
+  {
+    "event_name": "team_member_removed",
+    "event_description": "Account owner removes a team member from their account",
+    "file_path": "src/pages/api/team/members.ts"
+  },
+  {
+    "event_name": "corporate_account_validated",
+    "event_description": "User successfully validates a corporate HubSpot deal for prepaid access",
+    "file_path": "src/pages/api/auth/validate-corporate.ts"
+  },
+  {
+    "event_name": "promo_code_validated",
+    "event_description": "User successfully validates a promotional code for free access",
+    "file_path": "src/pages/api/auth/validate-promo.ts"
+  },
+  {
+    "event_name": "deploy_modal_opened",
+    "event_description": "User opens the deployment modal to start with Hopsworks",
+    "file_path": "src/components/DeployModal.tsx"
+  },
+  {
+    "event_name": "signup_initiated",
+    "event_description": "User clicks to sign up or log in via Auth0 from the auth modal",
+    "file_path": "src/components/AuthModal.tsx"
+  },
+  {
+    "event_name": "cluster_accessed",
+    "event_description": "User clicks to access their Hopsworks cluster instance",
+    "file_path": "src/pages/dashboard.tsx"
+  },
+  {
+    "event_name": "quickstart_code_copied",
+    "event_description": "User copies the quickstart Python code to connect to Hopsworks",
+    "file_path": "src/pages/dashboard.tsx"
+  },
+  {
+    "event_name": "billing_tab_viewed",
+    "event_description": "User views the billing tab on their dashboard",
+    "file_path": "src/pages/dashboard.tsx"
+  },
+  {
+    "event_name": "account_deleted",
+    "event_description": "User deletes their account and revokes all access",
+    "file_path": "src/pages/dashboard.tsx"
+  },
+  {
+    "event_name": "landing_page_viewed",
+    "event_description": "User views the landing page, indicating top of conversion funnel",
+    "file_path": "src/pages/index.tsx"
+  }
+]

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Input, Flex, Box, Title, Text, Labeling, Card } from 'tailwind-quartz';
 import { User, LogIn, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import posthog from 'posthog-js';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -41,6 +42,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     // Pass corporate ref and promo code through Auth0 state if present
     const corporateRefValue = sessionStorage.getItem('corporate_ref');
     const promoCodeValue = sessionStorage.getItem('promo_code');
+
+    // Track signup/signin initiated
+    posthog.capture('signup_initiated', {
+      source: 'auth_modal',
+      mode: authMode,
+      hasCorporateRef: !!corporateRefValue,
+      hasPromoCode: !!promoCodeValue,
+    });
+
     signIn(corporateRefValue || undefined, promoCodeValue || undefined);
     onClose();
   };

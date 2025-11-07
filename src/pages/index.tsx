@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { DEFAULT_RATES } from '@/config/billing-rates';
 import { usePricing } from '@/contexts/PricingContext';
 import { MatrixText } from '@/components/MatrixText';
+import posthog from 'posthog-js';
 
 export default function Home() {
   const { pricing } = usePricing();
@@ -89,8 +90,15 @@ export default function Home() {
   useEffect(() => {
     if (!loading && user) {
       router.push('/dashboard');
+    } else if (!loading && !user) {
+      // Track landing page view for anonymous users (top of funnel)
+      posthog.capture('landing_page_viewed', {
+        hasCorporateRef: !!corporateRef,
+        hasPromoCode: !!promoCode,
+        source: 'homepage',
+      });
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, corporateRef, promoCode]);
   
   const handleDeploy = (deployment: DeploymentOption) => {
     if (deployment.buttonStyle === 'enterprise') {

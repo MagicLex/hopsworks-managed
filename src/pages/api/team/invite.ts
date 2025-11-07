@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
 import { Resend } from 'resend';
 import { rateLimit } from '../../../middleware/rateLimit';
+import { getPostHogClient } from '@/lib/posthog-server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -145,7 +146,21 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
         // Don't fail the whole operation if email fails
       }
 
-      return res.status(200).json({ 
+      // Track team invite sent in PostHog
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: userId,
+        event: 'team_invite_sent',
+        properties: {
+          inviteeEmail: email,
+          projectRole,
+          autoAssignProjects,
+          inviterEmail: inviter?.email,
+        }
+      });
+      await posthog.shutdown();
+
+      return res.status(200).json({
         message: 'Invite sent successfully',
         invite: {
           id: invite.id,

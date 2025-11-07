@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/router';
 import { DEFAULT_RATES } from '@/config/billing-rates';
 import { usePricing } from '@/contexts/PricingContext';
+import posthog from 'posthog-js';
 
 interface DeployModalProps {
   isOpen: boolean;
@@ -23,7 +24,21 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
   if (!deployment) return null;
 
   const handleStartNow = () => {
+    // Track deploy modal action
+    posthog.capture('deploy_modal_opened', {
+      hasCorporateRef: !!corporateRef,
+      hasPromoCode: !!promoCode,
+      isAuthenticated: !!user,
+      deployment: deployment?.id,
+    });
+
     if (!user) {
+      // Track signup initiated
+      posthog.capture('signup_initiated', {
+        source: 'deploy_modal',
+        hasCorporateRef: !!corporateRef,
+        hasPromoCode: !!promoCode,
+      });
       // Pass corporate ref or promo code if present, use signup mode
       signIn(corporateRef || undefined, promoCode || undefined, 'signup');
     } else {

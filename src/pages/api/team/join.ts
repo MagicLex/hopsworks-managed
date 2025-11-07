@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import { assignUserToCluster } from '@/lib/cluster-assignment';
+import { getPostHogClient } from '@/lib/posthog-server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -188,20 +189,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // Track team invite acceptance in PostHog
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: userId,
+      event: 'team_invite_accepted',
+      properties: {
+        accountOwnerId: invite.account_owner_id,
+        userEmail,
+        clusterAssigned: clusterAssignment.success,
+        projectsAssignedCount: projectsAssigned.length,
+        projectsFailedCount: projectErrors.length,
+        autoAssignedProjects: invite.auto_assign_projects,
+        projectRole: invite.project_role,
+      }
+    });
+
+    // Identify the user in PostHog with their team relationship
+    posthog.identify({
+      distinctId: userId,
+      properties: {
+        email: userEmail,
+        isTeamMember: true,
+        accountOwnerId: invite.account_owner_id,
+      }
+    });
+    await posthog.shutdown();
+
     // Prepare response with warnings if needed
-    const response: any = { 
+    const response: any = {
       message: 'Successfully joined team',
       account_owner_id: invite.account_owner_id,
       cluster_assigned: clusterAssignment.success,
       projects_assigned: projectsAssigned
     };
-    
+
     // Add warnings if there were errors
     if (projectErrors.length > 0) {
       response.warning = 'Some projects could not be assigned. The cluster may need to be upgraded to support OAuth group mappings. Please contact support.';
       response.project_errors = projectErrors;
     }
-    
+
     return res.status(200).json(response);
 
   } catch (error) {

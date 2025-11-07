@@ -14,6 +14,7 @@ import CardSkeleton from '@/components/CardSkeleton';
 import { DEFAULT_RATES } from '@/config/billing-rates';
 import { usePricing } from '@/contexts/PricingContext';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import posthog from 'posthog-js';
 
 interface UsageData {
   cpuHours: number;
@@ -133,8 +134,17 @@ export default function Dashboard() {
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/');
+    } else if (user && billing) {
+      // Identify user in PostHog when dashboard loads
+      posthog.identify(user.sub, {
+        email: user.email,
+        name: user.name,
+        billingMode: billing.billingMode,
+        isTeamMember: billing.isTeamMember,
+        hasPaymentMethod: billing.hasPaymentMethod,
+      });
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, billing]);
 
   // Redirect suspended users to billing setup
   useEffect(() => {
@@ -150,10 +160,17 @@ export default function Dashboard() {
       if (router.query.tab === 'billing' && billing?.billingMode === 'prepaid') {
         setActiveTab('cluster');
       } else {
+        if (router.query.tab === 'billing') {
+          // Track billing tab viewed
+          posthog.capture('billing_tab_viewed', {
+            billingMode: billing?.billingMode,
+            hasPaymentMethod: billing?.hasPaymentMethod,
+          });
+        }
         setActiveTab(router.query.tab);
       }
     }
-  }, [router, router.query.tab, billing?.billingMode]);
+  }, [router, router.query.tab, billing?.billingMode, billing?.hasPaymentMethod]);
 
   // Fetch team invites when user and team data is available
   useEffect(() => {
@@ -470,6 +487,13 @@ export default function Dashboard() {
                         disabled={!instance.endpoint}
                         onClick={() => {
                           if (instance.endpoint) {
+                            // Track cluster access
+                            posthog.capture('cluster_accessed', {
+                              clusterEndpoint: instance.endpoint,
+                              instanceName: instance.name,
+                              billingMode: billing?.billingMode,
+                            });
+
                             // Redirect to auto-OAuth URL for automatic login with Auth0
                             const autoOAuthUrl = `${instance.endpoint}/autoOAuth?providerName=Auth0`;
                             window.open(autoOAuthUrl, '_blank');
@@ -589,6 +613,12 @@ ms = project.get_model_serving()
 # For model registry
 mr = project.get_model_registry()`;
                           navigator.clipboard.writeText(code);
+
+                          // Track quickstart code copied
+                          posthog.capture('quickstart_code_copied', {
+                            instanceEndpoint: instance?.endpoint,
+                          });
+
                           setCopied('quickstart');
                           setTimeout(() => setCopied(''), 2000);
                         }}
@@ -1560,6 +1590,14 @@ mr = project.get_model_registry()`;
               disabled={deletingAccount}
               onClick={async () => {
                 setDeletingAccount(true);
+
+                // Track account deletion
+                posthog.capture('account_deleted', {
+                  reason: deleteReason || 'not_provided',
+                  billingMode: billing?.billingMode,
+                  hadPaymentMethod: billing?.hasPaymentMethod,
+                });
+
                 try {
                   const response = await fetch('/api/account/delete', {
                     method: 'DELETE',

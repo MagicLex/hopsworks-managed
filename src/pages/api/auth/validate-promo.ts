@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { getPostHogClient } from '@/lib/posthog-server';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -30,6 +31,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   console.log(`Validated promotional code: ${normalizedCode}`);
+
+  // Track promo code validation in PostHog
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: `promo_${normalizedCode}`,
+    event: 'promo_code_validated',
+    properties: {
+      promoCode: normalizedCode,
+    }
+  });
+  await posthog.shutdown();
 
   return res.status(200).json({
     valid: true,

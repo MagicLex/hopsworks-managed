@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import { getPostHogClient } from '@/lib/posthog-server';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-06-30.basil'
@@ -110,6 +111,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cancel_url: `${process.env.AUTH0_BASE_URL}/dashboard?payment=cancelled&tab=billing`,
       });
 
+      // Track payment method setup initiated
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: userId,
+        event: 'payment_method_added',
+        properties: {
+          billingMode: 'postpaid',
+          stripeCustomerId,
+          email: user.email,
+        }
+      });
+      await posthog.shutdown();
+
       return res.status(200).json({ checkoutUrl: setupSession.url });
     }
 
@@ -121,6 +135,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success_url: `${process.env.AUTH0_BASE_URL}/dashboard?payment=success&tab=billing`,
       cancel_url: `${process.env.AUTH0_BASE_URL}/dashboard?payment=cancelled&tab=billing`,
     });
+
+    // Track payment method setup initiated
+    const posthog2 = getPostHogClient();
+    posthog2.capture({
+      distinctId: userId,
+      event: 'payment_method_added',
+      properties: {
+        billingMode: user.billing_mode || 'prepaid',
+        stripeCustomerId,
+        email: user.email,
+      }
+    });
+    await posthog2.shutdown();
 
     return res.status(200).json({ checkoutUrl: setupSession.url });
 
