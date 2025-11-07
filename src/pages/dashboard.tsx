@@ -400,7 +400,7 @@ export default function Dashboard() {
                   hasPaymentMethod={billing?.hasPaymentMethod || false}
                   billingMode={billing?.billingMode}
                   clusterName={hopsworksInfo?.clusterName}
-                  loading={hopsworksLoading || billingLoading || !billing}
+                  loading={hopsworksLoading || billingLoading || !billing || !hopsworksInfo}
                   reloadProgress={reloadProgress}
                 />
               </Box>
