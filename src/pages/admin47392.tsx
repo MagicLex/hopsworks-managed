@@ -492,7 +492,7 @@ export default function AdminPage() {
                                     onClick={() => changeBillingMode(user.id, user.email, user.billing_mode || 'postpaid')}
                                     disabled={actionLoading[user.id]}
                                     intent="secondary"
-                                    size="xs"
+                                    size="sm"
                                     className="text-xs px-3 py-1"
                                   >
                                     Switch
