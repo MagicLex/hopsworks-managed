@@ -175,17 +175,18 @@ async function collectOpenCostMetrics() {
 
   console.log(`Starting OpenCost collection for: ${currentDate} hour ${currentHourUtc} (UTC)`);
 
-  // Get ALL active Hopsworks clusters
+  // Get ALL Hopsworks clusters with kubeconfig (status doesn't matter for billing)
+  // 'inactive' clusters may still have users generating costs
   const { data: clusters, error: clusterError } = await supabaseAdmin
     .from('hopsworks_clusters')
     .select('*')
-    .eq('status', 'active');
+    .not('kubeconfig', 'is', null);
 
   if (clusterError || !clusters || clusters.length === 0) {
-    throw new Error(`Failed to fetch active clusters: ${clusterError?.message || 'No active clusters'}`);
+    throw new Error(`Failed to fetch clusters: ${clusterError?.message || 'No clusters with kubeconfig'}`);
   }
 
-  console.log(`Found ${clusters.length} active cluster(s) to process`);
+  console.log(`Found ${clusters.length} cluster(s) to process`);
 
   const aggregatedResults = {
     successful: 0,
