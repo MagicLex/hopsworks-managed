@@ -105,6 +105,16 @@ This document tracks all database migrations applied to the Hopsworks Managed Se
 - Login blocked for deleted users via auth check
 - Cluster access revoked by setting maxNumProjects to 0
 
+### 005_add_stripe_usage_record_id.sql
+**Date**: 2025-11-10
+**Purpose**: Add audit trail for Stripe billing reconciliation
+
+**Changes**:
+- Added `stripe_usage_record_id` column to usage_daily table
+- Created partial index `idx_usage_daily_stripe_record` for faster Stripe lookups
+- Enables proper audit trail and reconciliation between internal usage records and Stripe meter events
+- Resolves silent update failure in sync-stripe.ts that was attempting to write to missing column
+
 ## Current Schema Status
 
 ### Active Tables

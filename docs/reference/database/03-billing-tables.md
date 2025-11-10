@@ -112,9 +112,14 @@ CREATE TABLE usage_daily (
   project_breakdown JSONB,                        -- Per-project cost details
   
   total_cost DECIMAL(10,2) DEFAULT 0,            -- Daily total
+  total_credits DECIMAL(10,4) DEFAULT 0,         -- Total credits used (for billing)
   hopsworks_cluster_id UUID REFERENCES hopsworks_clusters(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  
+
+  -- Stripe billing sync
+  reported_to_stripe BOOLEAN DEFAULT false,       -- Has this record been synced to Stripe?
+  stripe_usage_record_id TEXT,                    -- Stripe meter event identifier for audit
+
   UNIQUE(user_id, date)
 );
 ```
@@ -122,6 +127,7 @@ CREATE TABLE usage_daily (
 ### Indexes
 - `idx_usage_daily_user_date` - Composite on (user_id, date)
 - `idx_usage_daily_account_owner` - For account-level aggregation
+- `idx_usage_daily_stripe_record` - On stripe_usage_record_id for reconciliation (partial index)
 
 ### Data Collection
 - **Source**: OpenCost running in Kubernetes cluster
