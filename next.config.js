@@ -4,7 +4,8 @@ const nextConfig = {
   // Removed static export to enable API routes for Auth0
   // output: 'export',
   images: {
-    unoptimized: true
+    unoptimized: false, // Re-enabled image optimization now that we use server-side rendering
+    domains: ['cdn.prod.website-files.com'] // Allow Hopsworks CDN images
   },
   transpilePackages: ['@logicalclocks/tailwind-quartz']
 }
