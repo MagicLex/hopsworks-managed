@@ -15,16 +15,8 @@ export async function projectExists(
   projectName: string
 ): Promise<boolean> {
   try {
-    const response = await fetch(
-      `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${projectName}`,
-      {
-        headers: {
-          'Authorization': `ApiKey ${credentials.apiKey}`
-        }
-      }
-    );
-    
-    return response.ok;
+    const projects = await getAllProjects(credentials);
+    return projects.some(p => p.name === projectName);
   } catch (error) {
     console.error(`Failed to check if project ${projectName} exists:`, error);
     return false;
@@ -110,25 +102,25 @@ export async function validateProject(
 }
 
 /**
- * Check if user exists in Hopsworks
+ * Check if user exists in Hopsworks by numeric user ID
  */
 export async function userExists(
   credentials: HopsworksCredentials,
-  username: string
+  userId: number
 ): Promise<boolean> {
   try {
     const response = await fetch(
-      `${credentials.apiUrl}${ADMIN_API_BASE}/users/${username}`,
+      `${credentials.apiUrl}${ADMIN_API_BASE}/users/${userId}`,
       {
         headers: {
           'Authorization': `ApiKey ${credentials.apiKey}`
         }
       }
     );
-    
+
     return response.ok;
   } catch (error) {
-    console.error(`Failed to check if user ${username} exists:`, error);
+    console.error(`Failed to check if user ${userId} exists:`, error);
     return false;
   }
 }

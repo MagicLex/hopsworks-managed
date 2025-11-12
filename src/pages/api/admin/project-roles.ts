@@ -105,10 +105,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .select(`
           id,
           email,
+          hopsworks_user_id,
           hopsworks_username,
           account_owner_id,
           user_hopsworks_assignments!inner (
             hopsworks_cluster_id,
+            hopsworks_user_id,
             hopsworks_username,
             hopsworks_clusters!inner (
               api_url,
@@ -130,15 +132,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         apiKey: cluster.api_key
       };
 
-      const hopsworksUsername = user.hopsworks_username || assignment.hopsworks_username;
+      const hopsworksUserId = user.hopsworks_user_id || assignment.hopsworks_user_id;
 
-      if (!hopsworksUsername) {
-        return res.status(400).json({ error: 'User has no Hopsworks username' });
+      if (!hopsworksUserId) {
+        return res.status(400).json({ error: 'User has no Hopsworks user ID' });
       }
 
       if (action === 'add') {
         // Add user to project with specified role (now uses group mappings internally)
-        await addUserToProject(credentials, projectName, hopsworksUsername, role as any);
+        await addUserToProject(credentials, projectName, hopsworksUserId, role as any);
 
         return res.status(200).json({ 
           message: `User added to project ${projectName} as ${role}`,
@@ -195,12 +197,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Get team member info
       const { data: teamMember } = await supabaseAdmin
         .from('users')
-        .select('hopsworks_username, email')
+        .select('hopsworks_user_id, hopsworks_username, email')
         .eq('id', teamMemberId)
         .single();
 
-      if (!teamMember?.hopsworks_username) {
-        return res.status(400).json({ error: 'Team member has no Hopsworks username' });
+      if (!teamMember?.hopsworks_user_id) {
+        return res.status(400).json({ error: 'Team member has no Hopsworks user ID' });
       }
 
       const assignment = owner.user_hopsworks_assignments[0];
@@ -223,9 +225,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       for (const project of ownerProjects) {
         try {
           await addUserToProject(
-            credentials, 
-            project.name, 
-            teamMember.hopsworks_username, 
+            credentials,
+            project.name,
+            teamMember.hopsworks_user_id,
             defaultRole as any
           );
           addedToProjects.push(project.name);

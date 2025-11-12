@@ -368,8 +368,23 @@ Common status codes:
 - Billing routes: 20 requests per minute to prevent dashboard abuse.
 - Other endpoints fall back to a default 60 requests per minute.
 
+## Hopsworks API Integration
+
+Our backend integrates with Hopsworks clusters via admin API keys. All Hopsworks operations use wrappers in `src/lib/hopsworks-api.ts` that handle API quirks correctly.
+
+### Key Implementation Details
+
+1. **User IDs are numeric**: Hopsworks API requires numeric user IDs (e.g., `10181`), NOT usernames. Our wrappers handle this transparently.
+
+2. **Always use `expand=creator`**: Project queries use `?expand=creator` to avoid N+1 API calls.
+
+3. **No direct lookups**: Hopsworks has no endpoints for direct project/user lookups by name. We fetch all resources and filter client-side.
+
+See [Hopsworks API Reference](./hopsworks-api.md) for detailed endpoint documentation and wrapper usage examples.
+
 ## Related Documentation
 
-- [Architecture Overview](ARCHITECTURE.md)
+- [Hopsworks API Reference](./hopsworks-api.md)
+- [Architecture Overview](../ARCHITECTURE.md)
 - [Database Documentation](database/)
-- [Billing System](billing.md)
+- [Billing System](../billing.md)

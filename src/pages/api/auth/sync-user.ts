@@ -3,7 +3,7 @@ import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { assignUserToCluster } from '../../../lib/cluster-assignment';
-import { getHopsworksUserByUsername, getHopsworksUserByEmail, updateUserProjectLimit, createHopsworksOAuthUser } from '../../../lib/hopsworks-api';
+import { getHopsworksUserById, getHopsworksUserByEmail, updateUserProjectLimit, createHopsworksOAuthUser } from '../../../lib/hopsworks-api';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -413,31 +413,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         let hopsworksUsername = assignment.hopsworks_username || existingUser.hopsworks_username;
         let hopsworksUserId = assignment.hopsworks_user_id || existingUser.hopsworks_user_id;
         
-        // Try to get user by username first
-        if (hopsworksUsername) {
+        // Try to get user by ID first if we have it
+        if (assignment.hopsworks_user_id || existingUser.hopsworks_user_id) {
+          const userId = assignment.hopsworks_user_id || existingUser.hopsworks_user_id;
           try {
-            hopsworksUser = await getHopsworksUserByUsername(credentials, hopsworksUsername);
+            hopsworksUser = await getHopsworksUserById(credentials, userId);
             if (hopsworksUser) {
               healthCheckResults.hopsworksUserExists = true;
               hopsworksUserId = hopsworksUser.id;
-              
-              // Update database with Hopsworks user ID if missing
-              if (!assignment.hopsworks_user_id || !existingUser.hopsworks_user_id) {
-                console.log(`[Health Check] Found Hopsworks user ID ${hopsworksUserId} for ${hopsworksUsername}`);
-                
+              hopsworksUsername = hopsworksUser.username;
+
+              // Update database if username is missing
+              if (!assignment.hopsworks_username || !existingUser.hopsworks_username) {
+                console.log(`[Health Check] Found Hopsworks username ${hopsworksUsername} for user ID ${userId}`);
+
                 await supabaseAdmin
                   .from('users')
-                  .update({ hopsworks_user_id: hopsworksUserId })
-                  .eq('id', userId);
-                
+                  .update({ hopsworks_username: hopsworksUsername })
+                  .eq('id', existingUser.id);
+
                 await supabaseAdmin
                   .from('user_hopsworks_assignments')
-                  .update({ hopsworks_user_id: hopsworksUserId })
-                  .eq('user_id', userId);
+                  .update({ hopsworks_username: hopsworksUsername })
+                  .eq('user_id', existingUser.id);
               }
             }
           } catch (error) {
-            console.error(`[Health Check] Failed to fetch Hopsworks user ${hopsworksUsername}:`, error);
+            console.error(`[Health Check] Failed to fetch Hopsworks user ${userId}:`, error);
           }
         }
         

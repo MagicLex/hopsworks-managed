@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { OpenCostDirect } from '../../../lib/opencost-direct';
-import { getHopsworksUserByUsername, getUserProjects, getAllProjects } from '../../../lib/hopsworks-api';
+import { getUserProjects, getAllProjects } from '../../../lib/hopsworks-api';
 import { calculateCreditsUsed, calculateDollarAmount } from '../../../config/billing-rates';
 
 type ProjectBreakdownEntry = {

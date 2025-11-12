@@ -61,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Verify the member belongs to this owner's team
       const { data: teamMember } = await supabaseAdmin
         .from('users')
-        .select('account_owner_id, hopsworks_username, email')
+        .select('account_owner_id, hopsworks_user_id, hopsworks_username, email')
         .eq('id', memberId)
         .single();
 
@@ -69,8 +69,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json({ error: 'Member not in your team' });
       }
 
-      if (!teamMember.hopsworks_username) {
-        return res.status(400).json({ error: 'Member has no Hopsworks username yet' });
+      if (!teamMember.hopsworks_user_id) {
+        return res.status(400).json({ error: 'Member has no Hopsworks user ID yet' });
       }
 
       // Get owner's cluster credentials
@@ -148,7 +148,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         try {
           // Then sync to Hopsworks
-          await addUserToProject(credentials, projectName, teamMember.hopsworks_username, role as any);
+          await addUserToProject(credentials, projectName, teamMember.hopsworks_user_id, role as any);
 
           // Mark as synced if successful
           if (roleRecord) {

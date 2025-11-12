@@ -133,7 +133,7 @@ export async function createHopsworksOAuthUser(
 
   // Fetch the complete user object to get the actual ID
   // The creation response doesn't include the numeric user ID
-  const fullUser = await getHopsworksUserByUsername(credentials, username);
+  const fullUser = await getHopsworksUserByEmail(credentials, email);
 
   if (!fullUser) {
     throw new Error(`User ${username} (${email}) created on ${credentials.apiUrl} but could not be retrieved`);
@@ -186,38 +186,16 @@ export async function createHopsworksProject(
 
 /**
  * Get user's projects (both owned and member of)
+ * Fetches all projects and filters by user ID or username
  */
 export async function getUserProjects(
   credentials: HopsworksCredentials,
   username: string,
   userId?: number
 ): Promise<HopsworksProject[]> {
-  try {
-    // First try to get projects where user is a member
-    const memberUrl = `${credentials.apiUrl}${ADMIN_API_BASE}/users/${username}/projects`;
-    
-    const memberResponse = await fetch(
-      memberUrl,
-      {
-        headers: {
-          'Authorization': `ApiKey ${credentials.apiKey}`
-        },
-        // @ts-ignore
-        agent: httpsAgent
-      }
-    );
-    
-    if (memberResponse.ok) {
-      const memberData = await memberResponse.json();
-      return memberData.items || [];
-    }
-  } catch (error) {
-    console.error('Error fetching user member projects:', error);
-  }
-
-  // Fallback: Fetch all projects and filter by owner
+  // Fetch all projects and filter by owner
   const response = await fetch(
-    `${credentials.apiUrl}${ADMIN_API_BASE}/projects`,
+    `${credentials.apiUrl}${ADMIN_API_BASE}/projects?expand=creator`,
     {
       headers: {
         'Authorization': `ApiKey ${credentials.apiKey}`
@@ -226,28 +204,30 @@ export async function getUserProjects(
       agent: httpsAgent
     }
   );
-  
+
   if (!response.ok) {
     throw new Error(`Failed to fetch user projects for ${username} on ${credentials.apiUrl}: ${response.statusText}`);
   }
 
   const data = await response.json();
   const allProjects = data.items || [];
-  
-  // Filter projects by creator - need to extract user ID from creator href
+
+  // Filter projects by creator - use expanded creator object
   const userProjects = allProjects.filter((project: any) => {
-    // Project creator is an object with href like "https://54.36.114.178:28181/hopsworks-api/api/users/10181"
-    if (project.creator && project.creator.href) {
-      const creatorId = parseInt(project.creator.href.split('/').pop());
+    if (project.creator) {
       // Match by user ID if provided
-      if (userId && creatorId === userId) {
+      if (userId && project.creator.id === userId) {
+        return true;
+      }
+      // Match by username
+      if (project.creator.username === username) {
         return true;
       }
     }
     // Fallback to old owner field if it exists (for backward compatibility)
     return project.owner === username;
   });
-  
+
   return userProjects;
 }
 
@@ -393,15 +373,15 @@ export async function updateHopsworksUserStatus(
 }
 
 /**
- * Get user by username (more efficient than by email)
+ * Get user by ID (numeric user ID from Hopsworks)
  */
-export async function getHopsworksUserByUsername(
+export async function getHopsworksUserById(
   credentials: HopsworksCredentials,
-  username: string
+  userId: number
 ): Promise<HopsworksUser | null> {
   try {
     const response = await fetch(
-      `${credentials.apiUrl}${ADMIN_API_BASE}/users/${username}`,
+      `${credentials.apiUrl}${ADMIN_API_BASE}/users/${userId}`,
       {
         headers: {
           'Authorization': `ApiKey ${credentials.apiKey}`
@@ -413,15 +393,15 @@ export async function getHopsworksUserByUsername(
 
     if (!response.ok) {
       if (response.status === 404) {
-        console.log(`[Hopsworks API] User not found: ${username} on ${credentials.apiUrl}`);
+        console.log(`[Hopsworks API] User not found: ${userId} on ${credentials.apiUrl}`);
         return null;
       }
-      throw new Error(`Failed to fetch user ${username} on ${credentials.apiUrl}: ${response.statusText}`);
+      throw new Error(`Failed to fetch user ${userId} on ${credentials.apiUrl}: ${response.statusText}`);
     }
 
     return await response.json();
   } catch (error) {
-    console.error(`[Hopsworks API] Failed to fetch user ${username} on ${credentials.apiUrl}:`, error);
+    console.error(`[Hopsworks API] Failed to fetch user ${userId} on ${credentials.apiUrl}:`, error);
     return null;
   }
 }

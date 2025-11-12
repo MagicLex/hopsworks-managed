@@ -2,6 +2,9 @@
 
 Reference for Hopsworks Admin API endpoints used in the SaaS service.
 
+**Version Tested**: Hopsworks 4.6.0-SNAPSHOT
+**Last Updated**: 2025-11-12
+
 ## Authentication
 
 All endpoints require an API key with admin privileges:
@@ -14,6 +17,134 @@ Authorization: ApiKey {API_KEY}
 
 - **Public API**: `{cluster_url}/hopsworks-api/api`
 - **Admin API**: `{cluster_url}/hopsworks-api/api/admin`
+
+---
+
+## ⚠️ Critical API Behaviors
+
+### User Endpoints Require Numeric IDs
+
+User endpoints like `GET /admin/users/{id}` accept **ONLY numeric user IDs** (e.g., `10181`), NOT usernames. Passing a username returns `404`.
+
+**Correct**: `/admin/users/10181` → 200 OK
+**Wrong**: `/admin/users/aavstrei` → 404
+
+### Projects: Always Use `expand=creator`
+
+When fetching projects, ALWAYS include `?expand=creator` to get full owner details in a single request:
+
+```bash
+GET /admin/projects?expand=creator
+```
+
+Without it, you get only `creator.href` and must make N additional API calls.
+
+### User Creation Returns Minimal Data
+
+`POST /admin/users` returns `{uuid, givenName, surname, email, username}` but **NOT the numeric `id`**.
+
+After creating a user, query by email to get their full record with ID:
+```bash
+GET /admin/users?filter_by=type:REMOTE_ACCOUNT_TYPE
+```
+
+### No Project or User-Projects Lookup
+
+There are NO endpoints for:
+- Direct project lookup by name
+- User's projects by username/ID
+
+Always use `GET /admin/projects?expand=creator` and filter client-side.
+
+---
+
+## Our API Wrappers
+
+Our codebase provides clean wrappers in `src/lib/hopsworks-api.ts` that handle these quirks correctly:
+
+### User Operations
+
+```typescript
+// Get user by numeric ID
+const user = await getHopsworksUserById(credentials, 10181);
+
+// Get user by email (fetches all users, filters client-side)
+const user = await getHopsworksUserByEmail(credentials, 'user@example.com');
+
+// Create user (automatically looks up ID after creation)
+const newUser = await createHopsworksOAuthUser(
+  credentials,
+  'user@example.com',
+  'FirstName',
+  'LastName',
+  'auth0|userid',
+  5 // maxNumProjects
+);
+// Returns: { id, username, email, firstname, lastname }
+```
+
+### Project Operations
+
+```typescript
+// Get all projects with owner details (uses expand=creator)
+const projects = await getAllProjects(credentials);
+
+// Get user's projects (filters by creator ID or username)
+const userProjects = await getUserProjects(credentials, 'username', userId);
+
+// Check if project exists (fetches all, filters client-side)
+const exists = await projectExists(credentials, 'projectName');
+
+// Validate project (returns project details if exists)
+const project = await validateProject(credentials, 'projectName');
+// Returns: { id, name, exists } | null
+```
+
+### Team Management
+
+```typescript
+// Add user to project (looks up user by ID, gets email for API)
+await addUserToProject(
+  credentials,
+  'projectName',
+  hopsworksUserId, // numeric ID, NOT username
+  'Data scientist'
+);
+```
+
+**All wrappers use numeric IDs internally and handle the API quirks transparently.**
+
+### Complete Workflow Example
+
+```typescript
+// 1. Create new user in Hopsworks
+const newUser = await createHopsworksOAuthUser(
+  credentials,
+  'teammate@example.com',
+  'John',
+  'Doe',
+  'auth0|userid',
+  0 // team members get 0 maxNumProjects
+);
+// Returns: { id: 11243, username: 'johndoe1', email: '...', ... }
+
+// 2. Get owner's projects
+const ownerProjects = await getUserProjects(
+  credentials,
+  'owner_username',
+  10181 // owner's numeric ID
+);
+
+// 3. Add new user to each project
+for (const project of ownerProjects) {
+  await addUserToProject(
+    credentials,
+    project.name,
+    newUser.id, // numeric ID from step 1
+    'Data scientist'
+  );
+}
+```
 
 ---
 

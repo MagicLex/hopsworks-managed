@@ -130,14 +130,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .eq('id', invite.account_owner_id)
           .single();
 
-        // Get team member's Hopsworks username (might need to wait for it to be created)
+        // Get team member's Hopsworks user ID (might need to wait for it to be created)
         const { data: teamMember } = await supabase
           .from('users')
-          .select('hopsworks_username')
+          .select('hopsworks_user_id, hopsworks_username')
           .eq('id', userId)
           .single();
 
-        if (owner?.hopsworks_username && teamMember?.hopsworks_username) {
+        if (owner?.hopsworks_username && teamMember?.hopsworks_user_id) {
           const { getUserProjects, addUserToProject } = await import('@/lib/hopsworks-team');
           const assignment = owner.user_hopsworks_assignments[0] as any;
           const credentials = {
@@ -152,7 +152,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           // Add team member to each project
           for (const project of ownerProjects) {
             try {
-              await addUserToProject(credentials, project.name, teamMember.hopsworks_username, projectRole);
+              await addUserToProject(credentials, project.name, teamMember.hopsworks_user_id, projectRole);
               projectsAssigned.push(project.name);
               console.log(`Added ${userEmail} to project ${project.name} as ${projectRole}`);
               

@@ -21,7 +21,7 @@ interface HopsworksCredentials {
 export async function addUserToProject(
   credentials: HopsworksCredentials,
   projectName: string,
-  username: string,
+  hopsworksUserId: number,
   role: 'Data owner' | 'Data scientist' | 'Observer' = 'Data scientist'
 ): Promise<void> {
   // VALIDATE PROJECT EXISTS FIRST
@@ -30,24 +30,18 @@ export async function addUserToProject(
     throw new Error(`Project '${projectName}' does not exist in Hopsworks`);
   }
 
-  // Get user email from username (OAuth users have email-based identifiers)
-  const userResponse = await fetch(
-    `${credentials.apiUrl}${ADMIN_API_BASE}/users/${username}`,
-    {
-      headers: {
-        'Authorization': `ApiKey ${credentials.apiKey}`
-      }
-    }
-  );
+  // Get user details by ID (correct API endpoint)
+  const { getHopsworksUserById } = await import('./hopsworks-api');
+  const userData = await getHopsworksUserById(credentials, hopsworksUserId);
 
-  if (!userResponse.ok) {
-    throw new Error(`User ${username} not found in Hopsworks`);
+  if (!userData) {
+    throw new Error(`User ${hopsworksUserId} not found in Hopsworks`);
   }
 
-  const userData = await userResponse.json();
   const userEmail = userData.email;
+  const username = userData.username;
 
-  console.log(`Adding user ${username} (${userEmail}) to project ${projectName} (id: ${project.id}) as ${role}`);
+  console.log(`Adding user ${username} (ID: ${hopsworksUserId}, email: ${userEmail}) to project ${projectName} (id: ${project.id}) as ${role}`);
 
   // Try the project members endpoint directly (works with OAuth users)
   const response = await fetch(
