@@ -194,8 +194,9 @@ export class OpenCostDirect {
       return storageMap;
 
     } catch (error) {
-      console.error('Failed to get offline storage:', error);
-      return storageMap; // Return empty map on error, don't fail the whole job
+      console.error('[BILLING ALERT] Failed to get offline storage - users will NOT be billed for HDFS storage this cycle:', error);
+      // Return empty map but this is a billing-impacting failure that needs attention
+      return storageMap;
     }
   }
 
@@ -264,8 +265,9 @@ export class OpenCostDirect {
       return storageMap;
 
     } catch (error) {
-      console.error('Failed to get online storage:', error);
-      return storageMap; // Return empty map on error
+      console.error('[BILLING ALERT] Failed to get online storage - users will NOT be billed for NDB storage this cycle:', error);
+      // Return empty map but this is a billing-impacting failure that needs attention
+      return storageMap;
     }
   }
 }

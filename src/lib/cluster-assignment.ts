@@ -335,15 +335,17 @@ export async function assignUserToCluster(
       }
     }
 
-    // Assign user to cluster
+    // Assign user to cluster (upsert to handle race conditions)
     const { error: assignError } = await supabaseAdmin
       .from('user_hopsworks_assignments')
-      .insert({
+      .upsert({
         user_id: userId,
         hopsworks_cluster_id: availableCluster.id,
         hopsworks_user_id: hopsworksUserId,
         hopsworks_username: hopsworksUsername,
         assigned_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id,hopsworks_cluster_id'
       });
 
     if (assignError) {

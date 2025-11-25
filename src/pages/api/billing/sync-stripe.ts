@@ -94,12 +94,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           });
 
           // Update our record with Stripe ID
-          await supabaseAdmin
+          const { error: updateError } = await supabaseAdmin
             .from('usage_daily')
             .update({
               stripe_usage_record_id: cpuUsageRecord.identifier
             })
             .eq('id', usage.id);
+
+          if (updateError) {
+            console.error(`Failed to update usage_daily with Stripe record ID for user ${usage.user_id}:`, updateError);
+            // Don't throw - we already reported to Stripe, log for manual reconciliation
+          }
         }
 
         // Report online storage GB
