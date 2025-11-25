@@ -15,11 +15,19 @@ export default function JoiningTeamPage() {
   useEffect(() => {
     if (!user || !token) return;
 
+    // Get consent from sessionStorage (stored before Auth0 redirect)
+    const termsAccepted = sessionStorage.getItem('terms_accepted') === 'true';
+    const marketingConsent = sessionStorage.getItem('marketing_consent') === 'true';
+
+    // Clear consent from sessionStorage
+    sessionStorage.removeItem('terms_accepted');
+    sessionStorage.removeItem('marketing_consent');
+
     // Process the team invitation
     fetch('/api/team/join', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
+      body: JSON.stringify({ token, termsAccepted, marketingConsent })
     })
       .then(res => res.json())
       .then(data => {

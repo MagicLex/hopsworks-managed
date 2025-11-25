@@ -115,6 +115,17 @@ This document tracks all database migrations applied to the Hopsworks Managed Se
 - Enables proper audit trail and reconciliation between internal usage records and Stripe meter events
 - Resolves silent update failure in sync-stripe.ts that was attempting to write to missing column
 
+### 006_add_legal_consent.sql
+**Date**: 2025-11-25
+**Purpose**: Track user consent for Terms of Service, AUP, and Privacy Policy
+
+**Changes**:
+- Added `terms_accepted_at` column to users table (timestamp when user accepted terms)
+- Added `marketing_consent` column to users table (boolean for marketing opt-in)
+- Created `idx_users_terms_not_accepted` partial index for users without terms acceptance
+- Consent captured during sign-up (DeployModal) and team invite acceptance (accept-invite)
+- Stored via sync-user.ts (regular sign-up) and team/join.ts (team members)
+
 ## Current Schema Status
 
 ### Active Tables

@@ -38,6 +38,10 @@ CREATE TABLE IF NOT EXISTS users (
   deleted_at TIMESTAMPTZ DEFAULT NULL,
   deletion_reason TEXT DEFAULT NULL,
 
+  -- Legal consent
+  terms_accepted_at TIMESTAMPTZ DEFAULT NULL,
+  marketing_consent BOOLEAN DEFAULT false,
+
   -- Metadata
   registration_source TEXT,
   registration_ip INET,

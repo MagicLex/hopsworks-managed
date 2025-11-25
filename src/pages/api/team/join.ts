@@ -21,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { token } = req.body;
+    const { token, termsAccepted, marketingConsent } = req.body;
     const userId = session.user.sub;
     const userEmail = session.user.email;
 
@@ -72,6 +72,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         account_owner_id: invite.account_owner_id,
         status: 'active',
         updated_at: new Date().toISOString(),
+        // Legal consent
+        terms_accepted_at: termsAccepted ? new Date().toISOString() : null,
+        marketing_consent: marketingConsent || false,
         // Only set these on insert, not update
         ...(!existingUser && {
           login_count: 1,

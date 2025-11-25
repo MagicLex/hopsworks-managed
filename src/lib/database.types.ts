@@ -22,6 +22,8 @@ export interface Database {
           feature_flags?: any;
           hopsworks_username?: string | null;
           hopsworks_user_id?: number | null;
+          terms_accepted_at?: string | null;
+          marketing_consent?: boolean;
         };
         Insert: Omit<Database['public']['Tables']['users']['Row'], 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['users']['Insert']>;

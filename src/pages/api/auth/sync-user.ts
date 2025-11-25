@@ -55,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const { sub: userId, email, name } = session.user;
-    const { corporateRef, promoCode, teamInviteToken } = req.body;
+    const { corporateRef, promoCode, teamInviteToken, termsAccepted, marketingConsent } = req.body;
     const healthCheckResults = {
       userExists: false,
       billingEnabled: false,
@@ -158,6 +158,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           status: 'active',
           billing_mode: billingMode || 'postpaid', // Default to postpaid for non-corporate users
           promo_code: normalizedPromoCode, // Store promo code in dedicated column
+          terms_accepted_at: termsAccepted ? new Date().toISOString() : null,
+          marketing_consent: marketingConsent || false,
           metadata
         });
 

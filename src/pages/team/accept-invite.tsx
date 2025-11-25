@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { Box, Flex, Card, Title, Text, Button, Badge } from 'tailwind-quartz';
-import { AlertTriangle, UserPlus, Clock } from 'lucide-react';
+import { AlertTriangle, UserPlus, Clock, Check } from 'lucide-react';
 
 interface InviteDetails {
   email: string;
@@ -17,6 +17,8 @@ export default function AcceptInvitePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [invite, setInvite] = useState<InviteDetails | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -106,12 +108,71 @@ export default function AcceptInvitePage() {
           )}
         </Box>
 
+        {/* Legal consent checkboxes */}
+        <Box className="space-y-3 mb-6">
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <Box className="relative mt-0.5">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="sr-only peer"
+              />
+              <Box className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-colors ${
+                termsAccepted
+                  ? 'bg-[#1eb182] border-[#1eb182]'
+                  : 'border-gray-300 group-hover:border-gray-400'
+              }`}>
+                {termsAccepted && <Check size={14} className="text-white" />}
+              </Box>
+            </Box>
+            <Text className="text-sm text-gray-700">
+              I agree to the{' '}
+              <Link href="/terms" target="_blank" className="text-[#1eb182] hover:underline">Terms of Service</Link>,{' '}
+              <Link href="/aup" target="_blank" className="text-[#1eb182] hover:underline">Acceptable Use Policy</Link>,{' '}
+              and{' '}
+              <Link href="/privacy" target="_blank" className="text-[#1eb182] hover:underline">Privacy Policy</Link>
+            </Text>
+          </label>
+
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <Box className="relative mt-0.5">
+              <input
+                type="checkbox"
+                checked={marketingConsent}
+                onChange={(e) => setMarketingConsent(e.target.checked)}
+                className="sr-only peer"
+              />
+              <Box className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-colors ${
+                marketingConsent
+                  ? 'bg-[#1eb182] border-[#1eb182]'
+                  : 'border-gray-300 group-hover:border-gray-400'
+              }`}>
+                {marketingConsent && <Check size={14} className="text-white" />}
+              </Box>
+            </Box>
+            <Text className="text-sm text-gray-600">
+              I would like to receive product updates and marketing communications (optional)
+            </Text>
+          </label>
+        </Box>
+
         <Box className="space-y-3">
-          <a href={invite.loginUrl} className="block">
-            <Button intent="primary" size="md" className="w-full">
-              Accept Invitation
-            </Button>
-          </a>
+          <Button
+            intent="primary"
+            size="md"
+            className="w-full"
+            disabled={!termsAccepted}
+            onClick={() => {
+              // Store consent in sessionStorage to persist through Auth0 flow
+              sessionStorage.setItem('terms_accepted', 'true');
+              sessionStorage.setItem('marketing_consent', marketingConsent ? 'true' : 'false');
+              // Redirect to Auth0 login
+              window.location.href = invite.loginUrl;
+            }}
+          >
+            Accept Invitation
+          </Button>
           <Link href="/" className="block">
             <Button intent="ghost" size="md" className="w-full">
               Cancel

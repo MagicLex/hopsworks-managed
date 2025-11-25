@@ -20,6 +20,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Get corporate ref and promo code from sessionStorage if present
       const corporateRef = sessionStorage.getItem('corporate_ref');
       const promoCode = sessionStorage.getItem('promo_code');
+      const termsAccepted = sessionStorage.getItem('terms_accepted') === 'true';
+      const marketingConsent = sessionStorage.getItem('marketing_consent') === 'true';
 
       // Check if we've already synced this session
       const syncedThisSession = sessionStorage.getItem('user_synced_session');
@@ -31,16 +33,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       fetch('/api/auth/sync-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ corporateRef, promoCode })
+        body: JSON.stringify({ corporateRef, promoCode, termsAccepted, marketingConsent })
       })
       .then(res => res.json())
       .then(data => {
         // Mark as synced for this session
         sessionStorage.setItem('user_synced_session', user.sub!);
 
-        // Clear corporate ref and promo code after successful sync
+        // Clear registration data after successful sync
         sessionStorage.removeItem('corporate_ref');
         sessionStorage.removeItem('promo_code');
+        sessionStorage.removeItem('terms_accepted');
+        sessionStorage.removeItem('marketing_consent');
 
         // Check if account is suspended (removed payment method)
         if (data.isSuspended && router.pathname !== '/billing-setup') {

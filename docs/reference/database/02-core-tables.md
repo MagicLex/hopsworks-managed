@@ -37,6 +37,10 @@ CREATE TABLE users (
   deleted_at TIMESTAMPTZ DEFAULT NULL,      -- Timestamp of soft delete
   deletion_reason TEXT DEFAULT NULL,        -- Reason: 'user_requested', 'team_member_removed', 'admin_action'
 
+  -- Legal consent
+  terms_accepted_at TIMESTAMPTZ DEFAULT NULL,  -- When user accepted Terms/AUP/Privacy
+  marketing_consent BOOLEAN DEFAULT false,     -- Opted into marketing communications
+
   -- Metadata
   registration_source TEXT,                 -- How user found us
   registration_ip INET,                     -- IP at registration
@@ -52,6 +56,7 @@ CREATE TABLE users (
 - `idx_users_stripe_customer_id` - For Stripe lookups
 - `idx_users_deleted_at` - For filtering deleted users
 - `idx_users_active` - For efficiently querying active users (deleted_at IS NULL)
+- `idx_users_terms_not_accepted` - For finding users who haven't accepted terms
 
 ### Constraints
 - `users_status_check` - Status must be one of: 'active', 'suspended', 'deleted'
