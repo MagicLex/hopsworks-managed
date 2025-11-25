@@ -27,6 +27,21 @@ type ProjectBreakdownEntry = {
 
 const HOURS_PER_MONTH = 30 * 24;
 
+// Hopsworks system projects to ignore (no billable user)
+// Note: comparison is case-insensitive so store lowercase
+const SYSTEM_PROJECTS = new Set([
+  'airflow',
+  'glassfish_timers',
+  'ycsb',
+  'hopsworks',
+  'metastore',
+  'mysql',
+  'heartbeat',
+  'hops',
+  'information_schema',
+  'performance_schema'
+]);
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -484,15 +499,13 @@ async function collectOpenCostMetrics() {
       );
 
       // Process projects with storage but no compute
-      const SYSTEM_PROJECTS = ['hopsworks', 'mysql', 'heartbeat', 'hops', 'metastore', 'information_schema', 'performance_schema'];
-
       for (const projectName of Array.from(allProjectsWithStorage)) {
         if (processedProjects.has(projectName)) {
           continue; // Already processed in compute loop
         }
 
-        // Skip system projects
-        if (SYSTEM_PROJECTS.includes(projectName.toLowerCase())) {
+        // Skip system projects (uses module-level SYSTEM_PROJECTS Set)
+        if (SYSTEM_PROJECTS.has(projectName.toLowerCase())) {
           continue;
         }
 
@@ -574,6 +587,10 @@ async function collectOpenCostMetrics() {
           }
 
           if (!userId) {
+            // Skip system projects silently
+            if (SYSTEM_PROJECTS.has(projectName.toLowerCase())) {
+              continue;
+            }
             console.warn(`[${cluster.name}] No user found for storage-only project ${projectName}`);
             continue;
           }

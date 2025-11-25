@@ -30,16 +30,23 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
         return res.status(400).json({ error: 'Email is required' });
       }
 
+      // Normalize and validate email
+      const normalizedEmail = email.trim().toLowerCase();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(normalizedEmail)) {
+        return res.status(400).json({ error: 'Invalid email address' });
+      }
+
       // Validate role
       const validRoles = ['Data owner', 'Data scientist', 'Observer'];
       if (!validRoles.includes(projectRole)) {
         return res.status(400).json({ error: 'Invalid project role. Valid roles: Data owner, Data scientist, Observer' });
       }
 
-      // Check if user is an account owner (account_owner_id is NULL)
+      // Check if user is an account owner (account_owner_id is NULL) and has cluster access
       const { data: currentUser, error: userError } = await supabase
         .from('users')
-        .select('account_owner_id')
+        .select('account_owner_id, billing_mode, stripe_customer_id')
         .eq('id', userId)
         .single();
 
@@ -51,11 +58,25 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
         return res.status(403).json({ error: 'Only account owners can invite team members' });
       }
 
+      // Check if owner has cluster assignment (required before inviting)
+      const { data: clusterAssignment } = await supabase
+        .from('user_hopsworks_assignments')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+
+      if (!clusterAssignment) {
+        return res.status(403).json({
+          error: 'You must complete billing setup before inviting team members',
+          code: 'BILLING_REQUIRED'
+        });
+      }
+
       // Check if email is already a user
       const { data: existingUser } = await supabase
         .from('users')
         .select('id')
-        .eq('email', email)
+        .eq('email', normalizedEmail)
         .single();
 
       if (existingUser) {
@@ -66,7 +87,7 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
       const { data: existingInvite } = await supabase
         .from('team_invites')
         .select('id')
-        .eq('email', email)
+        .eq('email', normalizedEmail)
         .eq('account_owner_id', userId)
         .is('accepted_at', null)
         .single();
@@ -83,7 +104,7 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
         .from('team_invites')
         .insert({
           account_owner_id: userId,
-          email,
+          email: normalizedEmail,
           token,
           project_role: projectRole,
           auto_assign_projects: autoAssignProjects,
@@ -112,7 +133,7 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
       try {
         await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL || 'Hopsworks <no-reply@hopsworks.com>',
-          to: email,
+          to: normalizedEmail,
           subject: `${inviterName} invited you to join their Hopsworks team`,
           html: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -152,7 +173,7 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
         distinctId: userId,
         event: 'team_invite_sent',
         properties: {
-          inviteeEmail: email,
+          inviteeEmail: normalizedEmail,
           projectRole,
           autoAssignProjects,
           inviterEmail: inviter?.email,

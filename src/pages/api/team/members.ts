@@ -33,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // If user is a team member, they can only see their own team
       const accountOwnerId = currentUser.account_owner_id || userId;
 
-      // Get all team members for this account
+      // Get all team members for this account with their project assignments
       const { data: teamMembers, error } = await supabase
         .from('users')
         .select(`
@@ -43,7 +43,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           created_at,
           last_login_at,
           hopsworks_username,
-          status
+          status,
+          project_member_roles:project_member_roles!project_member_roles_member_id_fkey (
+            project_name,
+            role,
+            synced_to_hopsworks
+          )
         `)
         .eq('account_owner_id', accountOwnerId)
         .order('created_at', { ascending: false });

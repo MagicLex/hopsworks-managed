@@ -6,6 +6,8 @@ export interface BillingInfo {
   hasPaymentMethod: boolean;
   isSuspended?: boolean;
   isTeamMember?: boolean;
+  termsAcceptedAt?: string | null;
+  marketingConsent?: boolean;
   accountOwner?: {
     email: string;
     name?: string;
@@ -108,7 +110,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   useEffect(() => {
     fetchBilling();
-  }, [user]);
+  }, [user?.sub]);
 
   return (
     <BillingContext.Provider value={{ billing, loading, error, refetch: fetchBilling }}>

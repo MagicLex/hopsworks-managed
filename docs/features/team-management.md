@@ -40,12 +40,15 @@ POST /api/team/invite
 }
 ```
 
+**prerequisite:** the account owner must have completed billing setup (have a cluster assignment) before inviting team members. this ensures the owner's cluster is ready to receive team members.
+
 the system:
 1. validates the requester is an account owner
-2. checks the email isn't already a team member
-3. creates an invite record with 7-day expiration
-4. stores project role preference and auto-assignment settings
-5. sends an email with the invite link
+2. **verifies the owner has a cluster assignment** (returns 403 if not)
+3. checks the email isn't already a team member
+4. creates an invite record with 7-day expiration
+5. stores project role preference and auto-assignment settings
+6. sends an email with the invite link
 
 ### accepting invites
 
@@ -57,13 +60,17 @@ https://your-domain/team/accept-invite?token=uuid-token
 
 the acceptance process:
 1. validates the token and expiration
-2. user authenticates via auth0
-3. system links user to the account owner
-4. inherits billing mode and cluster assignment
-5. **automatically creates Hopsworks OAuth user** with 0 project limit (no user interaction needed)
-6. stores `hopsworks_user_id` and `hopsworks_username` immediately
-7. **auto-assigns to owner's projects** if `autoAssignProjects=true` (happens instantly)
-8. redirects to dashboard - member can access cluster immediately
+2. **user must accept Terms of Service and Privacy Policy** (checkbox on accept-invite page)
+3. user authenticates via auth0
+4. `/api/team/join` is called with `termsAccepted: true` (required, returns 400 if false)
+5. system links user to the account owner and saves `terms_accepted_at`
+6. inherits billing mode and cluster assignment
+7. **automatically creates Hopsworks OAuth user** with 0 project limit (no user interaction needed)
+8. stores `hopsworks_user_id` and `hopsworks_username` immediately
+9. **auto-assigns to owner's projects** if `autoAssignProjects=true` (happens instantly)
+10. redirects to dashboard - member can access cluster immediately
+
+**note:** team members do not see the billing-setup page since they inherit billing from the account owner. the terms acceptance happens during the invite acceptance flow.
 
 ## database schema
 
@@ -372,21 +379,23 @@ POST /api/team/sync-member-projects
 
 returns detailed sync results with any errors
 
-### group mapping implementation
+### project membership implementation
 
-**IMPORTANT**: requires Hopsworks 4.6.0+ for OAuth group mapping support
-
-the system uses OAuth group mappings to grant project access:
+the system uses the admin endpoint to add users to projects:
 ```javascript
 // When adding a team member to a project
-POST /hopsworks-api/api/admin/group/mapping/bulk
+POST /hopsworks-api/api/admin/projects/add-to-projects
 {
-  "projectName": "ml_project_1",
-  "group": ["user_membername123"],  // unique group per user
-  "projectRole": "Data scientist",
-  "groupType": "OAUTH"
+  "username": "membername123",
+  "role": "Data scientist",
+  "projectIds": [120, 121]
 }
 ```
+
+this endpoint accepts:
+- `username` - the Hopsworks username (not email)
+- `role` - one of "Data owner", "Data scientist", "Observer"
+- `projectIds` - array of numeric project IDs
 
 ### database tracking
 

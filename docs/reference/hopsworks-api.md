@@ -575,13 +575,54 @@ curl -X POST 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/projects/crea
 
 ## Team Management
 
-### Add Project Members
+### Add User to Projects (Admin) ✅ RECOMMENDED
+
+**Endpoint**: `POST /admin/projects/add-to-projects`
+
+Add a user to one or more projects with a specific role. This is the **recommended endpoint** for admin operations as it works with admin API keys.
+
+**Available Roles**:
+- `Data owner` - Full project access
+- `Data scientist` - Read/write access to datasets and jobs
+- `Observer` - Read-only access
+
+**Request Body**:
+```json
+{
+  "username": "username123",
+  "role": "Data scientist",
+  "projectIds": [120, 121, 122]
+}
+```
+
+**Example**:
+```bash
+curl -X POST 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/projects/add-to-projects' \
+  -H "Authorization: ApiKey YOUR_ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "newuser1",
+    "role": "Data scientist",
+    "projectIds": [120]
+  }'
+```
+
+**Response** (200 OK): Empty body on success.
+
+**Usage in Code** (`src/lib/hopsworks-team.ts`):
+```typescript
+await addUserToProject(credentials, 'projectName', hopsworksUserId, 'Data scientist');
+```
+
+---
+
+### Add Project Members (User Endpoint)
 
 **Endpoint**: `POST /project/{projectId}/projectMembers`
 
 Add one or more users to a project with specific roles (JSON body with MembersDTO).
 
-**⚠️ Limitation**: This endpoint requires the API key to belong to a user who is already a member of the project. Admin API keys may fail with error `160000: "No valid role found for this user"`.
+**⚠️ Limitation**: This endpoint requires the API key to belong to a user who is already a member of the project. Admin API keys will fail with error `160000: "No valid role found for this user"`. **Use `/admin/projects/add-to-projects` instead for admin operations.**
 
 **Available Roles**:
 - `Data owner` - Full project access
@@ -606,7 +647,7 @@ Add one or more users to a project with specific roles (JSON body with MembersDT
 **Example**:
 ```bash
 curl -X POST 'https://cluster.hopsworks.ai/hopsworks-api/api/project/120/projectMembers' \
-  -H "Authorization: ApiKey YOUR_API_KEY" \
+  -H "Authorization: ApiKey YOUR_PROJECT_MEMBER_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "projectTeam": [

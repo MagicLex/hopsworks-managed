@@ -17,17 +17,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (user && !isLoading) {
+      // Check if we've already synced this session - do this FIRST to prevent race conditions
+      const syncedThisSession = sessionStorage.getItem('user_synced_session');
+      if (syncedThisSession === user.sub) {
+        return; // Already synced this user in this session
+      }
+
+      // Mark as syncing IMMEDIATELY to prevent duplicate calls from concurrent renders
+      sessionStorage.setItem('user_synced_session', user.sub!);
+
       // Get corporate ref and promo code from sessionStorage if present
       const corporateRef = sessionStorage.getItem('corporate_ref');
       const promoCode = sessionStorage.getItem('promo_code');
       const termsAccepted = sessionStorage.getItem('terms_accepted') === 'true';
       const marketingConsent = sessionStorage.getItem('marketing_consent') === 'true';
-
-      // Check if we've already synced this session
-      const syncedThisSession = sessionStorage.getItem('user_synced_session');
-      if (syncedThisSession === user.sub) {
-        return; // Already synced this user in this session
-      }
 
       // Sync user to Supabase when they log in
       fetch('/api/auth/sync-user', {
@@ -37,8 +40,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .then(res => res.json())
       .then(data => {
-        // Mark as synced for this session
-        sessionStorage.setItem('user_synced_session', user.sub!);
 
         // Clear registration data after successful sync
         sessionStorage.removeItem('corporate_ref');
@@ -59,7 +60,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           router.push('/billing-setup');
         }
       })
-      .catch(err => console.error('Failed to sync user:', err));
+      .catch(err => {
+        console.error('Failed to sync user:', err);
+        // Reset sync flag so it can retry on next render
+        sessionStorage.removeItem('user_synced_session');
+      });
     }
   }, [user, isLoading, router.pathname]); // Only re-run if pathname changes to billing-setup
 

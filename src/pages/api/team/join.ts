@@ -29,6 +29,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Invalid invite token' });
     }
 
+    // Terms must be accepted to join
+    if (!termsAccepted) {
+      return res.status(400).json({ error: 'You must accept the Terms of Service to join' });
+    }
+
     // Get invite details
     const { data: invite, error: inviteError } = await supabase
       .from('team_invites')
@@ -126,7 +131,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               hopsworks_cluster_id,
               hopsworks_clusters!inner (
                 api_url,
-                api_key
+                api_key,
+                kubeconfig,
+                mysql_password
               )
             )
           `)
@@ -145,7 +152,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const assignment = owner.user_hopsworks_assignments[0] as any;
           const credentials = {
             apiUrl: assignment.hopsworks_clusters.api_url,
-            apiKey: assignment.hopsworks_clusters.api_key
+            apiKey: assignment.hopsworks_clusters.api_key,
+            kubeconfig: assignment.hopsworks_clusters.kubeconfig,
+            mysqlPassword: assignment.hopsworks_clusters.mysql_password
           };
 
           // Get owner's projects

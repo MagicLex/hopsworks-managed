@@ -30,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get user billing info
     const { data: user } = await supabaseAdmin
       .from('users')
-      .select('billing_mode, stripe_customer_id, feature_flags, account_owner_id, status')
+      .select('billing_mode, stripe_customer_id, feature_flags, account_owner_id, status, terms_accepted_at, marketing_consent')
       .eq('id', userId)
       .single();
     
@@ -259,6 +259,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       billingMode: user?.billing_mode || 'postpaid',
       hasPaymentMethod,
       isSuspended: user?.status === 'suspended',
+      termsAcceptedAt: user?.terms_accepted_at || null,
+      marketingConsent: user?.marketing_consent || false,
       paymentMethodDetails,
       subscriptionStatus: null, // Column doesn't exist in DB
       prepaidEnabled: user?.feature_flags?.prepaid_enabled || false,

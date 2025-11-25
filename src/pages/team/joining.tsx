@@ -19,10 +19,6 @@ export default function JoiningTeamPage() {
     const termsAccepted = sessionStorage.getItem('terms_accepted') === 'true';
     const marketingConsent = sessionStorage.getItem('marketing_consent') === 'true';
 
-    // Clear consent from sessionStorage
-    sessionStorage.removeItem('terms_accepted');
-    sessionStorage.removeItem('marketing_consent');
-
     // Process the team invitation
     fetch('/api/team/join', {
       method: 'POST',
@@ -35,11 +31,16 @@ export default function JoiningTeamPage() {
           setStatus('error');
           setMessage(data.error);
         } else {
+          // Only clear consent AFTER successful join
+          sessionStorage.removeItem('terms_accepted');
+          sessionStorage.removeItem('marketing_consent');
+
           setStatus('success');
           setMessage('Successfully joined the team!');
           // Redirect to dashboard after 2 seconds
+          // Add joined=true param to skip billing check on first load
           setTimeout(() => {
-            router.push('/dashboard');
+            router.push('/dashboard?joined=true');
           }, 2000);
         }
       })

@@ -15,8 +15,7 @@ interface HopsworksCredentials {
 
 /**
  * Add a user to a project with a specific role
- * FOR OAUTH USERS: Use group mappings via admin endpoint
- * FALLBACK: Try direct project member endpoint if group mapping fails
+ * Uses the admin endpoint POST /admin/projects/add-to-projects
  */
 export async function addUserToProject(
   credentials: HopsworksCredentials,
@@ -43,9 +42,9 @@ export async function addUserToProject(
 
   console.log(`Adding user ${username} (ID: ${hopsworksUserId}, email: ${userEmail}) to project ${projectName} (id: ${project.id}) as ${role}`);
 
-  // Try the project members endpoint directly (works with OAuth users)
+  // Use the admin endpoint to add user to projects
   const response = await fetch(
-    `${credentials.apiUrl}${HOPSWORKS_API_BASE}/project/${project.id}/projectMembers/${encodeURIComponent(userEmail)}`,
+    `${credentials.apiUrl}${ADMIN_API_BASE}/projects/add-to-projects`,
     {
       method: 'POST',
       headers: {
@@ -53,7 +52,9 @@ export async function addUserToProject(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        projectTeam: role
+        username: username,
+        role: role,
+        projectIds: [project.id]
       })
     }
   );
@@ -79,7 +80,7 @@ export async function addUserToProject(
   console.log(`Successfully added ${username} to ${projectName} as ${role}`);
 }
 
-// createGroupMapping removed - use addUserToProject which now uses group mappings internally
+// createGroupMapping removed - use addUserToProject which uses admin endpoint
 
 /**
  * Get projects owned by a specific user

@@ -61,6 +61,12 @@ interface InstanceData {
   created: string | null;
 }
 
+interface ProjectMemberRole {
+  project_name: string;
+  role: string;
+  synced_to_hopsworks: boolean;
+}
+
 interface TeamData {
   account_owner: {
     id: string;
@@ -75,6 +81,7 @@ interface TeamData {
     last_login_at: string;
     hopsworks_username: string;
     status: string;
+    project_member_roles?: ProjectMemberRole[];
   }>;
   is_owner: boolean;
 }
@@ -146,12 +153,23 @@ export default function Dashboard() {
     }
   }, [user, authLoading, router, billing]);
 
-  // Redirect suspended users to billing setup
+  // Redirect suspended users or users who haven't accepted terms to billing setup
+  // Team members don't need billing setup - they inherit from account owner
   useEffect(() => {
-    if (!billingLoading && billing?.isSuspended) {
-      router.push('/billing-setup');
+    if (!billingLoading && billing) {
+      // Skip check if user just joined a team (billing context may not be updated yet)
+      if (router.query.joined === 'true') {
+        return;
+      }
+      if (billing.isTeamMember) {
+        // Team members don't need billing setup
+        return;
+      }
+      if (billing.isSuspended || !billing.termsAcceptedAt) {
+        router.push('/billing-setup');
+      }
     }
-  }, [billing?.isSuspended, billingLoading, router]);
+  }, [billing, billingLoading, router]);
 
   // Handle tab query parameter
   useEffect(() => {
@@ -774,6 +792,7 @@ mr = project.get_model_registry()`;
                                   memberEmail={member.email}
                                   memberName={member.name || member.email}
                                   hopsworksUsername={member.hopsworks_username}
+                                  projects={member.project_member_roles}
                                 />
                               </Box>
                             </Box>

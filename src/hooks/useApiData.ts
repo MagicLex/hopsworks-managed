@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export function useApiData<T>(url: string) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const refetch = async () => {
+  const refetch = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(url);
@@ -19,11 +19,11 @@ export function useApiData<T>(url: string) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [url]);
 
   useEffect(() => {
     refetch();
-  }, [url]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [refetch]);
 
   return { data, loading, error, refetch };
 }

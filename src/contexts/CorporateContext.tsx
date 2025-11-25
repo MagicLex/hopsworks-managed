@@ -25,7 +25,7 @@ export const CorporateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!user) {
+    if (!user?.sub) {
       setIsCorporate(false);
       setCompanyName(null);
       setCompanyLogo(null);
@@ -45,7 +45,7 @@ export const CorporateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       })
       .catch(err => console.error('Failed to fetch corporate info:', err))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [user?.sub]);
 
   return (
     <CorporateContext.Provider value={{ isCorporate, companyName, companyLogo, loading }}>
