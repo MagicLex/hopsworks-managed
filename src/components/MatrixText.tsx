@@ -12,7 +12,7 @@ export const MatrixText: React.FC<MatrixTextProps> = ({ text }) => {
           key={index}
           className="relative inline-block animate-matrix-char"
           style={{
-            animationDelay: `${index * 0.15}s`,
+            animationDelay: `${index * 0.2}s`,
           }}
         >
           {char}

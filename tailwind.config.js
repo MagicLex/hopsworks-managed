@@ -16,23 +16,17 @@ module.exports = {
           '50%': { backgroundPosition: '100% 50%' },
         },
         'matrix-char': {
-          '0%, 100%': {
-            color: '#374151', // gray
-          },
-          '25%': {
-            color: '#10b981', // green
-          },
-          '50%': {
-            color: '#06b6d4', // cyan
-          },
-          '75%': {
-            color: '#8b5cf6', // purple
-          },
+          '0%, 19.9%': { color: '#022c22' },
+          '20%, 39.9%': { color: '#064e3b' },
+          '40%, 59.9%': { color: '#047857' },
+          '60%, 79.9%': { color: '#059669' },
+          '80%, 99.9%': { color: '#10b981' },
+          '100%': { color: '#022c22' },
         },
       },
       animation: {
         gradient: 'gradient 3s ease infinite',
-        'matrix-char': 'matrix-char 2s steps(4) infinite',
+        'matrix-char': 'matrix-char 1s infinite',
       },
     },
   },
