@@ -3,6 +3,7 @@ import { Modal, Button, Input, Flex, Box, Title, Text, Labeling, Card } from 'ta
 import { User, LogIn, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import posthog from 'posthog-js';
+import Link from 'next/link';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>(mode);
   const [isCorporate, setIsCorporate] = useState(false);
   const [isPromo, setIsPromo] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   useEffect(() => {
     // Check for corporate ref in URL or props
@@ -88,6 +90,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             size="md"
             onClick={handleSignIn}
             className="w-full"
+            disabled={authMode === 'signup' && !termsAccepted}
           >
             {authMode === 'signin' ? 'Log In with Auth0' : 'Sign Up with Auth0'}
           </Button>
@@ -116,9 +119,39 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           </Button>
         </Flex>
 
-        <Labeling gray className="text-xs text-center">
-          By signing in, you agree to our Terms of Service and Privacy Policy.
-        </Labeling>
+        {authMode === 'signup' ? (
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-[#1eb182] focus:ring-[#1eb182]"
+            />
+            <Text className="text-xs text-gray-600">
+              I have read and agree to the{' '}
+              <Link href="/terms" target="_blank" className="text-[#1eb182] hover:underline">
+                Terms of Service
+              </Link>
+              ,{' '}
+              <Link href="/privacy" target="_blank" className="text-[#1eb182] hover:underline">
+                Privacy Policy
+              </Link>
+              , and consent to analytics data collection for service improvement.
+            </Text>
+          </label>
+        ) : (
+          <Labeling gray className="text-xs text-center">
+            By logging in, you agree to our{' '}
+            <Link href="/terms" target="_blank" className="text-[#1eb182] hover:underline">
+              Terms of Service
+            </Link>
+            ,{' '}
+            <Link href="/privacy" target="_blank" className="text-[#1eb182] hover:underline">
+              Privacy Policy
+            </Link>
+            , and analytics data collection.
+          </Labeling>
+        )}
       </Flex>
     </Modal>
   );
