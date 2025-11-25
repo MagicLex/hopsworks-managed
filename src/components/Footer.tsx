@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Box, Flex, Text } from 'tailwind-quartz';
+import { Slack, Linkedin, Twitter } from 'lucide-react';
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -37,6 +38,35 @@ const Footer: React.FC = () => {
               </Flex>
             )}
           </Flex>
+          <Flex align="center" gap={12}>
+            <a
+              href="https://join.slack.com/t/public-hopsworks/shared_invite/zt-1uf21vitz-rhHKNdIf8GEiOf1EJ6Wzsw"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-[#4A154B] transition-colors"
+              title="Join our Slack community"
+            >
+              <Slack size={18} />
+            </a>
+            <a
+              href="https://www.linkedin.com/company/hopsworks/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-[#0A66C2] transition-colors"
+              title="Follow us on LinkedIn"
+            >
+              <Linkedin size={18} />
+            </a>
+            <a
+              href="https://twitter.com/hopsworks"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-gray-900 transition-colors"
+              title="Follow us on X"
+            >
+              <Twitter size={18} />
+            </a>
+          </Flex>
           <Flex gap={16} className="text-xs">
             <Link href="/terms" className="text-gray-500 hover:text-gray-700">
               Terms
@@ -44,17 +74,17 @@ const Footer: React.FC = () => {
             <Link href="/privacy" className="text-gray-500 hover:text-gray-700">
               Privacy
             </Link>
-            <a 
-              href="https://docs.hopsworks.ai" 
-              target="_blank" 
+            <a
+              href="https://docs.hopsworks.ai"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-gray-500 hover:text-gray-700"
             >
               Docs
             </a>
-            <a 
-              href="https://www.hopsworks.ai/contact/main" 
-              target="_blank" 
+            <a
+              href="https://www.hopsworks.ai/contact/main"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-gray-500 hover:text-gray-700"
             >
