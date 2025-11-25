@@ -6,7 +6,7 @@ interface MatrixTextProps {
 
 export const MatrixText: React.FC<MatrixTextProps> = ({ text }) => {
   return (
-    <span className="font-mono relative inline-block">
+    <span className="font-mono font-bold relative inline-block">
       {text.split('').map((char, index) => (
         <span
           key={index}

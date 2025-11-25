@@ -17,16 +17,22 @@ module.exports = {
         },
         'matrix-char': {
           '0%, 100%': {
-            color: '#374151',
+            color: '#374151', // gray
+          },
+          '25%': {
+            color: '#10b981', // green
           },
           '50%': {
-            color: '#10b981',
+            color: '#06b6d4', // cyan
+          },
+          '75%': {
+            color: '#8b5cf6', // purple
           },
         },
       },
       animation: {
         gradient: 'gradient 3s ease infinite',
-        'matrix-char': 'matrix-char 2.5s steps(8) infinite',
+        'matrix-char': 'matrix-char 2s steps(4) infinite',
       },
     },
   },
