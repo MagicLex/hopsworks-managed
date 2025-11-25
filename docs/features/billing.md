@@ -26,8 +26,8 @@ Rates live in `src/config/billing-rates.ts` and represent the single source of t
 | 1 vCPU hour             | 0.50    | $0.175         |
 | 1 GPU hour              | 10.00   | $3.50          |
 | 1 GB RAM hour           | 0.05    | $0.0175        |
-| 1 GB-month online storage | 2.00  | $0.50          |
-| 1 GB-month offline storage | 0.12 | $0.03          |
+| 1 GB-month online storage | 1.4286 | $0.50          |
+| 1 GB-month offline storage | 0.0857 | $0.03         |
 | 1 GB network egress     | 0.40    | $0.14          |
 
 ### Credits as an Internal Unit
