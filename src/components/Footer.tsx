@@ -40,7 +40,7 @@ const Footer: React.FC = () => {
           </Flex>
           <Flex align="center" gap={12}>
             <a
-              href="https://join.slack.com/t/public-hopsworks/shared_invite/zt-1uf21vitz-rhHKNdIf8GEiOf1EJ6Wzsw"
+              href="https://join.slack.com/t/public-hopsworks/shared_invite/zt-24fc3hhyq-VBEiN8UZlKsDrrLvtU4NaA"
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-400 hover:text-[#4A154B] transition-colors"
