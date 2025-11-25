@@ -569,8 +569,8 @@ export default function Dashboard() {
                         className="absolute top-2 right-2 z-10"
                         onClick={() => {
                           // Extract host and port from endpoint URL if available
-                          let host = '162.19.238.22';
-                          let port = 28181;
+                          let host = 'YOUR_CLUSTER_HOST';
+                          let port = 443;
                           if (instance?.endpoint) {
                             try {
                               const url = new URL(instance.endpoint);
@@ -654,7 +654,7 @@ mr = project.get_model_registry()`;
                                 return url.hostname;
                               } catch (e) {}
                             }
-                            return '162.19.238.22';
+                            return 'YOUR_CLUSTER_HOST';
                           })()}&quot;</span>,
                           {'\n    '}
                           <span className="text-orange-300">port</span>=<span className="text-purple-300">{(() => {
@@ -664,7 +664,7 @@ mr = project.get_model_registry()`;
                                 return parseInt(url.port) || (url.protocol === 'https:' ? 443 : 80);
                               } catch (e) {}
                             }
-                            return 28181;
+                            return 443;
                           })()}</span>,
                           {'\n    '}
                           <span className="text-orange-300">api_key_value</span>=<span className="text-green-300">&quot;your api key&quot;</span>  <span className="text-gray-500"># Get from Hopsworks UI &gt; Account Settings &gt; API Keys</span>
