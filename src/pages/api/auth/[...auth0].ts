@@ -13,15 +13,32 @@ const supabaseAdmin = createClient(
   }
 );
 
+// Validate returnTo to prevent open redirect attacks
+function validateReturnTo(returnTo: string | string[] | undefined): string {
+  if (!returnTo || Array.isArray(returnTo)) return '/';
+
+  // Only allow relative paths (starting with /)
+  // Reject absolute URLs, protocol-relative URLs (//), and other schemes
+  if (!returnTo.startsWith('/') || returnTo.startsWith('//')) {
+    return '/';
+  }
+
+  // Additional safety: no backslashes (IE quirk), no control chars
+  if (returnTo.includes('\\') || /[\x00-\x1f]/.test(returnTo)) {
+    return '/';
+  }
+
+  return returnTo;
+}
+
 export default handleAuth({
   signup: handleLogin({
     authorizationParams: {
       screen_hint: 'signup'
     },
     getLoginState: (req: NextApiRequest) => {
-      // Preserve returnTo parameter for signup flow
       return {
-        returnTo: req.query.returnTo as string || '/'
+        returnTo: validateReturnTo(req.query.returnTo)
       };
     }
   }),

@@ -81,6 +81,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       try {
         const customerId = usage.users.stripe_customer_id;
 
+        // Idempotency key base - ensures retry won't double-bill
+        const idempotencyBase = `usage_${usage.id}`;
+
         // Report compute credits (send as centi-credits for Stripe integer requirement)
         if (usage.total_credits > 0) {
           const centiCredits = Math.round(usage.total_credits * 100); // 1.11 credits → 111 centi-credits
@@ -91,6 +94,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               stripe_customer_id: customerId,
             },
             timestamp: Math.floor(new Date(reportDate).getTime() / 1000)
+          }, {
+            idempotencyKey: `${idempotencyBase}_compute`
           });
 
           // Update our record with Stripe ID
@@ -116,6 +121,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               stripe_customer_id: customerId,
             },
             timestamp: Math.floor(new Date(reportDate).getTime() / 1000)
+          }, {
+            idempotencyKey: `${idempotencyBase}_online_storage`
           });
         }
 
@@ -128,6 +135,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               stripe_customer_id: customerId,
             },
             timestamp: Math.floor(new Date(reportDate).getTime() / 1000)
+          }, {
+            idempotencyKey: `${idempotencyBase}_offline_storage`
           });
         }
 
