@@ -21,7 +21,7 @@ export async function addUserToProject(
   credentials: HopsworksCredentials,
   projectName: string,
   hopsworksUserId: number,
-  role: 'Data owner' | 'Data scientist' | 'Observer' = 'Data scientist'
+  role: 'Data owner' | 'Data scientist' = 'Data scientist'
 ): Promise<void> {
   // VALIDATE PROJECT EXISTS FIRST
   const project = await validateProject(credentials, projectName);

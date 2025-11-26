@@ -35,7 +35,7 @@ account owners can invite team members via email:
 POST /api/team/invite
 {
   "email": "newmember@example.com",
-  "projectRole": "Data scientist",    // optional: "Data owner", "Data scientist", "Observer"
+  "projectRole": "Data scientist",    // optional: "Data owner", "Data scientist"
   "autoAssignProjects": true          // optional: auto-add to owner's projects on join
 }
 ```
@@ -362,7 +362,7 @@ POST /api/team/member-projects
 {
   "memberId": "auth0|member-id",
   "projectName": "ml_project_1",
-  "role": "Data scientist",  // "Data owner", "Data scientist", or "Observer"
+  "role": "Data scientist",  // "Data owner" or "Data scientist"
   "action": "add"            // "add" or "remove"
 }
 ```
@@ -394,7 +394,7 @@ POST /hopsworks-api/api/admin/projects/add-to-projects
 
 this endpoint accepts:
 - `username` - the Hopsworks username (not email)
-- `role` - one of "Data owner", "Data scientist", "Observer"
+- `role` - one of "Data owner", "Data scientist"
 - `projectIds` - array of numeric project IDs
 
 ### database tracking
@@ -405,7 +405,7 @@ member_id: auth0 user id
 account_owner_id: owner's auth0 id
 project_id: hopsworks project id
 project_name: project name
-role: "Data owner" | "Data scientist" | "Observer"
+role: "Data owner" | "Data scientist"
 synced_to_hopsworks: boolean
 sync_error: error message if sync failed
 last_sync_at: timestamp of last sync attempt

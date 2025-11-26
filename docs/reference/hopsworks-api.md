@@ -584,7 +584,6 @@ Add a user to one or more projects with a specific role. This is the **recommend
 **Available Roles**:
 - `Data owner` - Full project access
 - `Data scientist` - Read/write access to datasets and jobs
-- `Observer` - Read-only access
 
 **Request Body**:
 ```json
@@ -627,7 +626,6 @@ Add one or more users to a project with specific roles (JSON body with MembersDT
 **Available Roles**:
 - `Data owner` - Full project access
 - `Data scientist` - Read/write access to datasets and jobs
-- `Observer` - Read-only access
 
 **Request Body (MembersDTO)**:
 ```json

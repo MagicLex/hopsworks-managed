@@ -1447,7 +1447,6 @@ mr = project.get_model_registry()`;
             >
               <option value="Data scientist">Data scientist</option>
               <option value="Data owner">Data owner</option>
-              <option value="Observer">Observer</option>
             </Select>
             <Text className="text-xs text-gray-500 mt-1">
               Role they&apos;ll have when added to your projects

@@ -120,7 +120,7 @@ CREATE TABLE team_invites (
 - Only one pending invite per email per owner.
 - Token is used in invite acceptance URL.
 - When accepted, Auth0 webhook links new user to owner.
-- `project_role` controls the initial Hopsworks role (`Data owner`, `Data scientist`, `Observer`).
+- `project_role` controls the initial Hopsworks role (`Data owner`, `Data scientist`).
 - `auto_assign_projects` triggers automatic project membership syncing during join.
 
 ### Usage Examples
@@ -157,7 +157,7 @@ CREATE TABLE project_member_roles (
   project_id INTEGER NOT NULL,
   project_name TEXT NOT NULL,
   project_namespace TEXT,
-  role TEXT NOT NULL CHECK (role IN ('Data owner', 'Data scientist', 'Observer')),
+  role TEXT NOT NULL CHECK (role IN ('Data owner', 'Data scientist')),
   synced_to_hopsworks BOOLEAN DEFAULT false,
   last_sync_at TIMESTAMPTZ,
   sync_error TEXT,

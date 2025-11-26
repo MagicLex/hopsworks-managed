@@ -38,9 +38,9 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
       }
 
       // Validate role
-      const validRoles = ['Data owner', 'Data scientist', 'Observer'];
+      const validRoles = ['Data owner', 'Data scientist'];
       if (!validRoles.includes(projectRole)) {
-        return res.status(400).json({ error: 'Invalid project role. Valid roles: Data owner, Data scientist, Observer' });
+        return res.status(400).json({ error: 'Invalid project role. Valid roles: Data owner, Data scientist' });
       }
 
       // Check if user is an account owner (account_owner_id is NULL) and has cluster access

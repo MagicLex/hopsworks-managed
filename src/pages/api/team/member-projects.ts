@@ -52,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Validate role
-    const validRoles = ['Data owner', 'Data scientist', 'Observer'];
+    const validRoles = ['Data owner', 'Data scientist'];
     if (action === 'add' && !validRoles.includes(role)) {
       return res.status(400).json({ error: 'Invalid role' });
     }
