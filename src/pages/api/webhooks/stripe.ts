@@ -312,57 +312,25 @@ async function handlePaymentMethodAttached(paymentMethod: Stripe.PaymentMethod) 
       await reactivateUser(supabaseAdmin as any, user.id, 'payment_method_attached');
     }
 
-    // For postpaid users without subscription, create one
-    if ((!user.billing_mode || user.billing_mode === 'postpaid') && !user.stripe_subscription_id) {
-      try {
-        // Check Stripe directly for existing subscriptions (race condition guard)
-        const existingSubscriptions = await stripe.subscriptions.list({
-          customer: customerId,
-          limit: 1
-        });
+    // NOTE: We do NOT create subscriptions here - that's done in handlePaymentMethodSetup
+    // (checkout.session.completed) to avoid race conditions causing duplicate subscriptions.
+    // This handler only syncs existing subscriptions if our DB is out of sync.
+    if (!user.stripe_subscription_id) {
+      const existingSubscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        limit: 1
+      });
 
-        if (existingSubscriptions.data.length > 0) {
-          // Already has subscription, just update our DB
-          const existingSub = existingSubscriptions.data[0];
-          await supabaseAdmin
-            .from('users')
-            .update({
-              stripe_subscription_id: existingSub.id,
-              stripe_subscription_status: existingSub.status
-            })
-            .eq('id', user.id);
-          console.log(`User ${user.id} already has subscription ${existingSub.id}, synced to DB (payment_method.attached)`);
-        } else {
-          const { data: stripeProducts } = await supabaseAdmin
-            .from('stripe_products')
-            .select('*')
-            .eq('active', true);
-
-          if (stripeProducts && stripeProducts.length > 0) {
-            const subscription = await stripe.subscriptions.create({
-              customer: customerId,
-              items: stripeProducts.map(product => ({
-                price: product.stripe_price_id
-              })),
-              metadata: {
-                user_id: user.id,
-                email: user.email
-              }
-            });
-
-            await supabaseAdmin
-              .from('users')
-              .update({
-                stripe_subscription_id: subscription.id,
-                stripe_subscription_status: subscription.status
-              })
-              .eq('id', user.id);
-
-            console.log(`Created subscription ${subscription.id} for user ${user.id} after payment attached`);
-          }
-        }
-      } catch (error) {
-        console.error(`Failed to create subscription for user ${user.id}:`, error);
+      if (existingSubscriptions.data.length > 0) {
+        const existingSub = existingSubscriptions.data[0];
+        await supabaseAdmin
+          .from('users')
+          .update({
+            stripe_subscription_id: existingSub.id,
+            stripe_subscription_status: existingSub.status
+          })
+          .eq('id', user.id);
+        console.log(`Synced existing subscription ${existingSub.id} to DB for user ${user.id}`);
       }
     }
 
