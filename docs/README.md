@@ -23,6 +23,7 @@
 ## Operations
 
 - [Deployment](operations/deployment.md) - Vercel deployment, environment config
+- [SAAS Cluster](operations/saas-cluster.md) - Infrastructure TLDR (OVH, K8s, access levels)
 - [Cluster Setup](operations/cluster-setup.md) - New Hopsworks cluster onboarding
 - [OpenCost Collection](operations/opencost-collection.md) - Hourly metrics collection job
 - [Health Checks](operations/health-checks.md) - Monitoring and diagnostics
