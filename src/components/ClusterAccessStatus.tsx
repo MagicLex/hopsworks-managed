@@ -87,15 +87,15 @@ export default function ClusterAccessStatus({
   }
 
   return (
-    <Card className="p-4">
+    <Card className="p-6">
       <StatusMessage variant="warning" icon={<AlertTriangle size={20} />} className="items-start border-0 p-0">
-        <Box>
-          <Text className="font-semibold text-yellow-800 mb-2">
+        <Box className="pl-1">
+          <Text className="font-semibold text-yellow-800 mb-3">
             Cluster Access Pending
           </Text>
           {!hasPaymentMethod ? (
             <>
-              <Text className="text-sm text-yellow-700 mb-3">
+              <Text className="text-sm text-yellow-700 mb-4">
                 Set up a payment method to get access to Hopsworks clusters.
               </Text>
               <Link href="/billing">
