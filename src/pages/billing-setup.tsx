@@ -37,6 +37,17 @@ export default function BillingSetup() {
       if (!user || billingLoading) return;
 
       try {
+        // Fetch fresh billing data to avoid stale context issues (especially for team members)
+        const freshBillingRes = await fetch('/api/billing');
+        const freshBilling = freshBillingRes.ok ? await freshBillingRes.json() : null;
+
+        // Team members should never see billing-setup - redirect immediately
+        if (freshBilling?.isTeamMember) {
+          sessionStorage.removeItem('payment_required');
+          router.push('/dashboard');
+          return;
+        }
+
         // If user has payment method but is still suspended, poll for webhook completion
         if (billing?.hasPaymentMethod && billing?.isSuspended) {
           console.log('User has payment method but is suspended - polling for status update...');
@@ -71,7 +82,7 @@ export default function BillingSetup() {
         }
 
         // If user already has payment method or is prepaid, AND has accepted terms, redirect to dashboard
-        if ((billing?.hasPaymentMethod || billing?.billingMode === 'prepaid' || billing?.isTeamMember) && !billing?.isSuspended && billing?.termsAcceptedAt) {
+        if ((billing?.hasPaymentMethod || billing?.billingMode === 'prepaid') && !billing?.isSuspended && billing?.termsAcceptedAt) {
           sessionStorage.removeItem('payment_required');
           router.push('/dashboard');
         }
