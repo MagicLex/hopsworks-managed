@@ -36,6 +36,8 @@ export default function BillingSetup() {
     const checkBillingStatus = async () => {
       if (!user || billingLoading) return;
 
+      let shouldShowForm = true; // Track whether to show the form or keep loading
+
       try {
         // Fetch fresh billing data to avoid stale context issues (especially for team members)
         const freshBillingRes = await fetch('/api/billing');
@@ -44,6 +46,7 @@ export default function BillingSetup() {
         // Team members should never see billing-setup - redirect immediately
         if (freshBilling?.isTeamMember) {
           sessionStorage.removeItem('payment_required');
+          shouldShowForm = false; // Keep loading state during redirect
           router.push('/dashboard');
           return;
         }
@@ -51,6 +54,7 @@ export default function BillingSetup() {
         // If user has payment method but is still suspended, poll for webhook completion
         if (billing?.hasPaymentMethod && billing?.isSuspended) {
           console.log('User has payment method but is suspended - polling for status update...');
+          shouldShowForm = false; // Keep loading during polling
 
           let pollCount = 0;
           const MAX_POLLS = 10;
@@ -84,12 +88,17 @@ export default function BillingSetup() {
         // If user already has payment method or is prepaid, AND has accepted terms, redirect to dashboard
         if ((billing?.hasPaymentMethod || billing?.billingMode === 'prepaid') && !billing?.isSuspended && billing?.termsAcceptedAt) {
           sessionStorage.removeItem('payment_required');
+          shouldShowForm = false; // Keep loading state during redirect
           router.push('/dashboard');
+          return;
         }
       } catch (error) {
         console.error('Failed to check billing status:', error);
       } finally {
-        setCheckingPayment(false);
+        // Only show the form if we're not redirecting
+        if (shouldShowForm) {
+          setCheckingPayment(false);
+        }
       }
     };
 
