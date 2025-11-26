@@ -10,6 +10,8 @@
 
 - [Billing](features/billing.md) - OpenCost ingestion, Stripe metered billing
 - [Team Management](features/team-management.md) - Account owners, team members, project access
+- [User Lifecycle](features/user-lifecycle.md) - Status transitions, suspension/reactivation, cascade effects
+- [Account Deletion](features/account-deletion.md) - Soft delete, recovery, compliance
 - [Corporate Registration](features/corporate-registration.md) - HubSpot deal validation, prepaid onboarding
 
 ## Integrations

@@ -63,10 +63,13 @@ Account deletion uses a **soft delete** approach to preserve audit trails, billi
 
 When an account owner removes a team member:
 
-1. Team member is converted to standalone account owner
-2. Their `account_owner_id` is set to NULL
-3. They can now set up their own billing
-4. If they set up billing, they get cluster access
+1. `account_owner_id` set to `null` (converted to standalone)
+2. User is **suspended** (status = 'suspended')
+3. Hopsworks account **deactivated** (status = 3)
+4. All cluster access revoked immediately
+5. If they set up their own billing, they get reactivated and assigned to a cluster
+
+See [User Lifecycle](user-lifecycle.md) for the full state machine.
 
 **Note**: Team members cannot self-delete. They must be removed by their account owner.
 

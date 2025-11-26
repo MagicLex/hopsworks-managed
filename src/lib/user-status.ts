@@ -48,6 +48,7 @@ async function getHopsworksCredentials(
  * Suspend a user account
  * - Sets status='suspended' in Supabase
  * - Deactivates Hopsworks account (status 3 = DEACTIVATED_ACCOUNT)
+ * - If user is an account owner, also suspends all team members
  */
 export async function suspendUser(
   supabase: ReturnType<typeof createClient>,
@@ -61,10 +62,10 @@ export async function suspendUser(
   };
 
   try {
-    // Get user email for logging
+    // Get user info including account_owner_id to check if they're an owner
     const { data: user } = await supabase
       .from('users')
-      .select('email')
+      .select('email, account_owner_id')
       .eq('id', userId)
       .single();
 
@@ -104,6 +105,25 @@ export async function suspendUser(
       console.error(`[suspendUser] Failed to deactivate Hopsworks user for ${userEmail}:`, error);
     }
 
+    // If this user is an account owner (account_owner_id is null), suspend all team members too
+    if (user?.account_owner_id === null) {
+      const { data: teamMembers } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('account_owner_id', userId) as { data: { id: string; email: string }[] | null };
+
+      if (teamMembers && teamMembers.length > 0) {
+        console.log(`[suspendUser] Suspending ${teamMembers.length} team members of ${userEmail}`);
+        for (const member of teamMembers) {
+          // Recursive call but won't cascade further (team members have account_owner_id set)
+          const memberResult = await suspendUser(supabase, member.id, `owner_suspended:${reason || 'unknown'}`);
+          if (!memberResult.success) {
+            console.error(`[suspendUser] Failed to suspend team member ${member.email}: ${memberResult.error}`);
+          }
+        }
+      }
+    }
+
     result.success = true;
     return result;
   } catch (error) {
@@ -117,6 +137,7 @@ export async function suspendUser(
  * Reactivate a suspended user account
  * - Sets status='active' in Supabase
  * - Reactivates Hopsworks account (status 2 = ACTIVATED_ACCOUNT)
+ * - If user is an account owner, also reactivates all team members
  */
 export async function reactivateUser(
   supabase: ReturnType<typeof createClient>,
@@ -130,10 +151,10 @@ export async function reactivateUser(
   };
 
   try {
-    // Get user email for logging
+    // Get user info including account_owner_id to check if they're an owner
     const { data: user } = await supabase
       .from('users')
-      .select('email')
+      .select('email, account_owner_id')
       .eq('id', userId)
       .single();
 
@@ -171,6 +192,25 @@ export async function reactivateUser(
     } catch (error) {
       // Log but don't fail the whole operation
       console.error(`[reactivateUser] Failed to reactivate Hopsworks user for ${userEmail}:`, error);
+    }
+
+    // If this user is an account owner (account_owner_id is null), reactivate all team members too
+    if (user?.account_owner_id === null) {
+      const { data: teamMembers } = await supabase
+        .from('users')
+        .select('id, email, status')
+        .eq('account_owner_id', userId)
+        .eq('status', 'suspended') as { data: { id: string; email: string; status: string }[] | null }; // Only reactivate suspended members
+
+      if (teamMembers && teamMembers.length > 0) {
+        console.log(`[reactivateUser] Reactivating ${teamMembers.length} team members of ${userEmail}`);
+        for (const member of teamMembers) {
+          const memberResult = await reactivateUser(supabase, member.id, `owner_reactivated:${reason || 'unknown'}`);
+          if (!memberResult.success) {
+            console.error(`[reactivateUser] Failed to reactivate team member ${member.email}: ${memberResult.error}`);
+          }
+        }
+      }
     }
 
     result.success = true;

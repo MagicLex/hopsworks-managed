@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import { getPostHogClient } from '@/lib/posthog-server';
+import { suspendUser } from '@/lib/user-status';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -120,7 +121,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // This converts them to a standalone account
       const { error } = await supabase
         .from('users')
-        .update({ 
+        .update({
           account_owner_id: null
         })
         .eq('id', memberId);
@@ -128,6 +129,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (error) {
         console.error('Failed to remove team member:', error);
         return res.status(500).json({ error: 'Failed to remove team member' });
+      }
+
+      // Suspend the removed member to revoke Hopsworks access
+      // They no longer have billing, so they shouldn't have cluster access
+      const suspendResult = await suspendUser(supabase as any, memberId, 'removed_from_team');
+      if (!suspendResult.success) {
+        console.error(`Failed to suspend removed team member ${memberId}:`, suspendResult.error);
+        // Don't fail the request - the member is already removed from the team
+        // They just might still have temporary Hopsworks access until manually cleaned up
       }
 
       // Track team member removal in PostHog

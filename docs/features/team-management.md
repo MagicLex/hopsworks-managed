@@ -161,6 +161,14 @@ remove a team member
 
 **authorization:** must be account owner
 
+**what happens:**
+1. `account_owner_id` set to `null` (user becomes standalone)
+2. user is **suspended** (status = 'suspended')
+3. Hopsworks account **deactivated** (status = 3)
+4. user loses all cluster access immediately
+
+see [User Lifecycle](user-lifecycle.md) for full details on suspension cascade.
+
 **response:**
 ```json
 {
@@ -466,10 +474,11 @@ when converting to corporate prepaid:
 
 ### team member becomes independent
 to split from team:
-1. remove as team member (sets account_owner_id to null)
-2. user must set up own payment method
-3. assign to new or existing cluster
-4. future usage bills independently
+1. owner removes team member via API
+2. member is **suspended** and loses cluster access immediately
+3. member must set up own payment method (Stripe checkout)
+4. on successful payment, account is **reactivated** and assigned to cluster
+5. future usage bills independently
 
 ### owner account deletion
 before deleting owner account:
