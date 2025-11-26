@@ -209,7 +209,7 @@ async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {
 
 async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   const customerId = subscription.customer as string;
-  
+
   // Get user by Stripe customer ID
   const { data: user } = await supabaseAdmin
     .from('users')
@@ -218,13 +218,25 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
     .single();
 
   if (user) {
+    // IMPORTANT: Update subscription ID FIRST so assignUserToCluster sees it
+    // This ensures maxNumProjects is calculated correctly (5 for subscribers, 0 otherwise)
+    await supabaseAdmin
+      .from('users')
+      .update({
+        stripe_subscription_id: subscription.id,
+        stripe_subscription_status: subscription.status
+      })
+      .eq('id', user.id);
+
+    console.log(`Subscription created for user ${user.id}`);
+
     // Check if user already has cluster assignment
     const { data: assignment } = await supabaseAdmin
       .from('user_hopsworks_assignments')
       .select('id')
       .eq('user_id', user.id)
       .single();
-    
+
     if (!assignment) {
       // Assign cluster now that payment is verified via subscription
       const { success, error } = await assignUserToCluster(supabaseAdmin, user.id, true);
@@ -234,16 +246,6 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
         console.error(`Failed to assign cluster: ${error}`);
       }
     }
-
-    await supabaseAdmin
-      .from('users')
-      .update({
-        stripe_subscription_id: subscription.id,
-        stripe_subscription_status: subscription.status
-      })
-      .eq('id', user.id);
-    
-    console.log(`Subscription created for user ${user.id}`);
   }
 }
 
