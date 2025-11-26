@@ -18,9 +18,28 @@ In Stripe Dashboard, create these products with prices:
 
 1. Add endpoint: `https://your-domain.vercel.app/api/webhooks/stripe`
 2. Select events:
-   - `checkout.session.completed`
-   - `invoice.payment_succeeded`
+   - `checkout.session.completed` - payment setup complete, creates subscription
+   - `customer.subscription.created` - subscription created (syncs to DB, assigns cluster)
+   - `customer.subscription.updated` - subscription status changes
+   - `customer.subscription.deleted` - subscription canceled, suspends user
+   - `invoice.payment_succeeded` - invoice paid
+   - `invoice.payment_failed` - payment failed
+   - `payment_method.attached` - new payment method added (reactivates suspended users)
+   - `payment_method.detached` - payment method removed (may suspend user)
 3. Copy webhook secret to `STRIPE_WEBHOOK_SECRET`
+
+### Subscription Flow
+
+**IMPORTANT**: Subscriptions are created ONLY in `checkout.session.completed` handler to prevent race conditions.
+
+1. User completes Stripe Checkout (payment method setup)
+2. `checkout.session.completed` webhook fires
+3. Handler creates metered subscription with all products from `stripe_products` table
+4. Updates user's `stripe_subscription_id` in DB
+5. `customer.subscription.created` webhook fires
+6. Handler verifies subscription in DB, assigns cluster if needed
+
+The `payment_method.attached` handler does NOT create subscriptions - it only syncs existing ones and reactivates suspended users.
 
 ### 3. Environment Variables
 

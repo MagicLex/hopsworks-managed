@@ -188,6 +188,29 @@ Return company info for prepaid/corporate users.
 }
 ```
 
+### POST /api/user/accept-terms
+Save user's acceptance of Terms of Service, AUP, and Privacy Policy.
+
+**Request:**
+```json
+{
+  "marketingConsent": true  // optional, defaults to false
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+**Notes:**
+- Sets `terms_accepted_at` to current timestamp
+- Stores `marketing_consent` boolean
+- Called from billing-setup page when user accepts terms
+- Team members accept terms during invite flow (handled by `/api/team/join`)
+
 ## Team Management Endpoints
 
 ### GET /api/team/members
