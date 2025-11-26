@@ -9,6 +9,7 @@ interface ClusterAccessStatusProps {
   clusterName?: string;
   loading?: boolean;
   reloadProgress?: number;
+  isTeamMember?: boolean;
 }
 
 export default function ClusterAccessStatus({
@@ -17,7 +18,8 @@ export default function ClusterAccessStatus({
   billingMode,
   clusterName,
   loading = false,
-  reloadProgress = 0
+  reloadProgress = 0,
+  isTeamMember = false
 }: ClusterAccessStatusProps) {
   // Show skeleton loader while loading OR when billingMode is not yet loaded
   if (loading || billingMode === undefined) {
@@ -80,6 +82,24 @@ export default function ClusterAccessStatus({
                 </Box>
               </Box>
             )}
+          </Box>
+        </StatusMessage>
+      </Card>
+    );
+  }
+
+  // Team members don't need to set up payment - show syncing message
+  if (isTeamMember) {
+    return (
+      <Card className="p-6">
+        <StatusMessage variant="info" icon={<AlertTriangle size={20} />} className="items-start border-0 p-0">
+          <Box className="pl-1">
+            <Text className="font-semibold text-blue-800 mb-3">
+              Setting Up Your Access
+            </Text>
+            <Text className="text-sm text-blue-700">
+              Your cluster access is being configured. This usually takes a few moments.
+            </Text>
           </Box>
         </StatusMessage>
       </Card>

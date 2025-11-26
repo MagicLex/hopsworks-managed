@@ -96,7 +96,7 @@ interface TeamInvite {
 
 export default function Dashboard() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { billing: contextBilling, loading: contextBillingLoading } = useBilling();
+  const { billing: contextBilling, loading: contextBillingLoading, refetch: refetchBilling } = useBilling();
   const { pricing } = usePricing();
   const router = useRouter();
   const [selectedMonth, setSelectedMonth] = useState('current');
@@ -153,14 +153,19 @@ export default function Dashboard() {
     }
   }, [user, authLoading, router, billing]);
 
+  // Refetch billing when team member just joined (to update isTeamMember status)
+  useEffect(() => {
+    if (router.query.joined === 'true' && !billingLoading) {
+      refetchBilling();
+      // Clean up the URL param after refetch
+      router.replace('/dashboard', undefined, { shallow: true });
+    }
+  }, [router.query.joined, billingLoading, refetchBilling, router]);
+
   // Redirect suspended users or users who haven't accepted terms to billing setup
   // Team members don't need billing setup - they inherit from account owner
   useEffect(() => {
     if (!billingLoading && billing) {
-      // Skip check if user just joined a team (billing context may not be updated yet)
-      if (router.query.joined === 'true') {
-        return;
-      }
       if (billing.isTeamMember) {
         // Team members don't need billing setup
         return;
@@ -375,6 +380,7 @@ export default function Dashboard() {
                   clusterName={hopsworksInfo?.clusterName}
                   loading={hopsworksLoading || billingLoading || !billing || !hopsworksInfo}
                   reloadProgress={reloadProgress}
+                  isTeamMember={billing?.isTeamMember}
                 />
               </Box>
 
