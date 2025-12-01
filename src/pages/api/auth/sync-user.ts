@@ -214,7 +214,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     } else {
       healthCheckResults.userExists = true;
-      
+
+      // Update terms if user accepted them but DB doesn't have them yet
+      if (termsAccepted && !existingUser.terms_accepted_at) {
+        console.log(`[Sync] Updating terms acceptance for existing user ${email}`);
+        await supabaseAdmin
+          .from('users')
+          .update({
+            terms_accepted_at: new Date().toISOString(),
+            marketing_consent: marketingConsent || existingUser.marketing_consent || false
+          })
+          .eq('id', userId);
+      }
+
       // HEALTH CHECK 1: Verify billing status
       console.log(`[Health Check] Checking billing for user ${email}`);
       const isTeamMember = !!existingUser.account_owner_id;
