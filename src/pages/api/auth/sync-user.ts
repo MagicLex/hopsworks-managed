@@ -57,6 +57,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { sub: userId, email, name } = session.user;
     const { corporateRef, promoCode, teamInviteToken, termsAccepted, marketingConsent } = req.body;
+
+    console.log(`[Sync] User ${email} - termsAccepted: ${termsAccepted}, promoCode: ${promoCode}`);
     const healthCheckResults = {
       userExists: false,
       billingEnabled: false,
