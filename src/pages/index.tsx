@@ -24,7 +24,7 @@ export default function Home() {
   const [corporateError, setCorporateError] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState<string | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
-  const { user, loading } = useAuth();
+  const { user, loading, synced, syncResult } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -88,9 +88,19 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!loading && user) {
-      router.push('/dashboard');
-    } else if (!loading && !user) {
+    // Wait for auth to fully load AND sync to complete before redirecting
+    if (loading || (user && !synced)) return;
+
+    if (user && synced) {
+      // User is logged in and synced - route based on sync result
+      if (syncResult?.isSuspended) {
+        router.push('/billing-setup');
+      } else if (syncResult?.needsPayment) {
+        router.push('/billing-setup');
+      } else {
+        router.push('/dashboard');
+      }
+    } else if (!user) {
       // Track landing page view for anonymous users (top of funnel)
       posthog.capture('landing_page_viewed', {
         hasCorporateRef: !!corporateRef,
@@ -98,7 +108,7 @@ export default function Home() {
         source: 'homepage',
       });
     }
-  }, [user, loading, router, corporateRef, promoCode]);
+  }, [user, loading, synced, syncResult, router, corporateRef, promoCode]);
   
   const handleDeploy = (deployment: DeploymentOption) => {
     if (deployment.buttonStyle === 'enterprise') {

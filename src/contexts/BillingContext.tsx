@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 
 export interface BillingInfo {
@@ -80,7 +80,8 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [billing, setBilling] = useState<BillingInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, synced } = useAuth();
+  const hasFetched = useRef(false);
 
   const fetchBilling = async () => {
     if (!user) {
@@ -109,8 +110,26 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   useEffect(() => {
+    // Only fetch billing AFTER user is synced to DB
+    if (!user) {
+      setBilling(null);
+      setLoading(false);
+      hasFetched.current = false;
+      return;
+    }
+
+    // Wait for sync to complete before fetching billing
+    if (!synced) {
+      setLoading(true);
+      return;
+    }
+
+    // Prevent duplicate fetches
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
     fetchBilling();
-  }, [user?.sub]);
+  }, [user?.sub, synced]);
 
   return (
     <BillingContext.Provider value={{ billing, loading, error, refetch: fetchBilling }}>

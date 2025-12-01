@@ -1,10 +1,20 @@
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useUser } from '@auth0/nextjs-auth0/client';
 import { useRouter } from 'next/router';
 
+interface SyncResult {
+  needsPayment: boolean;
+  isSuspended: boolean;
+  isTeamMember: boolean;
+  billingMode: 'prepaid' | 'postpaid';
+}
+
 interface AuthContextType {
-  user: any; // Auth0's UserProfile type has nullable sub
+  user: any;
   loading: boolean;
+  syncing: boolean;
+  synced: boolean;
+  syncResult: SyncResult | null;
   signIn: (corporateRef?: string, promoCode?: string, mode?: 'login' | 'signup') => void;
   signOut: () => void;
 }
@@ -14,30 +24,43 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, error, isLoading } = useUser();
   const router = useRouter();
+  const [syncing, setSyncing] = useState(false);
+  const [synced, setSynced] = useState(false);
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
 
   useEffect(() => {
-    if (user && !isLoading) {
-      // Check if we've already synced this session - do this FIRST to prevent race conditions
-      const syncedThisSession = sessionStorage.getItem('user_synced_session');
-      if (syncedThisSession === user.sub) {
-        return; // Already synced this user in this session
+    if (!user || isLoading) {
+      // Reset sync state when user logs out
+      if (!user && !isLoading) {
+        setSynced(false);
+        setSyncing(false);
+        setSyncResult(null);
       }
+      return;
+    }
 
-      // Mark as syncing IMMEDIATELY to prevent duplicate calls from concurrent renders
-      sessionStorage.setItem('user_synced_session', user.sub!);
+    // Check if we've already synced this session
+    const syncedThisSession = sessionStorage.getItem('user_synced_session');
+    if (syncedThisSession === user.sub) {
+      // Already synced - mark as ready
+      setSynced(true);
+      return;
+    }
 
-      // Get corporate ref and promo code from sessionStorage if present
-      const corporateRef = sessionStorage.getItem('corporate_ref');
-      const promoCode = sessionStorage.getItem('promo_code');
-      const termsAccepted = sessionStorage.getItem('terms_accepted') === 'true';
-      const marketingConsent = sessionStorage.getItem('marketing_consent') === 'true';
+    // Start syncing
+    setSyncing(true);
+    sessionStorage.setItem('user_synced_session', user.sub!);
 
-      // Sync user to Supabase when they log in
-      fetch('/api/auth/sync-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ corporateRef, promoCode, termsAccepted, marketingConsent })
-      })
+    const corporateRef = sessionStorage.getItem('corporate_ref');
+    const promoCode = sessionStorage.getItem('promo_code');
+    const termsAccepted = sessionStorage.getItem('terms_accepted') === 'true';
+    const marketingConsent = sessionStorage.getItem('marketing_consent') === 'true';
+
+    fetch('/api/auth/sync-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ corporateRef, promoCode, termsAccepted, marketingConsent })
+    })
       .then(res => {
         if (!res.ok) {
           return res.json().then(errData => {
@@ -53,51 +76,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.removeItem('terms_accepted');
         sessionStorage.removeItem('marketing_consent');
 
-        // Check if account is suspended (removed payment method)
-        if (data.isSuspended && router.pathname !== '/billing-setup') {
-          sessionStorage.setItem('account_suspended', 'true');
-          router.push('/billing-setup');
-          return;
-        }
+        // Store sync result for consumers to use
+        setSyncResult({
+          needsPayment: data.needsPayment,
+          isSuspended: data.isSuspended,
+          isTeamMember: data.isTeamMember,
+          billingMode: data.hasBilling ? 'prepaid' : 'postpaid'
+        });
 
-        // Check if user needs to set up payment (new users, not team members)
-        // Skip redirect if on /team/joining - that flow handles its own routing
-        if (data.needsPayment && router.pathname !== '/billing-setup' && router.pathname !== '/team/joining') {
-          sessionStorage.setItem('payment_required', 'true');
-          router.push('/billing-setup');
-        }
+        setSyncing(false);
+        setSynced(true);
       })
       .catch(err => {
         console.error('Failed to sync user:', err);
-        // Reset sync flag so it can retry on next render
         sessionStorage.removeItem('user_synced_session');
+        setSyncing(false);
+        // Still mark as synced so the app doesn't hang - pages will handle errors
+        setSynced(true);
       });
-    }
-  }, [user, isLoading, router.pathname]); // Only re-run if pathname changes to billing-setup
+  }, [user, isLoading]);
 
   const signIn = (corporateRef?: string, promoCode?: string, mode: 'login' | 'signup' = 'login') => {
     if (corporateRef) {
-      // Store corporate ref in sessionStorage to persist through auth flow
       sessionStorage.setItem('corporate_ref', corporateRef);
     }
     if (promoCode) {
-      // Store promo code in sessionStorage to persist through auth flow
       sessionStorage.setItem('promo_code', promoCode);
     }
-    // Use the proper Auth0 route - signup or login
     router.push(mode === 'signup' ? '/api/auth/signup' : '/api/auth/login');
   };
 
   const signOut = () => {
-    // Clear sync flag so health checks run on next login
     sessionStorage.removeItem('user_synced_session');
+    setSynced(false);
+    setSyncing(false);
+    setSyncResult(null);
     router.push('/api/auth/logout');
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
+    <AuthContext.Provider value={{
+      user,
       loading: isLoading,
+      syncing,
+      synced,
+      syncResult,
       signIn,
       signOut
     }}>

@@ -9,68 +9,47 @@ import { CreditCard, AlertTriangle, ArrowRight, Check } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
 export default function BillingSetup() {
-  const { user, loading: authLoading } = useAuth();
-  const { refetch: refetchBilling } = useBilling();
+  const { user, loading: authLoading, synced } = useAuth();
+  const { billing, loading: billingLoading, refetch: refetchBilling } = useBilling();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [billingData, setBillingData] = useState<any>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [savingConsent, setSavingConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch fresh billing data directly - don't rely on context which may be stale
+  // Wait for everything to load then check if we should redirect
   useEffect(() => {
-    const checkBilling = async () => {
-      if (authLoading) return;
+    if (authLoading || !synced || billingLoading) return;
 
-      if (!user) {
-        router.push('/');
-        return;
-      }
+    if (!user) {
+      router.push('/');
+      return;
+    }
 
-      // Fetch fresh billing data
-      const res = await fetch('/api/billing');
-      if (!res.ok) {
-        setError('Failed to load billing data');
-        setReady(true);
-        return;
-      }
-      const billing = await res.json();
-      setBillingData(billing);
+    // Team members go to dashboard
+    if (billing?.isTeamMember) {
+      router.push('/dashboard');
+      return;
+    }
 
-      // Team members go to dashboard
-      if (billing?.isTeamMember) {
-        sessionStorage.removeItem('payment_required');
-        router.push('/dashboard');
-        return;
-      }
+    // Prepaid users with terms accepted go to dashboard
+    if (billing?.billingMode === 'prepaid' && !billing?.isSuspended && billing?.termsAcceptedAt) {
+      router.push('/dashboard');
+      return;
+    }
 
-      // Prepaid users with terms accepted go to dashboard
-      if (billing?.billingMode === 'prepaid' && !billing?.isSuspended && billing?.termsAcceptedAt) {
-        sessionStorage.removeItem('payment_required');
-        router.push('/dashboard');
-        return;
-      }
+    // Postpaid users with payment method AND terms accepted go to dashboard
+    if (billing?.hasPaymentMethod && !billing?.isSuspended && billing?.termsAcceptedAt) {
+      router.push('/dashboard');
+      return;
+    }
+  }, [authLoading, synced, billingLoading, user, billing, router]);
 
-      // Postpaid users with payment method AND terms accepted go to dashboard
-      if (billing?.hasPaymentMethod && !billing?.isSuspended && billing?.termsAcceptedAt) {
-        sessionStorage.removeItem('payment_required');
-        router.push('/dashboard');
-        return;
-      }
-
-      // Otherwise show the form
-      setReady(true);
-    };
-
-    checkBilling();
-  }, [authLoading, user, router]);
-
-  // Derived state - only meaningful when ready
-  const needsTermsAcceptance = !billingData?.termsAcceptedAt;
-  const hasPaymentButNeedsTerms = (billingData?.hasPaymentMethod || billingData?.billingMode === 'prepaid') && needsTermsAcceptance && !billingData?.isSuspended;
+  // Derived state
+  const isReady = synced && !billingLoading && user && !billing?.isTeamMember;
+  const needsTermsAcceptance = !billing?.termsAcceptedAt;
+  const hasPaymentButNeedsTerms = (billing?.hasPaymentMethod || billing?.billingMode === 'prepaid') && needsTermsAcceptance && !billing?.isSuspended;
 
   const handleSetupPayment = async () => {
     setLoading(true);
@@ -150,7 +129,7 @@ export default function BillingSetup() {
     router.push('/dashboard');
   };
 
-  if (!ready) {
+  if (!isReady) {
     return (
       <>
         <Head>
@@ -176,7 +155,7 @@ export default function BillingSetup() {
       <Box className="min-h-screen bg-gray-50">
         <Navbar />
         <Box className="container mx-auto px-4 py-12 max-w-2xl">
-          {billingData?.isSuspended && (
+          {billing?.isSuspended && (
             <Card className="p-4 mb-4 border-red-500 bg-red-50">
               <Flex align="center" gap={12}>
                 <AlertTriangle size={20} className="text-red-600" />
