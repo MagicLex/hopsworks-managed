@@ -26,6 +26,18 @@ export default function Home() {
   const [promoError, setPromoError] = useState<string | null>(null);
   const { user, loading, synced, syncResult } = useAuth();
   const router = useRouter();
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+
+  const loadingMessages = [
+    "Brewing coffee...",
+    "Warming up the GPUs...",
+    "Feeding the feature store...",
+    "Polishing the pipelines...",
+    "Waking up the data scientists...",
+    "Calibrating the models...",
+    "Spinning up your cluster...",
+    "Preparing your workspace...",
+  ];
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -118,6 +130,27 @@ export default function Home() {
       setIsModalOpen(true);
     }
   };
+
+  // Rotate loading messages while syncing
+  useEffect(() => {
+    if (!user || synced) return;
+    const interval = setInterval(() => {
+      setLoadingMessageIndex(prev => (prev + 1) % loadingMessages.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [user, synced, loadingMessages.length]);
+
+  // Show loading screen while syncing user
+  if (user && !synced) {
+    return (
+      <Box className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Box className="text-center">
+          <Box className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1eb182] mx-auto mb-4" />
+          <Text className="text-gray-600 font-mono">{loadingMessages[loadingMessageIndex]}</Text>
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <>
