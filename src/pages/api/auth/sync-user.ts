@@ -176,39 +176,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .single();
 
       // DO NOT auto-assign cluster for new users - they need to set up payment first
-      // Only assign if prepaid corporate user
+      // Only assign if prepaid (corporate/promo) user
       if (userData?.billing_mode === 'prepaid') {
-        // Prepaid users get immediate access, check if they need cluster assignment
-        const { data: existingAssignment } = await supabaseAdmin
-          .from('user_hopsworks_assignments')
-          .select('id')
-          .eq('user_id', userId)
-          .single();
-
-        if (!existingAssignment) {
-          // Find and assign available cluster
-          const { data: clusters } = await supabaseAdmin
-            .from('hopsworks_clusters')
-            .select('id, current_users, max_users')
-            .eq('status', 'active')
-            .order('current_users', { ascending: true });
-          
-          const availableCluster = clusters?.find(c => c.current_users < c.max_users);
-
-          if (availableCluster) {
-            await supabaseAdmin
-              .from('user_hopsworks_assignments')
-              .insert({
-                user_id: userId,
-                hopsworks_cluster_id: availableCluster.id
-              });
-              
-            await supabaseAdmin.rpc('increment_cluster_users', { 
-              p_cluster_id: availableCluster.id 
-            });
-
-            console.log(`Assigned prepaid user ${userId} to cluster`);
-          }
+        // Prepaid users get immediate access - use assignUserToCluster for full setup
+        // This creates the Hopsworks user with correct maxNumProjects = 5
+        const clusterResult = await assignUserToCluster(supabaseAdmin, userId);
+        if (clusterResult.success) {
+          console.log(`Assigned prepaid user ${userId} to cluster ${clusterResult.clusterId}`);
+        } else {
+          console.error(`Failed to assign prepaid user ${userId}: ${clusterResult.error}`);
         }
       } else {
         console.log(`User ${userId} is not prepaid - cluster assignment requires payment method setup`);

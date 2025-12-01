@@ -89,6 +89,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = () => {
+    // Clear sync flag so health checks run on next login
+    sessionStorage.removeItem('user_synced_session');
     router.push('/api/auth/logout');
   };
 
