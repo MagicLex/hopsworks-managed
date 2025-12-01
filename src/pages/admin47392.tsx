@@ -856,7 +856,7 @@ export default function AdminPage() {
                     type="text"
                     value={clusterForm.region}
                     onChange={(e) => setClusterForm(prev => ({ ...prev, region: e.target.value }))}
-                    placeholder="e.g., eu-central-1, us-east-1"
+                    placeholder="e.g., eu-west-1, us-east-1"
                     className="w-full px-3 py-2 border border-grayShade2 rounded-md bg-surfaceShade1 text-sm"
                   />
                   <Text className="text-xs text-gray mt-1">AWS region or datacenter location</Text>

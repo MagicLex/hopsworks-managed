@@ -112,7 +112,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
               )}
             </Box>
             <Box className="inline-flex items-center px-2 py-0.5 bg-black text-white text-xs font-mono font-semibold uppercase tracking-wider">
-              EU-CENTRAL
+              EU-WEST
             </Box>
           </Box>
       
