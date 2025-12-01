@@ -1,13 +1,11 @@
-import React, { useState } from 'react';
-import { X, CreditCard, Zap, Globe, Terminal, User, Activity, Check } from 'lucide-react';
+import React from 'react';
+import { Zap, Terminal, User, Activity } from 'lucide-react';
 import { DeploymentOption } from '@/data/deployments';
-import { Modal, Button, Box, Flex, Title, Text, Labeling, Card, Badge, Input } from 'tailwind-quartz';
+import { Modal, Button, Box, Flex, Title, Text, Labeling, Card } from 'tailwind-quartz';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/router';
-import { DEFAULT_RATES } from '@/config/billing-rates';
 import { usePricing } from '@/contexts/PricingContext';
 import posthog from 'posthog-js';
-import Link from 'next/link';
 
 interface DeployModalProps {
   isOpen: boolean;
@@ -21,8 +19,6 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
   const { user, signIn } = useAuth();
   const router = useRouter();
   const { pricing } = usePricing();
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [marketingConsent, setMarketingConsent] = useState(false);
 
   if (!deployment) return null;
 
@@ -36,16 +32,11 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
     });
 
     if (!user) {
-      // Store consent in sessionStorage to persist through Auth0 flow
-      sessionStorage.setItem('terms_accepted', 'true');
-      sessionStorage.setItem('marketing_consent', marketingConsent ? 'true' : 'false');
-
       // Track signup initiated
       posthog.capture('signup_initiated', {
         source: 'deploy_modal',
         hasCorporateRef: !!corporateRef,
         hasPromoCode: !!promoCode,
-        marketingConsent,
       });
       // Pass corporate ref or promo code if present, use signup mode
       signIn(corporateRef || undefined, promoCode || undefined, 'signup');
@@ -123,56 +114,6 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
         </Card>
       </Flex>
 
-      {/* Legal consent checkboxes - only for new users */}
-      {!user && (
-        <Box className="mt-6 space-y-3">
-          <label className="flex items-start gap-3 cursor-pointer group">
-            <Box className="relative mt-0.5">
-              <input
-                type="checkbox"
-                checked={termsAccepted}
-                onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="sr-only peer"
-              />
-              <Box className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-colors ${
-                termsAccepted
-                  ? 'bg-[#1eb182] border-[#1eb182]'
-                  : 'border-gray-300 group-hover:border-gray-400'
-              }`}>
-                {termsAccepted && <Check size={14} className="text-white" />}
-              </Box>
-            </Box>
-            <Text className="text-sm text-gray-700 font-mono">
-              I agree to the{' '}
-              <Link href="/terms" target="_blank" className="text-[#1eb182] hover:underline">Terms of Service</Link>,{' '}
-              <Link href="/aup" target="_blank" className="text-[#1eb182] hover:underline">Acceptable Use Policy</Link>,{' '}
-              and{' '}
-              <Link href="/privacy" target="_blank" className="text-[#1eb182] hover:underline">Privacy Policy</Link>
-            </Text>
-          </label>
-
-          <label className="flex items-start gap-3 cursor-pointer group">
-            <Box className="relative mt-0.5">
-              <input
-                type="checkbox"
-                checked={marketingConsent}
-                onChange={(e) => setMarketingConsent(e.target.checked)}
-                className="sr-only peer"
-              />
-              <Box className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-colors ${
-                marketingConsent
-                  ? 'bg-[#1eb182] border-[#1eb182]'
-                  : 'border-gray-300 group-hover:border-gray-400'
-              }`}>
-                {marketingConsent && <Check size={14} className="text-white" />}
-              </Box>
-            </Box>
-            <Text className="text-sm text-gray-600 font-mono">
-              I would like to receive product updates and marketing communications (optional)
-            </Text>
-          </label>
-        </Box>
-      )}
 
       <Flex gap={12} justify="end" className="mt-8">
         <Button
@@ -188,7 +129,6 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
           size="md"
           className="font-mono uppercase"
           onClick={handleStartNow}
-          disabled={!user && !termsAccepted}
         >
           {user ? 'Add Payment Method' : 'Sign Up'}
         </Button>

@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Input, Flex, Box, Title, Text, Labeling, Card } from 'tailwind-quartz';
-import { User, LogIn, Building2, Check } from 'lucide-react';
+import { Modal, Button, Flex, Box, Title, Text, Card } from 'tailwind-quartz';
+import { LogIn, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import posthog from 'posthog-js';
-import Link from 'next/link';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -19,8 +18,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>(mode);
   const [isCorporate, setIsCorporate] = useState(false);
   const [isPromo, setIsPromo] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [marketingConsent, setMarketingConsent] = useState(false);
 
   useEffect(() => {
     // Check for corporate ref in URL or props
@@ -42,23 +39,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   }, [corporateRef, promoCode]);
 
   const handleSignIn = () => {
-    // Pass corporate ref and promo code through Auth0 state if present
     const corporateRefValue = sessionStorage.getItem('corporate_ref');
     const promoCodeValue = sessionStorage.getItem('promo_code');
 
-    // Store consent in sessionStorage to persist through Auth0 flow
-    if (authMode === 'signup') {
-      sessionStorage.setItem('terms_accepted', 'true');
-      sessionStorage.setItem('marketing_consent', marketingConsent ? 'true' : 'false');
-    }
-
-    // Track signup/signin initiated
     posthog.capture('signup_initiated', {
       source: 'auth_modal',
       mode: authMode,
       hasCorporateRef: !!corporateRefValue,
       hasPromoCode: !!promoCodeValue,
-      marketingConsent: authMode === 'signup' ? marketingConsent : undefined,
     });
 
     signIn(corporateRefValue || undefined, promoCodeValue || undefined, authMode === 'signin' ? 'login' : 'signup');
@@ -98,7 +86,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             size="md"
             onClick={handleSignIn}
             className="w-full"
-            disabled={authMode === 'signup' && !termsAccepted}
           >
             {authMode === 'signin' ? 'Log In with Auth0' : 'Sign Up with Auth0'}
           </Button>
@@ -127,67 +114,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           </Button>
         </Flex>
 
-        {authMode === 'signup' ? (
-          <Box className="space-y-3">
-            <label className="flex items-start gap-3 cursor-pointer group">
-              <Box className="relative mt-0.5">
-                <input
-                  type="checkbox"
-                  checked={termsAccepted}
-                  onChange={(e) => setTermsAccepted(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <Box className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-colors ${
-                  termsAccepted
-                    ? 'bg-[#1eb182] border-[#1eb182]'
-                    : 'border-gray-300 group-hover:border-gray-400'
-                }`}>
-                  {termsAccepted && <Check size={14} className="text-white" />}
-                </Box>
-              </Box>
-              <Text className="text-sm text-gray-700 font-mono">
-                I agree to the{' '}
-                <Link href="/terms" target="_blank" className="text-[#1eb182] hover:underline">Terms of Service</Link>,{' '}
-                <Link href="/aup" target="_blank" className="text-[#1eb182] hover:underline">Acceptable Use Policy</Link>,{' '}
-                and{' '}
-                <Link href="/privacy" target="_blank" className="text-[#1eb182] hover:underline">Privacy Policy</Link>
-              </Text>
-            </label>
-
-            <label className="flex items-start gap-3 cursor-pointer group">
-              <Box className="relative mt-0.5">
-                <input
-                  type="checkbox"
-                  checked={marketingConsent}
-                  onChange={(e) => setMarketingConsent(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <Box className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-colors ${
-                  marketingConsent
-                    ? 'bg-[#1eb182] border-[#1eb182]'
-                    : 'border-gray-300 group-hover:border-gray-400'
-                }`}>
-                  {marketingConsent && <Check size={14} className="text-white" />}
-                </Box>
-              </Box>
-              <Text className="text-sm text-gray-600 font-mono">
-                I would like to receive product updates and marketing communications (optional)
-              </Text>
-            </label>
-          </Box>
-        ) : (
-          <Labeling gray className="text-xs text-center">
-            By logging in, you agree to our{' '}
-            <Link href="/terms" target="_blank" className="text-[#1eb182] hover:underline">
-              Terms of Service
-            </Link>
-            ,{' '}
-            <Link href="/privacy" target="_blank" className="text-[#1eb182] hover:underline">
-              Privacy Policy
-            </Link>
-            , and analytics data collection.
-          </Labeling>
-        )}
       </Flex>
     </Modal>
   );
