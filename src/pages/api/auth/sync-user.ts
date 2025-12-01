@@ -166,8 +166,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           metadata
         });
 
-      if (userError && userError.code !== '23505') { // Ignore duplicate key errors
-        throw userError;
+      if (userError) {
+        console.log(`[Sync] Insert error for ${email}: ${userError.code} - ${userError.message}`);
+        if (userError.code !== '23505') { // Ignore duplicate key errors
+          throw userError;
+        }
+      } else {
+        console.log(`[Sync] Created user ${email} with terms_accepted_at: ${termsAccepted ? 'SET' : 'NULL'}`);
       }
 
       // Check if user has payment method set up or is prepaid
