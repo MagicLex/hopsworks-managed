@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { assignUserToCluster } from '../../../lib/cluster-assignment';
 import { getHopsworksUserById, getHopsworksUserByEmail, updateUserProjectLimit, createHopsworksOAuthUser } from '../../../lib/hopsworks-api';
+import { handleApiError } from '../../../lib/error-handler';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -761,7 +762,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       projectSync: projectSyncResult
     });
   } catch (error) {
-    console.error('User sync error:', error);
-    return res.status(500).json({ error: 'Failed to sync user' });
+    return handleApiError(error, res, 'POST /api/auth/sync-user');
   }
 }

@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { buffer } from 'micro';
 import { assignUserToCluster } from '../../../lib/cluster-assignment';
 import { suspendUser, reactivateUser } from '../../../lib/user-status';
+import { handleApiError } from '../../../lib/error-handler';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-06-30.basil'
@@ -110,8 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({ received: true });
   } catch (error) {
-    console.error('Error processing webhook:', error);
-    return res.status(500).json({ error: 'Webhook processing failed' });
+    return handleApiError(error, res, 'POST /api/webhooks/stripe');
   }
 }
 

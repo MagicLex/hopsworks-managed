@@ -5,6 +5,7 @@ import { randomBytes } from 'crypto';
 import { Resend } from 'resend';
 import { rateLimit } from '../../../middleware/rateLimit';
 import { getPostHogClient } from '@/lib/posthog-server';
+import { handleApiError } from '@/lib/error-handler';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -192,8 +193,7 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
       });
 
     } catch (error) {
-      console.error('Team invite error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      return handleApiError(error, res, 'POST /api/team/invite');
     }
   } else if (req.method === 'GET') {
     try {
@@ -213,8 +213,7 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ invites });
 
     } catch (error) {
-      console.error('List invites error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      return handleApiError(error, res, 'GET /api/team/invite');
     }
   } else if (req.method === 'DELETE') {
     try {
@@ -240,8 +239,7 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ message: 'Invite deleted successfully' });
 
     } catch (error) {
-      console.error('Delete invite error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      return handleApiError(error, res, 'DELETE /api/team/invite');
     }
   } else {
     return res.status(405).json({ error: 'Method not allowed' });

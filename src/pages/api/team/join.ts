@@ -3,6 +3,7 @@ import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import { assignUserToCluster } from '@/lib/cluster-assignment';
 import { getPostHogClient } from '@/lib/posthog-server';
+import { handleApiError } from '@/lib/error-handler';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -254,7 +255,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json(response);
 
   } catch (error) {
-    console.error('Join team error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return handleApiError(error, res, 'POST /api/team/join');
   }
 }
