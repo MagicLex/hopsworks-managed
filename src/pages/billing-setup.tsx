@@ -13,108 +13,51 @@ export default function BillingSetup() {
   const { billing, loading: billingLoading, refetch: refetchBilling } = useBilling();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [checkingPayment, setCheckingPayment] = useState(true);
+  const [ready, setReady] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [savingConsent, setSavingConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check if user needs to accept terms (not yet in DB)
-  // Only evaluate when billing is loaded, otherwise assume true to show checkboxes
-  const needsTermsAcceptance = billingLoading ? true : !billing?.termsAcceptedAt;
-
-  // Check if user has payment method (or is prepaid) but just needs to accept terms
-  const hasPaymentButNeedsTerms = (billing?.hasPaymentMethod || billing?.billingMode === 'prepaid') && needsTermsAcceptance && !billing?.isSuspended;
-
+  // Single useEffect to handle all routing logic once data is loaded
   useEffect(() => {
-    if (!authLoading && !user) {
+    // Wait for everything to load
+    if (authLoading || billingLoading) return;
+
+    // Not logged in - redirect to home
+    if (!user) {
       router.push('/');
+      return;
     }
-  }, [user, authLoading, router]);
 
-  // Check if user already has payment method
-  useEffect(() => {
-    const checkBillingStatus = async () => {
-      if (!user || billingLoading) return;
+    // Team members go to dashboard
+    if (billing?.isTeamMember) {
+      sessionStorage.removeItem('payment_required');
+      router.push('/dashboard');
+      return;
+    }
 
-      let shouldShowForm = true; // Track whether to show the form or keep loading
+    // Prepaid users with terms accepted go to dashboard
+    if (billing?.billingMode === 'prepaid' && !billing?.isSuspended && billing?.termsAcceptedAt) {
+      sessionStorage.removeItem('payment_required');
+      router.push('/dashboard');
+      return;
+    }
 
-      try {
-        // Fetch fresh billing data to avoid stale context issues (especially for team members)
-        const freshBillingRes = await fetch('/api/billing');
-        const freshBilling = freshBillingRes.ok ? await freshBillingRes.json() : null;
+    // Postpaid users with payment method AND terms accepted go to dashboard
+    if (billing?.hasPaymentMethod && !billing?.isSuspended && billing?.termsAcceptedAt) {
+      sessionStorage.removeItem('payment_required');
+      router.push('/dashboard');
+      return;
+    }
 
-        // Team members should never see billing-setup - redirect immediately
-        if (freshBilling?.isTeamMember) {
-          sessionStorage.removeItem('payment_required');
-          shouldShowForm = false; // Keep loading state during redirect
-          router.push('/dashboard');
-          return;
-        }
+    // Otherwise show the form
+    setReady(true);
+  }, [authLoading, billingLoading, user, billing, router]);
 
-        // If user has payment method but is still suspended, poll for webhook completion
-        if (billing?.hasPaymentMethod && billing?.isSuspended) {
-          console.log('User has payment method but is suspended - polling for status update...');
-          shouldShowForm = false; // Keep loading during polling
-
-          let pollCount = 0;
-          const MAX_POLLS = 10;
-
-          const pollInterval = setInterval(async () => {
-            pollCount++;
-            try {
-              await refetchBilling();
-
-              // Check updated billing from context
-              if (!billing?.isSuspended) {
-                console.log('User unsuspended - redirecting to dashboard');
-                clearInterval(pollInterval);
-                sessionStorage.removeItem('payment_required');
-                router.push('/dashboard');
-              } else if (pollCount >= MAX_POLLS) {
-                console.log('Polling timeout - user still suspended after 20s');
-                clearInterval(pollInterval);
-                setError('Payment verification is taking longer than expected. Please refresh the page or contact support if this persists.');
-                setCheckingPayment(false);
-              }
-            } catch (pollError) {
-              console.error('Polling error:', pollError);
-              clearInterval(pollInterval);
-              setError('Failed to verify payment status. Please refresh the page.');
-              setCheckingPayment(false);
-            }
-          }, 2000);
-
-          return;
-        }
-
-        // Prepaid users with terms accepted go straight to dashboard
-        if (billing?.billingMode === 'prepaid' && !billing?.isSuspended && billing?.termsAcceptedAt) {
-          sessionStorage.removeItem('payment_required');
-          shouldShowForm = false;
-          router.push('/dashboard');
-          return;
-        }
-
-        // Postpaid users with payment method AND terms accepted go to dashboard
-        if (billing?.hasPaymentMethod && !billing?.isSuspended && billing?.termsAcceptedAt) {
-          sessionStorage.removeItem('payment_required');
-          shouldShowForm = false;
-          router.push('/dashboard');
-          return;
-        }
-      } catch (error) {
-        console.error('Failed to check billing status:', error);
-      } finally {
-        // Only show the form if we're not redirecting
-        if (shouldShowForm) {
-          setCheckingPayment(false);
-        }
-      }
-    };
-
-    checkBillingStatus();
-  }, [user, billing, billingLoading, refetchBilling, router]);
+  // Derived state - only meaningful when ready
+  const needsTermsAcceptance = !billing?.termsAcceptedAt;
+  const hasPaymentButNeedsTerms = (billing?.hasPaymentMethod || billing?.billingMode === 'prepaid') && needsTermsAcceptance && !billing?.isSuspended;
 
   const handleSetupPayment = async () => {
     setLoading(true);
@@ -194,7 +137,7 @@ export default function BillingSetup() {
     router.push('/dashboard');
   };
 
-  if (authLoading || checkingPayment) {
+  if (!ready) {
     return (
       <>
         <Head>
