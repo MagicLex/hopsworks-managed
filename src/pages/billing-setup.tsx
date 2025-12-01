@@ -23,8 +23,8 @@ export default function BillingSetup() {
   // Only evaluate when billing is loaded, otherwise assume true to show checkboxes
   const needsTermsAcceptance = billingLoading ? true : !billing?.termsAcceptedAt;
 
-  // Check if user has payment method but just needs to accept terms
-  const hasPaymentButNeedsTerms = billing?.hasPaymentMethod && needsTermsAcceptance && !billing?.isSuspended;
+  // Check if user has payment method (or is prepaid) but just needs to accept terms
+  const hasPaymentButNeedsTerms = (billing?.hasPaymentMethod || billing?.billingMode === 'prepaid') && needsTermsAcceptance && !billing?.isSuspended;
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -88,10 +88,18 @@ export default function BillingSetup() {
           return;
         }
 
-        // If user already has payment method or is prepaid, AND has accepted terms, redirect to dashboard
-        if ((billing?.hasPaymentMethod || billing?.billingMode === 'prepaid') && !billing?.isSuspended && billing?.termsAcceptedAt) {
+        // Prepaid users with terms accepted go straight to dashboard
+        if (billing?.billingMode === 'prepaid' && !billing?.isSuspended && billing?.termsAcceptedAt) {
           sessionStorage.removeItem('payment_required');
-          shouldShowForm = false; // Keep loading state during redirect
+          shouldShowForm = false;
+          router.push('/dashboard');
+          return;
+        }
+
+        // Postpaid users with payment method AND terms accepted go to dashboard
+        if (billing?.hasPaymentMethod && !billing?.isSuspended && billing?.termsAcceptedAt) {
+          sessionStorage.removeItem('payment_required');
+          shouldShowForm = false;
           router.push('/dashboard');
           return;
         }
