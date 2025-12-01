@@ -10,54 +10,67 @@ import Navbar from '@/components/Navbar';
 
 export default function BillingSetup() {
   const { user, loading: authLoading } = useAuth();
-  const { billing, loading: billingLoading, refetch: refetchBilling } = useBilling();
+  const { refetch: refetchBilling } = useBilling();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [billingData, setBillingData] = useState<any>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [savingConsent, setSavingConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Single useEffect to handle all routing logic once data is loaded
+  // Fetch fresh billing data directly - don't rely on context which may be stale
   useEffect(() => {
-    // Wait for everything to load
-    if (authLoading || billingLoading) return;
+    const checkBilling = async () => {
+      if (authLoading) return;
 
-    // Not logged in - redirect to home
-    if (!user) {
-      router.push('/');
-      return;
-    }
+      if (!user) {
+        router.push('/');
+        return;
+      }
 
-    // Team members go to dashboard
-    if (billing?.isTeamMember) {
-      sessionStorage.removeItem('payment_required');
-      router.push('/dashboard');
-      return;
-    }
+      // Fetch fresh billing data
+      const res = await fetch('/api/billing');
+      if (!res.ok) {
+        setError('Failed to load billing data');
+        setReady(true);
+        return;
+      }
+      const billing = await res.json();
+      setBillingData(billing);
 
-    // Prepaid users with terms accepted go to dashboard
-    if (billing?.billingMode === 'prepaid' && !billing?.isSuspended && billing?.termsAcceptedAt) {
-      sessionStorage.removeItem('payment_required');
-      router.push('/dashboard');
-      return;
-    }
+      // Team members go to dashboard
+      if (billing?.isTeamMember) {
+        sessionStorage.removeItem('payment_required');
+        router.push('/dashboard');
+        return;
+      }
 
-    // Postpaid users with payment method AND terms accepted go to dashboard
-    if (billing?.hasPaymentMethod && !billing?.isSuspended && billing?.termsAcceptedAt) {
-      sessionStorage.removeItem('payment_required');
-      router.push('/dashboard');
-      return;
-    }
+      // Prepaid users with terms accepted go to dashboard
+      if (billing?.billingMode === 'prepaid' && !billing?.isSuspended && billing?.termsAcceptedAt) {
+        sessionStorage.removeItem('payment_required');
+        router.push('/dashboard');
+        return;
+      }
 
-    // Otherwise show the form
-    setReady(true);
-  }, [authLoading, billingLoading, user, billing, router]);
+      // Postpaid users with payment method AND terms accepted go to dashboard
+      if (billing?.hasPaymentMethod && !billing?.isSuspended && billing?.termsAcceptedAt) {
+        sessionStorage.removeItem('payment_required');
+        router.push('/dashboard');
+        return;
+      }
+
+      // Otherwise show the form
+      setReady(true);
+    };
+
+    checkBilling();
+  }, [authLoading, user, router]);
 
   // Derived state - only meaningful when ready
-  const needsTermsAcceptance = !billing?.termsAcceptedAt;
-  const hasPaymentButNeedsTerms = (billing?.hasPaymentMethod || billing?.billingMode === 'prepaid') && needsTermsAcceptance && !billing?.isSuspended;
+  const needsTermsAcceptance = !billingData?.termsAcceptedAt;
+  const hasPaymentButNeedsTerms = (billingData?.hasPaymentMethod || billingData?.billingMode === 'prepaid') && needsTermsAcceptance && !billingData?.isSuspended;
 
   const handleSetupPayment = async () => {
     setLoading(true);
@@ -163,7 +176,7 @@ export default function BillingSetup() {
       <Box className="min-h-screen bg-gray-50">
         <Navbar />
         <Box className="container mx-auto px-4 py-12 max-w-2xl">
-          {billing?.isSuspended && (
+          {billingData?.isSuspended && (
             <Card className="p-4 mb-4 border-red-500 bg-red-50">
               <Flex align="center" gap={12}>
                 <AlertTriangle size={20} className="text-red-600" />
