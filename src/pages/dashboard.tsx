@@ -100,10 +100,13 @@ export default function Dashboard() {
   const { pricing } = usePricing();
   const router = useRouter();
   const [selectedMonth, setSelectedMonth] = useState('current');
-  const { data: usage, loading: usageLoading } = useApiData<UsageData>('/api/usage');
-  const { data: hopsworksInfo, loading: hopsworksLoading } = useApiData<HopsworksInfo>('/api/user/hopsworks-info');
-  const { data: instance, loading: instanceLoading } = useApiData<InstanceData>('/api/instance');
-  const { data: teamData, loading: teamLoading, refetch: refetchTeamData } = useApiData<TeamData>('/api/team/members');
+  const { data: usage, loading: usageLoading, error: usageError } = useApiData<UsageData>('/api/usage');
+  const { data: hopsworksInfo, loading: hopsworksLoading, error: hopsworksError } = useApiData<HopsworksInfo>('/api/user/hopsworks-info');
+  const { data: instance, loading: instanceLoading, error: instanceError } = useApiData<InstanceData>('/api/instance');
+  const { data: teamData, loading: teamLoading, refetch: refetchTeamData, error: teamError } = useApiData<TeamData>('/api/team/members');
+
+  // Combine API errors for display
+  const apiError = usageError || hopsworksError || instanceError || teamError;
   const [historicalBilling, setHistoricalBilling] = useState<BillingInfo | null>(null);
   const [historicalBillingLoading, setHistoricalBillingLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('cluster');
@@ -346,8 +349,22 @@ export default function Dashboard() {
                 <Users size={20} className="text-blue-600" />
                 <Box className="flex-1">
                   <Text className="text-sm text-blue-800">
-                    You are part of <strong>{billing.accountOwner?.name || billing.accountOwner?.email}</strong>&apos;s team. 
+                    You are part of <strong>{billing.accountOwner?.name || billing.accountOwner?.email}</strong>&apos;s team.
                     Your usage is billed to the account owner.
+                  </Text>
+                </Box>
+              </Flex>
+            </Card>
+          )}
+
+          {/* API Error Banner */}
+          {apiError && (
+            <Card className="p-4 mb-6 border-yellow-200 bg-yellow-50">
+              <Flex align="center" gap={12}>
+                <AlertTriangle size={20} className="text-yellow-600" />
+                <Box className="flex-1">
+                  <Text className="text-sm text-yellow-800">
+                    Some data could not be loaded. Please refresh the page. If the problem persists, contact support.
                   </Text>
                 </Box>
               </Flex>
@@ -1179,6 +1196,7 @@ mr = project.get_model_registry()`;
                                   }
                                 } catch (error) {
                                   console.error('Failed to open billing portal:', error);
+                                  alert('Failed to open billing portal. Please try again.');
                                 }
                               }}
                             >
@@ -1206,6 +1224,7 @@ mr = project.get_model_registry()`;
                                   }
                                 } catch (error) {
                                   console.error('Failed to set up payment:', error);
+                                  alert('Failed to set up payment. Please try again.');
                                 }
                               }}
                             >
@@ -1304,6 +1323,7 @@ mr = project.get_model_registry()`;
                                     }
                                   } catch (error) {
                                     console.error('Failed to open billing portal:', error);
+                                    alert('Failed to open billing portal. Please try again.');
                                   }
                                 }}
                               >

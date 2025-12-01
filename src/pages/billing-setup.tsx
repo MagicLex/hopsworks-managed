@@ -17,6 +17,7 @@ export default function BillingSetup() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [savingConsent, setSavingConsent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Check if user needs to accept terms (not yet in DB)
   // Only evaluate when billing is loaded, otherwise assume true to show checkboxes
@@ -73,11 +74,13 @@ export default function BillingSetup() {
               } else if (pollCount >= MAX_POLLS) {
                 console.log('Polling timeout - user still suspended after 20s');
                 clearInterval(pollInterval);
+                setError('Payment verification is taking longer than expected. Please refresh the page or contact support if this persists.');
                 setCheckingPayment(false);
               }
-            } catch (error) {
-              console.error('Polling error:', error);
+            } catch (pollError) {
+              console.error('Polling error:', pollError);
               clearInterval(pollInterval);
+              setError('Failed to verify payment status. Please refresh the page.');
               setCheckingPayment(false);
             }
           }, 2000);
@@ -119,6 +122,7 @@ export default function BillingSetup() {
 
         if (!consentResponse.ok) {
           console.error('Failed to save consent');
+          setError('Failed to save your preferences. Please try again.');
           setLoading(false);
           return;
         }
@@ -163,14 +167,16 @@ export default function BillingSetup() {
 
         if (!response.ok) {
           console.error('Failed to save consent');
+          setError('Failed to save your preferences. Please try again.');
           setSavingConsent(false);
           return;
         }
 
         // Refetch billing to update the context with new termsAcceptedAt
         await refetchBilling();
-      } catch (error) {
-        console.error('Error saving consent:', error);
+      } catch (consentErr) {
+        console.error('Error saving consent:', consentErr);
+        setError('Failed to save your preferences. Please try again.');
         setSavingConsent(false);
         return;
       }
@@ -213,6 +219,18 @@ export default function BillingSetup() {
                 <Box>
                   <Text className="font-semibold text-red-800">Account Suspended</Text>
                   <Text className="text-sm text-red-700">Your payment method was removed. Add a new payment method below to restore access.</Text>
+                </Box>
+              </Flex>
+            </Card>
+          )}
+
+          {error && (
+            <Card className="p-4 mb-4 border-red-500 bg-red-50">
+              <Flex align="center" gap={12}>
+                <AlertTriangle size={20} className="text-red-600" />
+                <Box>
+                  <Text className="font-semibold text-red-800">Error</Text>
+                  <Text className="text-sm text-red-700">{error}</Text>
                 </Box>
               </Flex>
             </Card>

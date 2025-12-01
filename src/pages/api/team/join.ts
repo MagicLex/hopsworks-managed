@@ -104,8 +104,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
       .eq('id', invite.id);
 
+    let inviteAcceptWarning: string | null = null;
     if (acceptError) {
       console.error('Failed to mark invite as accepted:', acceptError);
+      inviteAcceptWarning = 'Failed to mark invite as accepted. You may receive duplicate invites.';
       // Don't fail the whole operation
     }
 
@@ -237,9 +239,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     // Add warnings if there were errors
+    const warnings: string[] = [];
+    if (inviteAcceptWarning) {
+      warnings.push(inviteAcceptWarning);
+    }
     if (projectErrors.length > 0) {
-      response.warning = 'Some projects could not be assigned. The cluster may need to be upgraded to support OAuth group mappings. Please contact support.';
+      warnings.push('Some projects could not be assigned. The cluster may need to be upgraded to support OAuth group mappings.');
       response.project_errors = projectErrors;
+    }
+    if (warnings.length > 0) {
+      response.warning = warnings.join(' ');
     }
 
     return res.status(200).json(response);

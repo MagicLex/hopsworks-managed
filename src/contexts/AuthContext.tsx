@@ -38,9 +38,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ corporateRef, promoCode, termsAccepted, marketingConsent })
       })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          return res.json().then(errData => {
+            throw new Error(errData.error || `Sync failed: ${res.status}`);
+          });
+        }
+        return res.json();
+      })
       .then(data => {
-
         // Clear registration data after successful sync
         sessionStorage.removeItem('corporate_ref');
         sessionStorage.removeItem('promo_code');
@@ -55,7 +61,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // Check if user needs to set up payment (new users, not team members)
-        if (data.needsPayment && router.pathname !== '/billing-setup') {
+        // Skip redirect if on /team/joining - that flow handles its own routing
+        if (data.needsPayment && router.pathname !== '/billing-setup' && router.pathname !== '/team/joining') {
           sessionStorage.setItem('payment_required', 'true');
           router.push('/billing-setup');
         }

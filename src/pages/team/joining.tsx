@@ -7,7 +7,7 @@ import { CheckCircle, XCircle } from 'lucide-react';
 
 export default function JoiningTeamPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { token } = router.query;
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [message, setMessage] = useState('Joining team...');
@@ -30,6 +30,8 @@ export default function JoiningTeamPage() {
         if (data.error) {
           setStatus('error');
           setMessage(data.error);
+          // Clear sync flag so AuthContext can re-evaluate on next navigation
+          sessionStorage.removeItem('user_synced_session');
         } else {
           // Only clear consent AFTER successful join
           sessionStorage.removeItem('terms_accepted');
@@ -47,6 +49,8 @@ export default function JoiningTeamPage() {
       .catch(err => {
         setStatus('error');
         setMessage('Failed to join team. Please try again.');
+        // Clear sync flag so AuthContext can re-evaluate on next navigation
+        sessionStorage.removeItem('user_synced_session');
       });
   }, [user, token, router]);
 
@@ -73,9 +77,13 @@ export default function JoiningTeamPage() {
             <XCircle className="h-12 w-12 text-red-500 mx-auto" />
             <Text className="mt-4 text-gray-800 font-medium">{message}</Text>
             <Text className="mt-2 text-sm text-gray-600">
-              <Link href="/dashboard" className="text-primary hover:underline">
-                Return to dashboard
-              </Link>
+              Ask the team owner to send you a new invite, or{' '}
+              <button
+                onClick={() => signOut()}
+                className="text-primary hover:underline"
+              >
+                sign out and try again
+              </button>
             </Text>
           </>
         )}

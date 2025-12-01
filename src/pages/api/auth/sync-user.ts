@@ -731,8 +731,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Check if account is suspended (postpaid user who removed payment method)
     const isSuspended = currentUser?.status === 'suspended';
 
+    // Check if any critical health checks failed
+    const hasWarnings = healthCheckResults.userExists && (
+      !healthCheckResults.billingEnabled ||
+      !healthCheckResults.clusterAssigned ||
+      !healthCheckResults.hopsworksUserExists
+    );
+
     return res.status(200).json({
       success: true,
+      hasWarnings,
       healthChecks: healthCheckResults,
       needsPayment,
       isSuspended,
