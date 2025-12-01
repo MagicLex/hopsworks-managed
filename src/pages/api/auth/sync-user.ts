@@ -57,8 +57,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { sub: userId, email, name } = session.user;
     const { corporateRef, promoCode, teamInviteToken, termsAccepted, marketingConsent } = req.body;
-
-    console.log(`[Sync] User ${email} - termsAccepted: ${termsAccepted}, promoCode: ${promoCode}`);
     const healthCheckResults = {
       userExists: false,
       billingEnabled: false,
@@ -166,13 +164,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           metadata
         });
 
-      if (userError) {
-        console.log(`[Sync] Insert error for ${email}: ${userError.code} - ${userError.message}`);
-        if (userError.code !== '23505') { // Ignore duplicate key errors
-          throw userError;
-        }
-      } else {
-        console.log(`[Sync] Created user ${email} with terms_accepted_at: ${termsAccepted ? 'SET' : 'NULL'}`);
+      if (userError && userError.code !== '23505') { // Ignore duplicate key errors
+        throw userError;
       }
 
       // Check if user has payment method set up or is prepaid
