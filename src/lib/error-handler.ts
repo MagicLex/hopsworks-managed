@@ -1,8 +1,27 @@
 import { NextApiResponse } from 'next';
 
+async function sendToSlack(message: string, context?: string) {
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  const text = `:rotating_light: *API Error*${context ? ` in \`${context}\`` : ''}\n\`\`\`${message.slice(0, 2000)}\`\`\``;
+
+  fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
+  }).catch(() => {}); // Fire and forget
+}
+
 export function handleApiError(error: unknown, res: NextApiResponse, context?: string) {
   // Log the full error for debugging
   console.error(`API Error${context ? ` in ${context}` : ''}:`, error);
+
+  // Send to Slack in production
+  if (process.env.NODE_ENV === 'production') {
+    const message = error instanceof Error ? `${error.message}\n${error.stack}` : String(error);
+    sendToSlack(message, context);
+  }
 
   // In production, return generic error messages
   if (process.env.NODE_ENV === 'production') {
