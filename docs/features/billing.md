@@ -47,19 +47,30 @@ Rates live in `src/config/billing-rates.ts` and represent the single source of t
 - **Database**: `billing_mode = 'prepaid'`
 
 #### Postpaid (SaaS/Self-Service)
-- **Registration**: Standard signup flow.
-- **Payment**: Credit card via Stripe (required for cluster access).
+- **Registration**: Standard signup flow
+- **Payment**: Credit card via Stripe (required for cluster access)
 - **First login flow**:
-  - Auth0 webhook creates Stripe customer if missing.
-  - User is redirected to Stripe Checkout when no payment method is present.
-  - Stripe webhook provisions/updates the metered subscription once Checkout completes.
-- **Cluster access**: Health checks assign a cluster only after billing is verified.
-- **Projects**: 5 projects available immediately after assignment.
-- **Usage tracking**: `/api/billing/sync-stripe` reports daily totals via Stripe Billing Meter Events:
-  - `cpu_usage` uses the `usage_daily.total_cost` converted to cents.
-  - `storage_usage` uses the average storage GB recorded for the day.
-  - `api_calls` currently unused but available for custom metering.
-- **Database flags**: `billing_mode = 'postpaid'` (or `NULL` during migration); `stripe_subscription_id` links to the live plan.
+  1. Auth0 callback → `sync-user` creates user with `billing_mode = 'postpaid'`
+  2. `syncResult.needsPayment = true` → redirect to `/billing-setup`
+  3. User accepts terms and sets up payment via Stripe Checkout
+  4. Stripe webhook creates metered subscription
+  5. User redirected to `/dashboard`
+- **Cluster access**: Assigned during `sync-user` (Hopsworks user created)
+- **Projects**: 5 projects available after cluster assignment
+- **Usage tracking**: `/api/billing/sync-stripe` reports daily totals via Stripe Billing Meter Events
+- **Database flags**: `billing_mode = 'postpaid'`; `stripe_subscription_id` links to the live plan
+
+#### Prepaid (Promo Code)
+- **Registration**: Via `?promo=PROMO_CODE` URL parameter
+- **Payment**: None required
+- **First login flow**:
+  1. Promo code validated via `/api/auth/validate-promo`
+  2. Auth0 callback → `sync-user` creates user with `billing_mode = 'prepaid'`
+  3. `syncResult.needsPayment = false` → redirect to `/billing-setup` for terms only
+  4. User accepts terms → redirect to `/dashboard`
+- **Cluster access**: Immediate upon registration
+- **Projects**: 5 projects immediately available
+- **Database flags**: `billing_mode = 'prepaid'`; `promo_code` stores the code used
 
 ## Stripe Integration
 

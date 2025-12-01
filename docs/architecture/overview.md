@@ -13,30 +13,55 @@
 
 ## Key Flows
 
-### User Signup (Self-Service SaaS)
-1. Auth0 authentication via hosted login.
-2. Auth0 post-login webhook (`/api/webhooks/auth0`) creates the `users` row and Stripe customer if missing.
-3. User is redirected to Stripe Checkout to add a payment method.
-4. Stripe webhook (`/api/webhooks/stripe`) creates/updates the metered subscription once payment data exists.
-5. Health checks (`/api/auth/sync-user`) or admin actions assign a shared Hopsworks cluster after billing is verified.
-6. Cluster assignment creates or links an OAuth user in Hopsworks with:
-   - Account owners: 5 project limit.
-   - Team members: 0 project limit.
-7. Stores `hopsworks_username` (and ID if returned) in Supabase for future API calls.
+### Authentication & Sync Architecture
+
+The app uses a centralized sync flow via `AuthContext`:
+
+1. **Auth0 callback** → user exists in AuthContext
+2. **AuthContext** sets `syncing = true`, calls `/api/auth/sync-user`
+3. **sync-user** creates/updates user in DB, returns `{ needsPayment, isSuspended, isTeamMember }`
+4. **AuthContext** sets `synced = true` with `syncResult`
+5. **Pages** wait for `synced` before making routing decisions
+6. **BillingContext** waits for `synced` before fetching `/api/billing`
+
+This prevents race conditions where pages redirect before the user exists in DB.
+
+### User Signup (Self-Service SaaS - Postpaid)
+1. User clicks signup on landing page → Auth0 hosted login
+2. Auth0 callback → `/api/auth/sync-user` creates user with `billing_mode = 'postpaid'`
+3. `syncResult.needsPayment = true` → redirect to `/billing-setup`
+4. User accepts terms and adds payment method via Stripe Checkout
+5. Stripe webhook creates metered subscription
+6. User redirected to `/dashboard`
+7. Cluster assignment + Hopsworks user creation happens during sync-user
+
+### Prepaid Signup (Promo Code)
+1. User arrives with `?promo=PROMO_CODE`
+2. Promo code stored in sessionStorage, validated via `/api/auth/validate-promo`
+3. Auth0 signup → `/api/auth/sync-user` with promo code
+4. User created with `billing_mode = 'prepaid'`
+5. `syncResult.needsPayment = false` → redirect to `/billing-setup` for terms only
+6. User accepts terms → redirect to `/dashboard`
+7. No Stripe payment required
 
 ### Corporate (Prepaid) Signup
-1. User arrives with `?corporate_ref=<hubspot-deal-id>`.
-2. `/api/auth/validate-corporate` validates the deal through HubSpot APIs using `HUBSPOT_API_KEY`.
-3. On successful validation, the account is marked `billing_mode = 'prepaid'` and the deal ID is stored in `metadata.corporate_ref`.
-4. Cluster assignment runs immediately after signup—no Stripe flow.
-5. Usage is still collected hourly, but invoicing happens off-platform.
+1. User arrives with `?corporate_ref=<hubspot-deal-id>`
+2. `/api/auth/validate-corporate` validates the deal through HubSpot APIs
+3. On successful validation, user created with `billing_mode = 'prepaid'`
+4. Same flow as promo code - terms acceptance only, no payment
+5. Usage collected hourly but invoicing happens off-platform
 
 ### Team Management
-1. Account owners send invites via `/api/team/invite`; Resend emails the tokenized link.
-2. Invited users authenticate with Auth0 and accept via `/api/team/join`.
-3. Membership details are stored in `users.account_owner_id` and mirrored in Hopsworks.
-4. Optional auto-assignment adds members to the owner's projects and caches roles in `project_member_roles`.
-5. Team member usage is aggregated to the owner's account for billing and reporting.
+1. Account owners send invites via `/api/team/invite`; Resend emails the tokenized link
+2. Invited user clicks link → `/team/accept-invite` shows invite details + terms
+3. User accepts terms → Auth0 signup with `returnTo=/team/joining?token=xxx`
+4. `/team/joining` calls `/api/team/join` which:
+   - Validates invite token
+   - Upserts user with `account_owner_id` set to owner
+   - Assigns user to owner's cluster
+   - Creates Hopsworks OAuth user with `maxNumProjects: 0`
+5. Team member redirected to `/dashboard`
+6. Team member usage aggregated to owner's account for billing
 
 ### Cost Collection (Hourly via OpenCost)
 1. Cron job runs every hour on Vercel
