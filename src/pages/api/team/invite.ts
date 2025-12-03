@@ -6,6 +6,10 @@ import { Resend } from 'resend';
 import { rateLimit } from '../../../middleware/rateLimit';
 import { getPostHogClient } from '@/lib/posthog-server';
 import { handleApiError } from '@/lib/error-handler';
+import {
+  validateInviteRequest,
+  calculateInviteExpiry
+} from '@/lib/invite-validation';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,24 +29,14 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
 
   if (req.method === 'POST') {
     try {
-      const { email, projectRole = 'Data scientist', autoAssignProjects = true } = req.body;
+      const { email, projectRole, autoAssignProjects = true } = req.body;
 
-      if (!email || typeof email !== 'string') {
-        return res.status(400).json({ error: 'Email is required' });
+      // Validate request payload
+      const validation = validateInviteRequest({ email, projectRole });
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.error });
       }
-
-      // Normalize and validate email
-      const normalizedEmail = email.trim().toLowerCase();
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(normalizedEmail)) {
-        return res.status(400).json({ error: 'Invalid email address' });
-      }
-
-      // Validate role
-      const validRoles = ['Data owner', 'Data scientist'];
-      if (!validRoles.includes(projectRole)) {
-        return res.status(400).json({ error: 'Invalid project role. Valid roles: Data owner, Data scientist' });
-      }
+      const { normalizedEmail, role } = validation;
 
       // Check if user is an account owner (account_owner_id is NULL) and has cluster access
       const { data: currentUser, error: userError } = await supabase
@@ -107,9 +101,9 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
           account_owner_id: userId,
           email: normalizedEmail,
           token,
-          project_role: projectRole,
+          project_role: role,
           auto_assign_projects: autoAssignProjects,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+          expires_at: calculateInviteExpiry().toISOString()
         })
         .select()
         .single();
@@ -175,7 +169,7 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
         event: 'team_invite_sent',
         properties: {
           inviteeEmail: normalizedEmail,
-          projectRole,
+          projectRole: role,
           autoAssignProjects,
           inviterEmail: inviter?.email,
         }

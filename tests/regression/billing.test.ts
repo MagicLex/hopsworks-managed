@@ -7,28 +7,9 @@
 
 import { describe, it, expect } from 'vitest'
 import {
-  CREDIT_RATES,
-  DEFAULT_RATES,
   calculateCreditsUsed,
   calculateDollarAmount
 } from '@/config/billing-rates'
-
-describe('Credit/Dollar Rates Consistency', () => {
-  it('credit value is $0.35', () => {
-    expect(DEFAULT_RATES.CREDIT_VALUE).toBe(0.35)
-  })
-
-  it('dollar rates derived from credit rates correctly', () => {
-    expect(DEFAULT_RATES.CPU_HOUR).toBeCloseTo(CREDIT_RATES.CPU_HOUR * 0.35, 10)
-    expect(DEFAULT_RATES.GPU_HOUR).toBeCloseTo(CREDIT_RATES.GPU_HOUR * 0.35, 10)
-    expect(DEFAULT_RATES.RAM_GB_HOUR).toBeCloseTo(CREDIT_RATES.RAM_GB_HOUR * 0.35, 10)
-  })
-
-  it('storage rates are fixed (Stripe prices)', () => {
-    expect(DEFAULT_RATES.STORAGE_ONLINE_GB).toBe(0.50)
-    expect(DEFAULT_RATES.STORAGE_OFFLINE_GB).toBe(0.03)
-  })
-})
 
 describe('calculateCreditsUsed', () => {
   it('returns 0 for empty/undefined usage', () => {

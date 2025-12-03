@@ -1,5 +1,5 @@
 -- Current Production Schema
--- Date: 2025-01-31
+-- Date: 2025-12-03
 -- This represents the complete current state after all migrations
 
 -- =====================================================
@@ -33,6 +33,10 @@ CREATE TABLE IF NOT EXISTS users (
 
   -- Hopsworks
   hopsworks_username TEXT,
+  hopsworks_user_id INTEGER,
+
+  -- Promo
+  promo_code TEXT,
 
   -- Soft delete
   deleted_at TIMESTAMPTZ DEFAULT NULL,
@@ -57,7 +61,39 @@ CREATE TABLE IF NOT EXISTS team_invites (
   expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '7 days'),
   accepted_at TIMESTAMPTZ,
   accepted_by_user_id TEXT REFERENCES users(id),
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  project_role TEXT DEFAULT 'Data scientist',
+  auto_assign_projects BOOLEAN DEFAULT true
+);
+
+-- Health check failures (monitoring)
+CREATE TABLE IF NOT EXISTS health_check_failures (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  email TEXT NOT NULL,
+  check_type TEXT NOT NULL,
+  error_message TEXT NOT NULL,
+  details JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ,
+  resolution_notes TEXT
+);
+
+-- Project member roles (team member project assignments)
+CREATE TABLE IF NOT EXISTS project_member_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  member_id TEXT NOT NULL,
+  account_owner_id TEXT NOT NULL,
+  project_id INTEGER NOT NULL,
+  project_name TEXT NOT NULL,
+  project_namespace TEXT,
+  role TEXT NOT NULL,
+  synced_to_hopsworks BOOLEAN DEFAULT false,
+  last_sync_at TIMESTAMPTZ,
+  sync_error TEXT,
+  added_by TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- =====================================================
@@ -127,11 +163,13 @@ CREATE TABLE IF NOT EXISTS usage_daily (
 
   -- Stripe sync tracking
   reported_to_stripe BOOLEAN DEFAULT false,
+  stripe_usage_record_id TEXT,
 
   total_credits DECIMAL(10,4) DEFAULT 0,
   total_cost DECIMAL(10,2) DEFAULT 0,
   hopsworks_cluster_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, date)
 );
 

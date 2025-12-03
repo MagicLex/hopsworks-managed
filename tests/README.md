@@ -3,17 +3,62 @@
 ## Quick Start
 
 ```bash
-npm run test          # Run all tests
-npm run test:watch    # Re-run on file changes
+npm run test           # Run all tests
+npm run test:watch     # Re-run on file changes
+npm run test:coverage  # Run with V8 coverage report
 ```
 
 ## Structure
 
 ```
 tests/
-└── regression/
-    └── billing.test.ts   # Billing calculations (if wrong = wrong invoices)
+├── regression/                      # Unit tests (no DB needed)
+│   ├── billing.test.ts              # Billing rate calculations
+│   ├── usage-collection.test.ts     # Usage collection & attribution
+│   ├── cluster-assignment.test.ts   # Cluster selection, payment gates
+│   └── invite-validation.test.ts    # Invite request validation
+│
+└── integration/                     # Integration tests (needs local Supabase)
+    ├── helpers/test-db.ts           # DB seeding utilities
+    └── user-cascade.test.ts         # Owner suspend → team cascade
 ```
+
+## What's tested
+
+**Business logic that matters:**
+- Cluster selection by capacity (if broken → users on full clusters)
+- `maxNumProjects` calculation (if broken → billing issues)
+- Payment gate for auto-assignment (if broken → free access)
+- Invite validation (if broken → invalid invites created)
+- Billing rates (if broken → wrong invoices)
+
+**Not tested** (by design):
+- Trivial one-liners (`email.trim()`, `=== null`)
+- Constants
+
+---
+
+## Integration Tests
+
+Tests real DB operations (suspend owner → team cascade, etc.)
+
+### Setup
+
+```bash
+# 1. Start local Supabase
+supabase start
+
+# 2. Copy the service_role key from output to .env.test
+cp .env.test.example .env.test
+# Edit .env.test with your service_role key
+
+# 3. Run integration tests
+npm run test:integration
+```
+
+### What's tested
+
+- `user-cascade.test.ts`: Suspend/reactivate owner cascades to team members
 
 ---
 

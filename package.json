@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:regression": "vitest run tests/regression",
-    "test:integration": "vitest run tests/integration",
+    "test:integration": "dotenv -e .env.test -- vitest run --config vitest.integration.config.ts",
     "test:resilience": "npx ts-node scripts/test-resilience.ts",
     "check:opencost-namespaces": "npx ts-node --project scripts/tsconfig.json scripts/check-opencost-namespaces.ts"
   },
@@ -41,6 +41,7 @@
     "@vitest/coverage-v8": "^4.0.15",
     "autoprefixer": "^10.0.1",
     "dotenv": "^17.2.2",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^8",
     "eslint-config-next": "^15.4.2",
     "postcss": "^8",
