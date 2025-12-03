@@ -117,6 +117,43 @@ psql $DATABASE_URL -c "SELECT id, email, status FROM users WHERE email = 'test@e
 
 ---
 
+## E2E Manual Testing Checklist
+
+Before major releases, manually test these critical flows:
+
+### New User Onboarding
+- [ ] Sign up via Auth0 → user created in Supabase
+- [ ] Redirected to billing setup page
+- [ ] Add payment method → cluster assigned
+- [ ] Can access Hopsworks UI
+
+### Team Management
+- [ ] Owner invites team member (valid email)
+- [ ] Invite email received
+- [ ] Team member accepts invite → linked to owner
+- [ ] Team member assigned to same cluster as owner
+- [ ] Team member can access owner's projects
+
+### Payment & Suspension
+- [ ] Remove payment method → user suspended
+- [ ] Owner suspended → all team members suspended
+- [ ] Add payment method back → owner reactivated
+- [ ] Team members also reactivated
+
+### Edge Cases
+- [ ] Invite expired user → shows error
+- [ ] Invite already-registered user → shows error
+- [ ] Try to access when suspended → blocked
+
+### Stripe Webhooks (via CLI)
+```bash
+stripe trigger checkout.session.completed
+stripe trigger customer.subscription.deleted
+stripe trigger payment_method.detached
+```
+
+---
+
 ## Adding regression tests
 
 When you fix a bug:
