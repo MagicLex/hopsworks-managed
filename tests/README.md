@@ -13,14 +13,14 @@ npm run test:coverage  # Run with V8 coverage report
 ```
 tests/
 ├── regression/                      # Unit tests (no DB needed)
-│   ├── billing.test.ts              # Billing rate calculations
-│   ├── usage-collection.test.ts     # Usage collection & attribution
+│   ├── billing.test.ts              # Billing calculations (credits, dollars)
 │   ├── cluster-assignment.test.ts   # Cluster selection, payment gates
 │   └── invite-validation.test.ts    # Invite request validation
 │
 └── integration/                     # Integration tests (needs local Supabase)
     ├── helpers/test-db.ts           # DB seeding utilities
-    └── user-cascade.test.ts         # Owner suspend → team cascade
+    ├── user-cascade.test.ts         # Owner suspend → team cascade
+    └── cluster-capacity.test.ts     # Cluster capacity tracking, assignments
 ```
 
 ## What's tested
@@ -59,6 +59,7 @@ npm run test:integration
 ### What's tested
 
 - `user-cascade.test.ts`: Suspend/reactivate owner cascades to team members
+- `cluster-capacity.test.ts`: RPC functions, cluster selection queries, assignment constraints
 
 ---
 
