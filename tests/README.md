@@ -67,6 +67,19 @@ npm run test:integration
 
 We test webhooks with Stripe CLI, not mocks.
 
+### Current State
+
+**Production mode only** - The codebase uses `STRIPE_SECRET_KEY` (live) everywhere.
+
+Test mode infrastructure exists (`stripe-config.ts` has `createStripeClient(isTestMode)`), but is not wired up. All API routes directly instantiate Stripe with the live key.
+
+To test with 4242 card, you'd need to:
+1. Temporarily swap `STRIPE_SECRET_KEY` to `STRIPE_TEST_SECRET_KEY` in `.env.local`
+2. Also swap webhook secret and price IDs
+3. Restart the server
+
+For now, we test in production with real (small) transactions.
+
 ### Setup (once)
 
 ```bash
