@@ -131,10 +131,22 @@ export default function Privacy() {
 
             <Box>
               <Title className="text-xl font-semibold mb-4">9. Cookies and Tracking</Title>
+              <Text className="text-gray-700 leading-relaxed mb-4">
+                We use cookies and similar technologies to provide and improve our Service:
+              </Text>
+              <Box className="ml-6 space-y-2 mb-4">
+                <Text className="text-gray-700 leading-relaxed">
+                  • <span className="font-medium">Essential cookies:</span> Required for authentication and core service functionality.
+                </Text>
+                <Text className="text-gray-700 leading-relaxed">
+                  • <span className="font-medium">Analytics cookies:</span> Used to understand usage patterns and improve our service
+                  (Google Analytics, PostHog). We process this data under <span className="font-medium">legitimate interest</span> (<a href="https://gdpr-info.eu/art-6-gdpr/" target="_blank" rel="noopener noreferrer" className="text-[#1eb182] hover:underline">GDPR Article 6(1)(f)</a>)
+                  as it is necessary for improving our B2B service without overriding your rights.
+                </Text>
+              </Box>
               <Text className="text-gray-700 leading-relaxed">
-                We use cookies and similar technologies to provide and improve our Service. These include 
-                essential cookies for authentication and service functionality, as well as analytics cookies 
-                to understand usage patterns. You can control cookie preferences through your browser settings.
+                You can control cookie preferences through your browser settings. Blocking analytics cookies
+                will not affect your ability to use the Service.
               </Text>
             </Box>
 
