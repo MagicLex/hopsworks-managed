@@ -2,9 +2,12 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { buffer } from 'micro';
+import { Resend } from 'resend';
 import { assignUserToCluster } from '../../../lib/cluster-assignment';
 import { suspendUser, reactivateUser } from '../../../lib/user-status';
 import { handleApiError } from '../../../lib/error-handler';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-06-30.basil'
@@ -402,14 +405,49 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
 
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, email')
+    .select('id, email, name')
     .eq('stripe_customer_id', customerId)
     .single();
 
   if (user) {
-    console.error(`Payment failed for user ${user.email} (${user.id})`);
+    console.error(`[BILLING] Payment failed for ${user.email} - invoice ${invoice.id}`);
 
-    // Future enhancement: Send payment failure notification email
-    // Future enhancement: Consider account suspension after multiple failures
+    // Send payment failure notification
+    try {
+      await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || 'Hopsworks <no-reply@hopsworks.com>',
+        to: user.email,
+        subject: 'Action Required: Payment Failed for Your Hopsworks Account',
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Payment Failed</h2>
+
+            <p>Hi${user.name ? ` ${user.name}` : ''},</p>
+
+            <p>We were unable to process a payment for your Hopsworks account.</p>
+
+            <p><strong>What happens next:</strong></p>
+            <ul>
+              <li>We'll automatically retry the payment</li>
+              <li>If the issue persists, your account may be suspended</li>
+            </ul>
+
+            <p>To avoid any interruption, please update your payment method:</p>
+
+            <a href="${process.env.AUTH0_BASE_URL}/billing"
+               style="display: inline-block; background-color: #1eb182; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 16px 0;">
+              Update Payment Method
+            </a>
+
+            <p style="color: #666; font-size: 14px; margin-top: 24px;">
+              If you have questions, reply to this email or contact support.
+            </p>
+          </div>
+        `,
+      });
+      console.log(`[BILLING] Payment failure notification sent to ${user.email}`);
+    } catch (emailError) {
+      console.error(`[BILLING] Failed to send payment failure email to ${user.email}:`, emailError);
+    }
   }
 }

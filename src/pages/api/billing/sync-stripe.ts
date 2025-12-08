@@ -141,14 +141,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         // Mark as reported
-        await supabaseAdmin
+        const { error: reportedError } = await supabaseAdmin
           .from('usage_daily')
-          .update({ 
-            reported_to_stripe: true 
-          })
+          .update({ reported_to_stripe: true })
           .eq('id', usage.id);
 
-        // Successfully reported to Stripe
+        if (reportedError) {
+          console.error(`[BILLING] Failed to mark usage as reported for ${usage.users.email}:`, reportedError);
+          // Data is in Stripe - idempotency keys prevent double-billing on retry
+        }
 
         results.successful++;
       } catch (error) {

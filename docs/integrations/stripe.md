@@ -4,15 +4,16 @@
 
 ### 1. Create Products
 
-In Stripe Dashboard, create these products with prices:
+In Stripe Dashboard, create these products with prices (must match `src/config/billing-rates.ts`):
 
 | Product | Price | Type |
 |---------|-------|------|
-| CPU Hour | $0.10 | Usage-based |
-| GPU Hour | $2.00 | Usage-based |
-| Storage GB-Month | $0.15 | Usage-based |
-| API Calls | $0.01 per 1000 | Usage-based |
-| Credits | $1.00 | One-time |
+| CPU Hour | $0.175 | Usage-based (metered) |
+| GPU Hour | $3.50 | Usage-based (metered) |
+| RAM GB-Hour | $0.0175 | Usage-based (metered) |
+| Online Storage GB-Month | $0.50 | Usage-based (metered) |
+| Offline Storage GB-Month | $0.03 | Usage-based (metered) |
+| Network Egress GB | $0.14 | Usage-based (metered) |
 
 ### 2. Configure Webhook
 
@@ -47,12 +48,9 @@ The `payment_method.attached` handler does NOT create subscriptions - it only sy
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
-STRIPE_PRICE_ID_CPU_HOUR=price_...
-STRIPE_PRICE_ID_GPU_HOUR=price_...
-STRIPE_PRICE_ID_STORAGE_GB_MONTH=price_...
-STRIPE_PRICE_ID_API_CALLS=price_...
-STRIPE_PRICE_ID_CREDIT=price_...
 ```
+
+Price IDs are stored in the `stripe_products` table in Supabase, not environment variables.
 
 ## Test Mode Setup
 
