@@ -23,7 +23,7 @@
     "@types/micro": "^7.3.7",
     "lucide-react": "^0.525.0",
     "micro": "^10.0.1",
-    "next": "^15.4.2",
+    "next": "^15.4.8",
     "posthog-js": "^1.289.0",
     "posthog-node": "^5.11.2",
     "rate-limiter-flexible": "^7.2.0",
