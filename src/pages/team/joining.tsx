@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Box, Flex, Text } from 'tailwind-quartz';
 import { CheckCircle, XCircle } from 'lucide-react';
+import { HopsSpinner } from '@/components/HopsSpinner';
 
 export default function JoiningTeamPage() {
   const router = useRouter();
@@ -59,7 +60,7 @@ export default function JoiningTeamPage() {
       <Box className="text-center">
         {status === 'processing' && (
           <>
-            <Box className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
+            <HopsSpinner size="lg" className="mx-auto" />
             <Text className="mt-4 text-gray-600">{message}</Text>
           </>
         )}

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { Box, Flex, Card, Title, Text, Button, Badge } from 'tailwind-quartz';
 import { AlertTriangle, UserPlus, Clock, Check } from 'lucide-react';
+import { HopsSpinner } from '@/components/HopsSpinner';
 
 interface InviteDetails {
   email: string;
@@ -46,7 +47,7 @@ export default function AcceptInvitePage() {
     return (
       <Flex align="center" justify="center" className="min-h-screen bg-gray-50">
         <Box className="text-center">
-          <Box className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
+          <HopsSpinner size="lg" className="mx-auto" />
           <Text className="mt-4 text-gray-600">Loading invite...</Text>
         </Box>
       </Flex>

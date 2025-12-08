@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { DEFAULT_RATES } from '@/config/billing-rates';
 import { usePricing } from '@/contexts/PricingContext';
 import { MatrixText } from '@/components/MatrixText';
+import { HopsSpinner } from '@/components/HopsSpinner';
 import posthog from 'posthog-js';
 
 export default function Home() {
@@ -29,14 +30,12 @@ export default function Home() {
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
 
   const loadingMessages = [
-    "Brewing coffee...",
-    "Warming up the GPUs...",
+    "Brewing coffee for Hops...",
     "Feeding the feature store...",
     "Polishing the pipelines...",
-    "Waking up the data scientists...",
-    "Calibrating the models...",
-    "Spinning up your cluster...",
+    "Syncing your features...",
     "Preparing your workspace...",
+    "Waking up your cluster...",
   ];
 
   useEffect(() => {
@@ -145,7 +144,7 @@ export default function Home() {
     return (
       <Box className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Box className="text-center">
-          <Box className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1eb182] mx-auto mb-4" />
+          <HopsSpinner size="lg" className="mx-auto mb-4" />
           <Text className="text-gray-600 font-mono">{loadingMessages[loadingMessageIndex]}</Text>
         </Box>
       </Box>

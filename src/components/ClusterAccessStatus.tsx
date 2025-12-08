@@ -1,5 +1,5 @@
 import { Box, Card, Text, Button, StatusMessage, Flex } from 'tailwind-quartz';
-import { AlertTriangle, CheckCircle, CreditCard } from 'lucide-react';
+import { AlertTriangle, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 
 interface ClusterAccessStatusProps {
@@ -38,102 +38,94 @@ export default function ClusterAccessStatus({
 
   if (hasCluster) {
     return (
-      <Card className="p-4">
-        <StatusMessage variant="success" icon={<CheckCircle size={20} />} className="border-0 p-0">
-          <Box>
-            <Text className="font-semibold text-green-800">Cluster Access Active</Text>
-            <Text className="text-sm text-green-700">
-              Connected to: {clusterName || 'Hopsworks Cluster'}
-            </Text>
-          </Box>
-        </StatusMessage>
-      </Card>
+      <StatusMessage variant="success" icon={<CheckCircle size={20} />}>
+        <Box>
+          <Text className="font-semibold text-green-800">Cluster Access Active</Text>
+          <Text className="text-sm text-green-700">
+            Connected to: {clusterName || 'Hopsworks Cluster'}
+          </Text>
+        </Box>
+      </StatusMessage>
     );
   }
 
   // For prepaid users, show different message
   if (billingMode === 'prepaid' && !hasCluster) {
     return (
-      <Card className="p-6">
-        <StatusMessage variant="info" icon={<AlertTriangle size={20} />} className="items-start border-0 p-0">
-          <Box className="pl-1">
-            <Text className="font-semibold text-blue-800 mb-3">
-              Cluster Setup In Progress
-            </Text>
-            <Text className="text-sm text-blue-700 mb-4">
-              Your cluster is being provisioned. This typically takes a few minutes.
-              If you continue to see this message, please contact support.
-            </Text>
+      <StatusMessage variant="info" icon={<AlertTriangle size={20} />}>
+        <Box>
+          <Text className="font-semibold text-blue-800 mb-3">
+            Cluster Setup In Progress
+          </Text>
+          <Text className="text-sm text-blue-700 mb-4">
+            Your cluster is being provisioned. This typically takes a few minutes.
+            If you continue to see this message, please contact support.
+          </Text>
 
-            {/* Retro progress bar */}
-            {reloadProgress > 0 && (
-              <Box className="mt-3">
-                <Text className="text-xs text-blue-600 mb-2 font-mono">
-                  Checking status... {Math.floor(reloadProgress)}%
-                </Text>
-                <Box className="w-full h-4 bg-blue-100 border-2 border-blue-300 rounded overflow-hidden">
-                  <Box
-                    className="h-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-100 ease-linear"
-                    style={{
-                      width: `${reloadProgress}%`,
-                      backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.2) 10px, rgba(255,255,255,.2) 20px)'
-                    }}
-                  />
-                </Box>
+          {/* Retro progress bar */}
+          {reloadProgress > 0 && (
+            <Box className="mt-3">
+              <Text className="text-xs text-blue-600 mb-2 font-mono">
+                Checking status... {Math.floor(reloadProgress)}%
+              </Text>
+              <Box className="w-full h-4 bg-blue-100 border-2 border-blue-300 rounded overflow-hidden">
+                <Box
+                  className="h-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-100 ease-linear"
+                  style={{
+                    width: `${reloadProgress}%`,
+                    backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.2) 10px, rgba(255,255,255,.2) 20px)'
+                  }}
+                />
               </Box>
-            )}
-          </Box>
-        </StatusMessage>
-      </Card>
+            </Box>
+          )}
+        </Box>
+      </StatusMessage>
     );
   }
 
   // Team members don't need to set up payment - show syncing message
   if (isTeamMember) {
     return (
-      <Card className="p-6">
-        <StatusMessage variant="info" icon={<AlertTriangle size={20} />} className="items-start border-0 p-0">
-          <Box className="pl-1">
-            <Text className="font-semibold text-blue-800 mb-3">
-              Setting Up Your Access
-            </Text>
-            <Text className="text-sm text-blue-700">
-              Your cluster access is being configured. This usually takes a few moments.
-            </Text>
-          </Box>
-        </StatusMessage>
-      </Card>
+      <StatusMessage variant="info" icon={<AlertTriangle size={20} />}>
+        <Box>
+          <Text className="font-semibold text-blue-800 mb-3">
+            Setting Up Your Access
+          </Text>
+          <Text className="text-sm text-blue-700">
+            Your cluster access is being configured. This usually takes a few moments.
+          </Text>
+        </Box>
+      </StatusMessage>
     );
   }
 
   return (
-    <Card className="p-6">
-      <StatusMessage variant="warning" icon={<AlertTriangle size={20} />} className="items-start border-0 p-0">
-        <Box className="pl-1">
-          <Text className="font-semibold text-yellow-800 mb-3">
-            Cluster Access Pending
-          </Text>
-          {!hasPaymentMethod ? (
-            <>
-              <Text className="text-sm text-yellow-700 mb-4">
-                Set up a payment method to get access to Hopsworks clusters.
-              </Text>
-              <Link href="/billing">
-                <Button
-                  intent="primary"
-                  size="md"
-                >
-                  Set Up Payment
-                </Button>
-              </Link>
-            </>
-          ) : (
-            <Text className="text-sm text-yellow-700">
-              Your cluster access is being provisioned. This usually takes a few minutes.
+    <StatusMessage variant="warning" icon={<AlertTriangle size={20} />}>
+      <Box>
+        <Text className="font-semibold text-yellow-800 mb-3">
+          Cluster Access Pending
+        </Text>
+        {!hasPaymentMethod ? (
+          <>
+            <Text className="text-sm text-yellow-700 mb-4">
+              Set up a payment method to get access to Hopsworks clusters.
             </Text>
-          )}
-        </Box>
-      </StatusMessage>
-    </Card>
+            <Link href="/billing">
+              <Button
+                intent="primary"
+                size="md"
+              >
+                Set Up Payment
+              </Button>
+            </Link>
+          </>
+        ) : (
+          <Text className="text-sm text-yellow-700">
+            Your cluster access is being provisioned. This usually takes a few minutes.
+          </Text>
+        )}
+      </Box>
+    </StatusMessage>
   );
 }
