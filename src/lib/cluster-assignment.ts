@@ -1,6 +1,71 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { createHopsworksOAuthUser, getHopsworksUserByEmail, updateUserProjectLimit } from './hopsworks-api';
 
+// ============================================================================
+// Pure logic functions - testable without DB/API dependencies
+// ============================================================================
+
+export interface ClusterCapacity {
+  id: string;
+  name: string;
+  current_users: number;
+  max_users: number;
+}
+
+/**
+ * Select the best available cluster based on capacity (least loaded first)
+ * Returns null if no cluster has capacity
+ */
+export function selectClusterByCapacity(clusters: ClusterCapacity[]): ClusterCapacity | null {
+  if (!clusters || clusters.length === 0) return null;
+
+  // Sort by current_users ascending (least loaded first)
+  const sorted = [...clusters].sort((a, b) => a.current_users - b.current_users);
+
+  // Find first with available capacity
+  return sorted.find(c => c.current_users < c.max_users) || null;
+}
+
+/**
+ * Calculate maxNumProjects based on user type and payment status
+ * - Team members: always 0 (they use owner's projects)
+ * - Account owners with payment (subscription or prepaid): 5
+ * - Account owners without payment: 0
+ */
+export function calculateMaxNumProjects(
+  isTeamMember: boolean,
+  hasSubscription: boolean,
+  isPrepaid: boolean
+): number {
+  if (isTeamMember) return 0;
+  return (hasSubscription || isPrepaid) ? 5 : 0;
+}
+
+/**
+ * Determine if cluster assignment is allowed
+ * Returns { allowed: true } or { allowed: false, reason: string }
+ */
+export function canAssignCluster(
+  isManualAssignment: boolean,
+  isPrepaid: boolean
+): { allowed: true } | { allowed: false; reason: string } {
+  // Manual assignment always allowed (admin action)
+  if (isManualAssignment) return { allowed: true };
+
+  // Prepaid users can auto-assign
+  if (isPrepaid) return { allowed: true };
+
+  // Postpaid users need manual assignment after payment verification
+  return {
+    allowed: false,
+    reason: 'Automatic cluster assignment requires payment verification or prepaid status'
+  };
+}
+
+// ============================================================================
+// Main orchestration function
+// ============================================================================
+
 export async function assignUserToCluster(
   supabaseAdmin: SupabaseClient,
   userId: string,

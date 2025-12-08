@@ -6,7 +6,24 @@ import { updateHopsworksUserStatus } from './hopsworks-api';
  * Ensures Supabase and Hopsworks stay in sync
  */
 
-interface StatusChangeResult {
+// ============================================================================
+// Constants
+// ============================================================================
+
+/**
+ * Hopsworks user status codes
+ * 2 = ACTIVATED_ACCOUNT, 3 = DEACTIVATED_ACCOUNT
+ */
+export const HOPSWORKS_STATUS = {
+  ACTIVATED_ACCOUNT: 2,
+  DEACTIVATED_ACCOUNT: 3
+} as const;
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface StatusChangeResult {
   success: boolean;
   supabaseUpdated: boolean;
   hopsworksUpdated: boolean;

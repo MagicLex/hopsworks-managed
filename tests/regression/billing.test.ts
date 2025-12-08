@@ -1,0 +1,51 @@
+/**
+ * Billing Regression Tests
+ *
+ * Tests the actual billing calculation functions.
+ * If these break, invoices are wrong = $$$
+ */
+
+import { describe, it, expect } from 'vitest'
+import {
+  calculateCreditsUsed,
+  calculateDollarAmount
+} from '@/config/billing-rates'
+
+describe('calculateCreditsUsed', () => {
+  it('returns 0 for empty/undefined usage', () => {
+    expect(calculateCreditsUsed({})).toBe(0)
+    expect(calculateCreditsUsed({ cpuHours: undefined })).toBe(0)
+  })
+
+  it('calculates single resource correctly', () => {
+    expect(calculateCreditsUsed({ cpuHours: 10 })).toBe(5)      // 10 * 0.5
+    expect(calculateCreditsUsed({ gpuHours: 1 })).toBe(10)      // 1 * 10
+    expect(calculateCreditsUsed({ ramGbHours: 100 })).toBe(5)   // 100 * 0.05
+  })
+
+  it('calculates mixed usage correctly', () => {
+    const credits = calculateCreditsUsed({
+      cpuHours: 100,    // 50 credits
+      gpuHours: 5,      // 50 credits
+      ramGbHours: 200,  // 10 credits
+    })
+    expect(credits).toBe(110)
+  })
+
+  it('handles edge cases', () => {
+    // Tiny values don't round to 0
+    expect(calculateCreditsUsed({ cpuHours: 0.001 })).toBeGreaterThan(0)
+
+    // Large values don't overflow
+    const big = calculateCreditsUsed({ cpuHours: 1_000_000 })
+    expect(Number.isFinite(big)).toBe(true)
+  })
+})
+
+describe('calculateDollarAmount', () => {
+  it('converts credits to dollars', () => {
+    expect(calculateDollarAmount(100)).toBe(35)
+    expect(calculateDollarAmount(0)).toBe(0)
+    expect(calculateDollarAmount(1.5)).toBeCloseTo(0.525, 3)
+  })
+})
