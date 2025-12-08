@@ -112,12 +112,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
 
-        // Report online storage GB
+        // Report online storage GB (prorated daily for GB-month billing)
+        // We send daily_snapshot / 30, Stripe sums over month → correct GB-month
+        // Example: 1.2 GB stored → send 0.04/day → 30 days = 1.2 GB-month
         if (usage.online_storage_gb > 0) {
+          const dailyOnlineGb = usage.online_storage_gb / 30;
           await stripe.billing.meterEvents.create({
             event_name: 'storage_online_gb',
             payload: {
-              value: String(Math.round(usage.online_storage_gb)),
+              value: String(Math.round(dailyOnlineGb * 1000) / 1000), // 3 decimal precision
               stripe_customer_id: customerId,
             },
             timestamp: Math.floor(new Date(reportDate).getTime() / 1000)
@@ -126,12 +129,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           });
         }
 
-        // Report offline storage GB
+        // Report offline storage GB (prorated daily for GB-month billing)
         if (usage.offline_storage_gb > 0) {
+          const dailyOfflineGb = usage.offline_storage_gb / 30;
           await stripe.billing.meterEvents.create({
             event_name: 'storage_offline_gb',
             payload: {
-              value: String(Math.round(usage.offline_storage_gb)),
+              value: String(Math.round(dailyOfflineGb * 1000) / 1000), // 3 decimal precision
               stripe_customer_id: customerId,
             },
             timestamp: Math.floor(new Date(reportDate).getTime() / 1000)

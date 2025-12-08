@@ -72,6 +72,31 @@ Rates live in `src/config/billing-rates.ts` and represent the single source of t
 - **Projects**: 5 projects immediately available
 - **Database flags**: `billing_mode = 'prepaid'`; `promo_code` stores the code used
 
+## Storage Billing Model
+
+> ⚠️ **IMPORTANT: Storage is billed as GB-month, not daily snapshots!**
+
+Storage billing uses the **prorated daily model** (same as AWS S3, GCP, Azure):
+
+```
+Daily report to Stripe = storage_snapshot_gb / 30
+Stripe SUM over month  = correct GB-month value
+```
+
+**Example:**
+- User has 1.2 GB stored consistently
+- Daily report: 1.2 / 30 = 0.04 GB
+- After 30 days, Stripe sums: 0.04 × 30 = **1.2 GB-month** ✓
+
+**If storage changes mid-month:**
+- Day 1-15: 1 GB → reports 0.033/day = 0.5 GB
+- Day 16-30: 2 GB → reports 0.067/day = 1.0 GB
+- Total: **1.5 GB-month** (correctly prorated)
+
+> ⚠️ **Never send raw daily snapshots with SUM aggregation** - that would bill 30x too much!
+
+---
+
 ## Stripe Integration
 
 ### Products and Pricing

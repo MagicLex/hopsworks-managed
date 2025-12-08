@@ -49,3 +49,63 @@ describe('calculateDollarAmount', () => {
     expect(calculateDollarAmount(1.5)).toBeCloseTo(0.525, 3)
   })
 })
+
+/**
+ * Storage Proration Tests
+ *
+ * ⚠️ CRITICAL: Storage is billed as GB-month, not daily snapshots!
+ *
+ * We send daily_snapshot / 30 to Stripe, which sums over the month.
+ * If we sent raw values, users would be charged 30x too much.
+ */
+describe('storage proration (GB-month billing)', () => {
+  // This is the formula used in sync-stripe.ts
+  const prorateStorageForStripe = (dailySnapshotGb: number): number => {
+    return Math.round((dailySnapshotGb / 30) * 1000) / 1000
+  }
+
+  it('prorates daily storage to 1/30th for Stripe meter', () => {
+    // 1.2 GB stored → send 0.04 GB/day
+    expect(prorateStorageForStripe(1.2)).toBeCloseTo(0.04, 3)
+
+    // 30 GB stored → send 1 GB/day
+    expect(prorateStorageForStripe(30)).toBe(1)
+
+    // 0.3 GB stored → send 0.01 GB/day
+    expect(prorateStorageForStripe(0.3)).toBe(0.01)
+  })
+
+  it('sums to correct GB-month over 30 days', () => {
+    const dailySnapshot = 1.5 // User has 1.5 GB stored
+    const dailyReport = prorateStorageForStripe(dailySnapshot)
+
+    // After 30 days, Stripe sums these up
+    const monthlyTotal = dailyReport * 30
+
+    // Should equal original storage (within rounding)
+    expect(monthlyTotal).toBeCloseTo(dailySnapshot, 1)
+  })
+
+  it('correctly prorates mid-month storage changes', () => {
+    // Day 1-15: 1 GB → 15 × (1/30) = 0.5 GB
+    // Day 16-30: 2 GB → 15 × (2/30) = 1.0 GB
+    // Total: 1.5 GB-month
+
+    const firstHalf = 15 * prorateStorageForStripe(1)
+    const secondHalf = 15 * prorateStorageForStripe(2)
+    const total = firstHalf + secondHalf
+
+    expect(total).toBeCloseTo(1.5, 1)
+  })
+
+  it('never sends raw daily values (would be 30x overcharge)', () => {
+    const storage = 2 // 2 GB stored
+    const proratedValue = prorateStorageForStripe(storage)
+
+    // Prorated value must be much smaller than raw value
+    expect(proratedValue).toBeLessThan(storage / 10)
+
+    // Specifically, should be ~1/30th
+    expect(proratedValue).toBeCloseTo(storage / 30, 2)
+  })
+})
