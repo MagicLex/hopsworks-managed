@@ -17,15 +17,15 @@ npm run dev
 
 ## Documentation
 
-- **[Architecture Overview](docs/ARCHITECTURE.md)** – System design, SaaS/Hopsworks boundary, and integrations
-- **[Database Documentation](docs/database/)** – Schema, migrations, and stored procedures
-- **[Billing System](docs/billing.md)** – OpenCost ingestion and Stripe metered billing
-- **[Stripe Setup](docs/stripe-setup.md)** – Stripe products, price IDs, and webhook configuration
-- **[HubSpot Integration](docs/hubspot.md)** – Corporate deal validation and prepaid onboarding
-- **[Resend Integration](docs/resend.md)** – Team invite delivery workflow
-- **[API Reference](docs/api.md)** – Endpoints and admin tools
-- **[Deployment Guide](docs/deployment.md)** – Environment configuration and rollout steps
-- **[Known Issues](docs/known-issues.md)** – Common problems and mitigations
+- **[Architecture Overview](docs/architecture/overview.md)** – System design, SaaS/Hopsworks boundary, and integrations
+- **[Database Documentation](docs/reference/database/)** – Schema, migrations, and stored procedures
+- **[Billing System](docs/features/billing.md)** – OpenCost ingestion and Stripe metered billing
+- **[Stripe Setup](docs/integrations/stripe.md)** – Stripe products, price IDs, and webhook configuration
+- **[HubSpot Integration](docs/integrations/hubspot.md)** – Corporate deal validation and prepaid onboarding
+- **[Resend Integration](docs/integrations/resend.md)** – Team invite delivery workflow
+- **[API Reference](docs/reference/api.md)** – Endpoints and admin tools
+- **[Deployment Guide](docs/operations/deployment.md)** – Environment configuration and rollout steps
+- **[Known Issues](docs/troubleshooting/known-issues.md)** – Common problems and mitigations
 
 ## Admin Interface
 
@@ -38,13 +38,22 @@ See [.env.example](.env.example) for required configuration.
 ## Development
 
 ```bash
-# Run with type checking
-npm run dev
-
-# Lint
-npm run lint
+npm run dev        # Development server
+npm run build      # Production build
+npm run lint       # ESLint
 ```
+
+## Testing
+
+```bash
+npm run test              # Run all tests
+npm run test:watch        # Watch mode
+npm run test:regression   # Regression tests only
+npm run test:integration  # Integration tests (requires local Supabase)
+```
+
+See [Tests Documentation](tests/README.md) for setup and details.
 
 ## Deployment
 
-This project is configured for Vercel deployment. See [Deployment Guide](docs/deployment.md) for details.
+This project is configured for Vercel deployment. See [Deployment Guide](docs/operations/deployment.md) for details.

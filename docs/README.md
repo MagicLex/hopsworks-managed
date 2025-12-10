@@ -41,3 +41,7 @@
 - [Investigations](troubleshooting/investigations.md) - Research notes
 - [Hopsworks DB Access](troubleshooting/hopsworks-db-access.md) - Query Hopsworks MySQL
 - [User Creation Workaround](troubleshooting/user-creation-workaround.md) - POST /admin/users bug and solutions
+
+## Testing
+
+- [Tests](../tests/README.md) - Test structure, commands, Stripe webhook testing
