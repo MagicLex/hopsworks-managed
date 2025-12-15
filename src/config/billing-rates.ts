@@ -4,9 +4,9 @@ const CREDIT_VALUE = 0.35;
 // Credit rates (credits per unit)
 // All dollar amounts are derived from these
 export const CREDIT_RATES = {
-  CPU_HOUR: 0.5,              // credits per CPU hour
+  CPU_HOUR: 1,                // credits per CPU hour (base unit)
   GPU_HOUR: 10,               // credits per GPU hour
-  RAM_GB_HOUR: 0.05,          // credits per GB-hour
+  RAM_GB_HOUR: 0.1,           // credits per GB-hour (10:1 ratio to CPU)
   STORAGE_ONLINE_GB: 1.4286,  // credits per GB/month ($0.50 / $0.35)
   STORAGE_OFFLINE_GB: 0.0857, // credits per GB/month ($0.03 / $0.35)
   NETWORK_EGRESS_GB: 0.4      // credits per GB
