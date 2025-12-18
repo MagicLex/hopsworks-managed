@@ -90,7 +90,6 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
             <Text className="font-mono text-sm">✓ RonDB Online Store (&lt;1ms latency)</Text>
             <Text className="font-mono text-sm">✓ Spark, Flink, Pandas compute engines</Text>
             <Text className="font-mono text-sm">✓ Delta Lake, Hudi, Iceberg formats</Text>
-            <Text className="font-mono text-sm">✓ Airflow orchestration built-in</Text>
             <Text className="font-mono text-sm">✓ JupyterLab with Python/Spark kernels</Text>
             <Text className="font-mono text-sm">✓ KServe/vLLM model deployment</Text>
             <Text className="font-mono text-sm">✓ Point-in-time correct training data</Text>

@@ -22,7 +22,7 @@ export const deploymentOptions: DeploymentOption[] = [
     specs: {
       compute: ['Spark/Flink/Pandas engines', 'Dynamic compute', 'Auto-scaling workers'],
       storage: ['RonDB sub-ms latency', 'Delta/Hudi/Iceberg', 'Version-controlled features'],
-      capabilities: ['Airflow orchestration', 'JupyterLab + notebooks', 'KServe model serving', 'Feature transformations', 'Drift monitoring', 'JDBC/Cloud connectors'],
+      capabilities: ['JupyterLab + notebooks', 'KServe model serving', 'Feature transformations', 'Drift monitoring', 'JDBC/Cloud connectors'],
     },
   },
   {
