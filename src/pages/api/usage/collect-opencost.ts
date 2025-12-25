@@ -125,24 +125,29 @@ async function collectOpenCostMetrics() {
     const hydrated: Record<string, ProjectBreakdownEntry> = {};
 
     for (const [namespace, value] of Object.entries(data as Record<string, any>)) {
+      // Sanitize any existing negative values (self-healing for corrupted data)
+      const rawCpuHours = Number(value.cpuHours) || 0;
+      const rawGpuHours = Number(value.gpuHours) || 0;
+      const rawRamGBHours = Number(value.ramGBHours) || 0;
+
       hydrated[namespace] = {
         name: typeof value.name === 'string' ? value.name : namespace,
-        cpuHours: Number(value.cpuHours) || 0,
-        gpuHours: Number(value.gpuHours) || 0,
-        ramGBHours: Number(value.ramGBHours) || 0,
-        onlineStorageGB: Number(value.onlineStorageGB) || 0,
-        offlineStorageGB: Number(value.offlineStorageGB) || 0,
+        cpuHours: Math.max(0, rawCpuHours),
+        gpuHours: Math.max(0, rawGpuHours),
+        ramGBHours: Math.max(0, rawRamGBHours),
+        onlineStorageGB: Math.max(0, Number(value.onlineStorageGB) || 0),
+        offlineStorageGB: Math.max(0, Number(value.offlineStorageGB) || 0),
         cpuEfficiency: typeof value.cpuEfficiency === 'number' ? value.cpuEfficiency : undefined,
         ramEfficiency: typeof value.ramEfficiency === 'number' ? value.ramEfficiency : undefined,
         lastUpdated: typeof value.lastUpdated === 'string' ? value.lastUpdated : nowIso,
         lastContribution: value.lastContribution
           ? {
-              cpuHours: Number(value.lastContribution.cpuHours) || 0,
-              gpuHours: Number(value.lastContribution.gpuHours) || 0,
-              ramGBHours: Number(value.lastContribution.ramGBHours) || 0,
-              onlineStorageGB: Number(value.lastContribution.onlineStorageGB) || 0,
-              offlineStorageGB: Number(value.lastContribution.offlineStorageGB) || 0,
-              hourlyCost: Number(value.lastContribution.hourlyCost) || 0,
+              cpuHours: Math.max(0, Number(value.lastContribution.cpuHours) || 0),
+              gpuHours: Math.max(0, Number(value.lastContribution.gpuHours) || 0),
+              ramGBHours: Math.max(0, Number(value.lastContribution.ramGBHours) || 0),
+              onlineStorageGB: Math.max(0, Number(value.lastContribution.onlineStorageGB) || 0),
+              offlineStorageGB: Math.max(0, Number(value.lastContribution.offlineStorageGB) || 0),
+              hourlyCost: Math.max(0, Number(value.lastContribution.hourlyCost) || 0),
               processedAt:
                 typeof value.lastContribution.processedAt === 'string'
                   ? value.lastContribution.processedAt
@@ -355,9 +360,27 @@ async function collectOpenCostMetrics() {
       }
 
       // Extract compute usage metrics
-      const cpuHours = allocation.cpuCoreHours || 0;
-      const ramGBHours = (allocation.ramByteHours || 0) / (1024 * 1024 * 1024);
-      const gpuHours = allocation.gpuHours || 0;
+      const rawCpuHours = allocation.cpuCoreHours || 0;
+      const rawRamGBHours = (allocation.ramByteHours || 0) / (1024 * 1024 * 1024);
+      const rawGpuHours = allocation.gpuHours || 0;
+
+      // Validate: OpenCost should never return negative values
+      // Negative values indicate Prometheus is not scraping OpenCost metrics
+      // See: https://www.opencost.io/docs/troubleshooting
+      if (rawCpuHours < 0 || rawRamGBHours < 0 || rawGpuHours < 0) {
+        console.error(`[BILLING CRITICAL] OpenCost returned negative values for namespace ${namespace} on cluster ${cluster.name}:`, {
+          cpuCoreHours: rawCpuHours,
+          ramGBHours: rawRamGBHours,
+          gpuHours: rawGpuHours,
+          fix: 'Add prometheus.io/scrape annotation to OpenCost service or add opencost job to Prometheus scrape_configs'
+        });
+        clusterResults.errors.push(`Namespace ${namespace}: OpenCost returned negative values (Prometheus scrape misconfiguration)`);
+      }
+
+      // Sanitize to prevent data corruption while issue is being fixed
+      const cpuHours = Math.max(0, rawCpuHours);
+      const ramGBHours = Math.max(0, rawRamGBHours);
+      const gpuHours = Math.max(0, rawGpuHours);
 
       // Get storage for this project (convert bytes to GB)
       const offlineStorageBytes = offlineStorage.get(projectName) || 0;
