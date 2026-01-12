@@ -3,7 +3,8 @@ import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { assignUserToCluster } from '../../../lib/cluster-assignment';
-import { getHopsworksUserById, getHopsworksUserByEmail, updateUserProjectLimit, createHopsworksOAuthUser } from '../../../lib/hopsworks-api';
+import { getHopsworksUserById, getHopsworksUserByEmail, updateUserProjectLimit, createHopsworksOAuthUser, updateHopsworksUserStatus } from '../../../lib/hopsworks-api';
+import { HOPSWORKS_STATUS } from '../../../lib/user-status';
 import { handleApiError } from '../../../lib/error-handler';
 
 const supabaseAdmin = createClient(
@@ -514,8 +515,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             console.error(`[Health Check] Failed to create Hopsworks user for ${email}:`, error);
           }
         }
-        
-        // HEALTH CHECK 4: Verify maxNumProjects is correct
+
+        // HEALTH CHECK 4: Verify Hopsworks account is activated (if Supabase is active AND billing is valid)
+        if (hopsworksUser && hopsworksUserId && existingUser.status === 'active') {
+          const hasBilling = isTeamMember || existingUser.stripe_subscription_id || existingUser.billing_mode === 'prepaid';
+          const hopsworksStatus = hopsworksUser.status;
+
+          if (hasBilling && hopsworksStatus !== HOPSWORKS_STATUS.ACTIVATED_ACCOUNT) {
+            console.log(`[Health Check] User ${email} has deactivated Hopsworks account (status ${hopsworksStatus}) but valid billing - reactivating`);
+            try {
+              await updateHopsworksUserStatus(credentials, hopsworksUserId, HOPSWORKS_STATUS.ACTIVATED_ACCOUNT);
+              console.log(`[Health Check] Successfully reactivated Hopsworks account for ${email}`);
+            } catch (error) {
+              await logHealthCheckFailure(userId, email, 'hopsworks_reactivation',
+                `Failed to reactivate Hopsworks account (status ${hopsworksStatus})`, error);
+              console.error(`[Health Check] Failed to reactivate Hopsworks account for ${email}:`, error);
+            }
+          }
+        }
+
+        // HEALTH CHECK 5: Verify maxNumProjects is correct
         if (hopsworksUser && hopsworksUserId) {
           const expectedMaxProjects = isTeamMember ? 0 :
                                     (existingUser.stripe_subscription_id || existingUser.billing_mode === 'prepaid') ? 5 : 0;
@@ -551,7 +570,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
       
-      // HEALTH CHECK 5: Verify team membership consistency
+      // HEALTH CHECK 6: Verify team membership consistency
       if (isTeamMember) {
         const { data: ownerAssignment } = await supabaseAdmin
           .from('user_hopsworks_assignments')
@@ -570,7 +589,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
         
-        // HEALTH CHECK 6: Log team member project access status (no auto-repair)
+        // HEALTH CHECK 7: Log team member project access status (no auto-repair)
         const teamMemberUsername = assignment?.hopsworks_username || existingUser.hopsworks_username;
         if (assignment?.hopsworks_clusters && teamMemberUsername) {
           try {
