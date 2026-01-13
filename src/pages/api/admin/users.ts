@@ -32,16 +32,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         yesterday.setDate(yesterday.getDate() - 1);
         const today = new Date().toISOString().split('T')[0];
         
-        // Get all user projects
+        // Get all user projects (active and inactive - admin sees everything)
         const { data: userProjects, error: projectsError } = await supabase
           .from('user_projects')
-          .select('user_id, namespace, project_name, project_id')
-          .eq('status', 'active');
+          .select('user_id, namespace, project_name, project_id, status');
 
         if (projectsError) {
           console.error('Error fetching user_projects:', projectsError);
         }
-        console.log(`[Admin API] Found ${userProjects?.length || 0} active projects`);
+        console.log(`[Admin API] Found ${userProjects?.length || 0} projects (all statuses)`);
         
         // Get today's usage with project breakdown
         const { data: todayUsage } = await supabase
@@ -83,6 +82,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               namespace: project.namespace,
               name: project.project_name,
               id: project.project_id,
+              status: project.status,
               is_owner: true,
               total_cost: totalCost,
               cpu_hours: projectData.cpuHours || 0,
