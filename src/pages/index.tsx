@@ -59,7 +59,7 @@ export default function Home() {
           } else if (ok && data.valid) {
             setCorporateRef(ref);
             setCorporateCompanyName(data.companyName || data.dealName);
-            setCorporateLogo(data.companyLogo || (data.companyDomain ? `https://logo.clearbit.com/${data.companyDomain}` : null));
+            setCorporateLogo(data.companyDomain ? `https://logo.clearbit.com/${data.companyDomain}` : data.companyLogo);
             // Store in sessionStorage for persistence
             sessionStorage.setItem('corporate_ref', ref);
           }
