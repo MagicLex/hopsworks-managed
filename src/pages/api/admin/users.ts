@@ -102,6 +102,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         return res.status(500).json({ error: 'Failed to fetch users' });
       }
 
+      // Prevent browser caching to ensure fresh data
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
       return res.status(200).json({ users: users || [] });
     } catch (error) {
       console.error('Server error:', error);
