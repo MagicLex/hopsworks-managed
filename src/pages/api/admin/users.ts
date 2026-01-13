@@ -33,10 +33,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         const today = new Date().toISOString().split('T')[0];
         
         // Get all user projects
-        const { data: userProjects } = await supabase
+        const { data: userProjects, error: projectsError } = await supabase
           .from('user_projects')
           .select('user_id, namespace, project_name, project_id')
           .eq('status', 'active');
+
+        if (projectsError) {
+          console.error('Error fetching user_projects:', projectsError);
+        }
+        console.log(`[Admin API] Found ${userProjects?.length || 0} active projects`);
         
         // Get today's usage with project breakdown
         const { data: todayUsage } = await supabase
@@ -51,9 +56,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .eq('date', yesterday.toISOString().split('T')[0]);
         
         // Build user data
+        let usersWithProjects = 0;
         users.forEach(user => {
           // Get user's projects
           const projects = userProjects?.filter(p => p.user_id === user.id) || [];
+          if (projects.length > 0) {
+            usersWithProjects++;
+            console.log(`[Admin API] User ${user.email} has ${projects.length} projects`);
+          }
           const todayData = todayUsage?.find(u => u.user_id === user.id);
           const yesterdayData = yesterdayUsage?.find(u => u.user_id === user.id);
           
@@ -84,6 +94,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           // Count active namespaces
           user.active_namespaces = projects.map(p => p.namespace);
         });
+        console.log(`[Admin API] ${usersWithProjects}/${users.length} users have projects`);
       }
 
       if (error) {
