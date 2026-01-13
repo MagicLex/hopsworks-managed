@@ -229,10 +229,12 @@ async function collectOpenCostMetrics() {
       // Get hourly allocations from OpenCost using kubectl exec
       const allocations = await opencost.getOpenCostAllocations('1h');
 
-      // Get storage metrics in batch (once for all projects)
+      // Get storage metrics in batch (once for all projects) - run in parallel
       console.log(`[${cluster.name}] Collecting storage metrics...`);
-      const offlineStorage = await opencost.getOfflineStorageBatch();
-      const onlineStorage = await opencost.getOnlineStorageBatch(cluster.mysql_password || '');
+      const [offlineStorage, onlineStorage] = await Promise.all([
+        opencost.getOfflineStorageBatch(),
+        opencost.getOnlineStorageBatch(cluster.mysql_password || '')
+      ]);
       console.log(`[${cluster.name}] Storage collected: ${offlineStorage.size} offline, ${onlineStorage.size} online`);
 
       console.log(`[${cluster.name}] Found ${allocations.size} namespaces with costs`);

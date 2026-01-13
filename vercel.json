@@ -15,7 +15,7 @@
   ],
   "functions": {
     "src/pages/api/usage/collect-opencost.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "src/pages/api/billing/sync-stripe.ts": {
       "maxDuration": 60

@@ -101,11 +101,20 @@ export class OpenCostDirect {
   private async execInPod(
     namespace: string,
     podName: string,
-    command: string[]
+    command: string[],
+    timeoutMs: number = 60000
   ): Promise<string> {
     return new Promise((resolve, reject) => {
       let stdout = '';
       let stderr = '';
+      let finished = false;
+
+      const timeout = setTimeout(() => {
+        if (!finished) {
+          finished = true;
+          reject(new Error(`Command timed out after ${timeoutMs}ms`));
+        }
+      }, timeoutMs);
 
       const stdoutStream = new Writable({
         write(chunk, encoding, callback) {
@@ -131,6 +140,9 @@ export class OpenCostDirect {
         null,
         false,
         (status) => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timeout);
           if (status.status === 'Success') {
             resolve(stdout);
           } else {
