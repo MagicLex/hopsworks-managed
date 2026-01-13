@@ -6,7 +6,6 @@ interface SyncResult {
   needsPayment: boolean;
   isSuspended: boolean;
   isTeamMember: boolean;
-  billingMode: 'prepaid' | 'postpaid';
 }
 
 interface AuthContextType {
@@ -81,7 +80,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           needsPayment: data.needsPayment,
           isSuspended: data.isSuspended,
           isTeamMember: data.isTeamMember,
-          billingMode: data.hasBilling ? 'prepaid' : 'postpaid'
         });
 
         setSyncing(false);
