@@ -124,7 +124,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .from('user_projects')
           .select('id, user_id, project_name')
           .eq('status', 'active')
-          .not('user_id', 'in', `(${users.map(u => `'${u.id}'`).join(',')})`);
+          .not('user_id', 'in', `(${users.map(u => u.id).join(',')})`);
 
         if (orphanedProjects && orphanedProjects.length > 0) {
           console.log(`🧹 [Cron] Found ${orphanedProjects.length} orphaned projects - marking as inactive`);
