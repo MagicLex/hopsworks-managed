@@ -82,7 +82,7 @@ export default function UserProjectsViewer({
                 <Box>
                   <Text className="font-medium">{project.name}</Text>
                   <Text className="text-xs text-gray">
-                    Project ID: {project.id} | Namespace: {project.name}
+                    Project ID: {project.id} | Namespace: {project.namespace}
                   </Text>
                 </Box>
                 {project.role && (

@@ -125,9 +125,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const apiProjects = await getUserProjects(credentials, hopsworksUser.username, hopsworksUser.id);
             projects = apiProjects;
 
-            // Cache these projects for next time
-            if (apiProjects.length > 0) {
-              const projectsToCache = apiProjects.map((p: any) => ({
+            // Cache these projects for next time (filter out any without namespace)
+            const validProjects = apiProjects.filter((p: any) => {
+              if (!p.namespace) {
+                console.error(`[BILLING] Project ${p.name} (id: ${p.id}) missing namespace field - skipping cache`);
+                return false;
+              }
+              return true;
+            });
+
+            if (validProjects.length > 0) {
+              const projectsToCache = validProjects.map((p: any) => ({
                 user_id: userId,
                 project_id: p.id,
                 project_name: p.name,
@@ -142,7 +150,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   ignoreDuplicates: false
                 });
 
-              console.log(`Cached ${apiProjects.length} projects for ${userData.email}`);
+              console.log(`Cached ${validProjects.length} projects for ${userData.email}`);
             }
           } catch (error) {
             console.error('Error fetching projects from API:', error);

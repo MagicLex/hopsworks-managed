@@ -117,9 +117,13 @@ If CORS errors occur with Hopsworks API:
 - We stored `project_name` as namespace, but OpenCost reports K8s namespaces
 
 **Fix**: Upstream PR [HWORKS-2566](https://github.com/logicalclocks/hopsworks-ee/pull/2780) added `namespace` field to admin API. We now use `p.namespace` directly in:
-- `src/lib/hopsworks-api.ts` - `HopsworksProject.namespace`
-- `src/lib/project-sync.ts:117`
-- `src/pages/api/user/hopsworks-info.ts:134`
-- `src/pages/api/team/owner-projects.ts:72`
+- `src/types/api.ts` - `HopsworksProject.namespace` (shared type)
+- `src/lib/hopsworks-api.ts` - `HopsworksProject.namespace` (internal type)
+- `src/lib/project-sync.ts` - with defensive validation
+- `src/pages/api/user/hopsworks-info.ts` - with defensive validation
+- `src/pages/api/team/owner-projects.ts`
+- `src/components/admin/ProjectRoleManager.tsx` - UI display
+
+**Defensive validation**: Projects without `namespace` field are logged as `[BILLING]` errors and skipped to prevent corrupt billing data.
 
 **Note**: Existing projects in DB may have stale namespace values. Run project sync to update: `POST /api/cron/sync-projects`

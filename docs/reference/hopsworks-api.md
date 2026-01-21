@@ -495,10 +495,14 @@ The `/admin/projects` endpoint includes a `namespace` field containing the Kuber
 - This field gives us the authoritative K8s namespace directly from Hopsworks
 
 **Our implementation** uses `p.namespace` in:
-- `src/lib/hopsworks-api.ts` - `HopsworksProject.namespace`
-- `src/lib/project-sync.ts` - stores namespace from API
-- `src/pages/api/user/hopsworks-info.ts` - caches namespace
+- `src/types/api.ts` - shared `HopsworksProject.namespace` type
+- `src/lib/hopsworks-api.ts` - internal `HopsworksProject.namespace` type
+- `src/lib/project-sync.ts` - stores namespace with defensive validation
+- `src/pages/api/user/hopsworks-info.ts` - caches namespace with defensive validation
 - `src/pages/api/team/owner-projects.ts` - returns namespace
+- `src/components/admin/ProjectRoleManager.tsx` - displays namespace in admin UI
+
+**Defensive validation**: If `namespace` field is missing, projects are logged as `[BILLING]` errors and skipped.
 
 ---
 

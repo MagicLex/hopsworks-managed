@@ -109,8 +109,17 @@ export async function syncUserProjects(userId: string): Promise<ProjectSyncResul
       };
     }
 
+    // Filter out projects without namespace (critical for billing)
+    const validProjects = projects.filter(p => {
+      if (!p.namespace) {
+        console.error(`[BILLING] Project ${p.name} (id: ${p.id}) missing namespace field - skipping`);
+        return false;
+      }
+      return true;
+    });
+
     // Prepare projects for upsert
-    const projectsToUpsert = projects.map(p => ({
+    const projectsToUpsert = validProjects.map(p => ({
       user_id: userId,
       project_id: p.id,
       project_name: p.name,
@@ -126,7 +135,7 @@ export async function syncUserProjects(userId: string): Promise<ProjectSyncResul
       .eq('user_id', userId);
 
     const existingProjectIds = new Set(existingProjects?.map(p => p.project_id) || []);
-    const currentProjectIds = new Set(projects.map(p => p.id));
+    const currentProjectIds = new Set(validProjects.map(p => p.id));
 
     // Mark projects as inactive if they no longer exist in Hopsworks (keep for audit trail)
     const projectsToDeactivate = Array.from(existingProjectIds).filter(id => !currentProjectIds.has(id));

@@ -14,6 +14,7 @@ export interface ApiSuccess<T = unknown> {
 export interface HopsworksProject {
   id: number;
   name: string;
+  namespace: string;
   description?: string;
   created?: string;
   creator?: string;
