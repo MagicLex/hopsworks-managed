@@ -441,24 +441,28 @@ export default function Dashboard() {
                   {/* Usage Metrics - moved to top */}
                   <Box className="mb-6">
                     <Title as="h2" className="text-lg mb-4">Current Usage</Title>
-                    <Flex gap={16} className="grid grid-cols-1 md:grid-cols-2">
-                      {usageLoading ? (
+                    <Flex gap={16} className="grid grid-cols-1 md:grid-cols-3">
+                      {billingLoading ? (
                         <CardSkeleton rows={2} showIcon={false} />
                       ) : (
                         <Card className="p-4">
-                          <IconLabel icon={<Cpu size={16} className="text-[#1eb182]" />} gap={8} className="mb-2">
-                            <Text className="text-sm text-gray-600">Credits Used</Text>
+                          <IconLabel icon={<CreditCard size={16} className="text-[#1eb182]" />} gap={8} className="mb-2">
+                            <Text className="text-sm text-gray-600">This Month</Text>
                           </IconLabel>
                           <Text className="text-xl font-semibold">
-                            {usage?.cpuHours?.toFixed(0) || '0'}
+                            ${billing?.currentUsage?.currentMonth?.total?.toFixed(2) || '0.00'}
                           </Text>
-                          <Text className="text-xs text-gray-500">This month</Text>
+                          {billing?.spendingCap ? (
+                            <Text className="text-xs text-gray-500">of ${billing.spendingCap} cap</Text>
+                          ) : (
+                            <Text className="text-xs text-gray-500">No spending cap</Text>
+                          )}
                         </Card>
                       )}
                       {hopsworksLoading ? (
-                        <CardSkeleton rows={2} showIcon={false} />
+                        <CardSkeleton rows={2} showIcon={false} className="md:col-span-2" />
                       ) : hopsworksInfo?.hasHopsworksUser ? (
-                        <Card className="p-4">
+                        <Card className="p-4 md:col-span-2">
                           <IconLabel icon={<Database size={16} className="text-[#1eb182]" />} gap={8} className="mb-2">
                             <Text className="text-sm text-gray-600">Projects</Text>
                           </IconLabel>
