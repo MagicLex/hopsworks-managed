@@ -169,6 +169,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         throw userError;
       }
 
+      // Fire marketing webhook for genuinely new users (not duplicates)
+      if (!userError && process.env.WINDMILL_WEBHOOK_URL) {
+        fetch(process.env.WINDMILL_WEBHOOK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(process.env.WINDMILL_API_TOKEN && {
+              'Authorization': `Bearer ${process.env.WINDMILL_API_TOKEN}`
+            })
+          },
+          body: JSON.stringify({
+            event: 'user.registered',
+            email,
+            name: name || null,
+            plan: billingMode || 'postpaid',
+            source: registrationSource,
+            marketingConsent: marketingConsent || false,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(err => console.error('[Marketing] Webhook failed:', err.message));
+      }
+
       // Check if user has payment method set up or is prepaid
       const { data: userData } = await supabaseAdmin
         .from('users')
