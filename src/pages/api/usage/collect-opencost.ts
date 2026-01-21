@@ -297,17 +297,14 @@ async function collectOpenCostMetrics() {
         console.log(`Namespace ${namespace} not in cache, querying Hopsworks...`);
         
         // Try to get project info from Hopsworks
-        // Note: This assumes namespace name matches project name
         const hopsworksProjects = await getAllProjects(
           { apiUrl: cluster.api_url, apiKey: cluster.api_key },
           `ApiKey ${cluster.api_key}`
         );
 
-        // Try exact match first, then with underscore/hyphen conversion
-        const hopsworksProject = hopsworksProjects.find(p => 
-          p.name.toLowerCase() === namespace.toLowerCase() ||
-          p.name.toLowerCase().replace(/_/g, '-') === namespace.toLowerCase() ||
-          p.name.toLowerCase().replace(/-/g, '_') === namespace.toLowerCase()
+        // Match by K8s namespace (returned by Hopsworks API)
+        const hopsworksProject = hopsworksProjects.find(p =>
+          p.namespace.toLowerCase() === namespace.toLowerCase()
         );
 
         if (hopsworksProject) {
@@ -336,7 +333,7 @@ async function collectOpenCostMetrics() {
                 user_id: userId,
                 project_id: projectId,
                 project_name: projectName,
-                namespace: namespace,
+                namespace: hopsworksProject.namespace,
                 status: 'active',
                 last_seen_at: nowIso
               }, {
@@ -593,6 +590,7 @@ async function collectOpenCostMetrics() {
               if (user) {
                 userId = user.id;
                 projectId = hopsworksProject.id;
+                namespace = hopsworksProject.namespace;
 
                 // Cache the mapping
                 await supabaseAdmin
@@ -601,7 +599,7 @@ async function collectOpenCostMetrics() {
                     user_id: userId,
                     project_id: projectId,
                     project_name: projectName,
-                    namespace: namespace,
+                    namespace: hopsworksProject.namespace,
                     status: 'active',
                     last_seen_at: nowIso
                   }, {

@@ -472,6 +472,36 @@ curl -X DELETE 'https://cluster.hopsworks.ai/hopsworks-api/api/admin/users/11209
 
 ## Project Management
 
+### Project Namespace Field
+
+**PR**: [HWORKS-2566](https://github.com/logicalclocks/hopsworks-ee/pull/2780)
+
+**Status**: ✅ Implemented (2025-01-21)
+
+The `/admin/projects` endpoint includes a `namespace` field containing the Kubernetes namespace for each project:
+
+```json
+{
+  "id": 120,
+  "name": "my_project",
+  "namespace": "my-project",
+  "creator": { ... }
+}
+```
+
+**Why this matters**:
+- Hopsworks project names can contain underscores (`my_project`)
+- Kubernetes namespaces convert underscores to hyphens (`my-project`)
+- This field gives us the authoritative K8s namespace directly from Hopsworks
+
+**Our implementation** uses `p.namespace` in:
+- `src/lib/hopsworks-api.ts` - `HopsworksProject.namespace`
+- `src/lib/project-sync.ts` - stores namespace from API
+- `src/pages/api/user/hopsworks-info.ts` - caches namespace
+- `src/pages/api/team/owner-projects.ts` - returns namespace
+
+---
+
 ### List Projects
 
 **Endpoint**: `GET /admin/projects`

@@ -105,3 +105,21 @@ Hopsworks Identity Provider needs:
 If CORS errors occur with Hopsworks API:
 - Add your domain to Hopsworks allowed origins
 - Use server-side API routes to proxy requests
+
+### 3. Project Namespace Mismatch (Billing Impact)
+
+**Status**: ✅ Fixed (2025-01-21)
+
+**Issue** (was): Project names stored with wrong namespace format, causing billing lookup failures.
+
+- Hopsworks project names use underscores: `my_project`
+- Kubernetes namespaces use hyphens: `my-project`
+- We stored `project_name` as namespace, but OpenCost reports K8s namespaces
+
+**Fix**: Upstream PR [HWORKS-2566](https://github.com/logicalclocks/hopsworks-ee/pull/2780) added `namespace` field to admin API. We now use `p.namespace` directly in:
+- `src/lib/hopsworks-api.ts` - `HopsworksProject.namespace`
+- `src/lib/project-sync.ts:117`
+- `src/pages/api/user/hopsworks-info.ts:134`
+- `src/pages/api/team/owner-projects.ts:72`
+
+**Note**: Existing projects in DB may have stale namespace values. Run project sync to update: `POST /api/cron/sync-projects`

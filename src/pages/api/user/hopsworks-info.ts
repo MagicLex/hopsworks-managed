@@ -131,7 +131,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 user_id: userId,
                 project_id: p.id,
                 project_name: p.name,
-                namespace: `project-${p.name}`,
+                namespace: p.namespace,
                 status: 'active'
               }));
 

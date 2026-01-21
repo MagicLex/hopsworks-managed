@@ -110,12 +110,11 @@ export async function syncUserProjects(userId: string): Promise<ProjectSyncResul
     }
 
     // Prepare projects for upsert
-    // Note: Kubernetes namespaces are just the project name (e.g., 'hellomot', not 'project-hellomot')
     const projectsToUpsert = projects.map(p => ({
       user_id: userId,
       project_id: p.id,
       project_name: p.name,
-      namespace: p.name, // Use actual K8s namespace name
+      namespace: p.namespace,
       status: 'active' as const,
       last_seen_at: new Date().toISOString()
     }));

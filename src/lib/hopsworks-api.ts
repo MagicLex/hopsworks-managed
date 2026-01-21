@@ -43,6 +43,7 @@ interface HopsworksUser {
 interface HopsworksProject {
   id: number;
   name: string;
+  namespace: string;
   owner: string;
   created: string;
 }

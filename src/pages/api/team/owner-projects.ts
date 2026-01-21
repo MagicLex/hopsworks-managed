@@ -69,7 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const projects = hopsworksProjects.map(p => ({
       id: p.id,
       name: p.name,
-      namespace: p.namespace || `${p.name}`
+      namespace: p.namespace
     }));
 
     console.log(`Found ${projects.length} projects owned by ${currentUser.email}`);
