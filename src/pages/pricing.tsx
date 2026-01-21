@@ -35,8 +35,21 @@ export default function Pricing() {
   return (
     <>
       <Head>
-        <title>Pricing - Hopsworks Managed</title>
-        <meta name="description" content="Simple, transparent pricing for Hopsworks. Pay only for what you use." />
+        <title>Pricing - Hopsworks Managed | Pay-As-You-Go ML Platform</title>
+        <meta name="description" content="Simple, transparent pricing for Hopsworks. Pay only for what you use. No upfront costs, no hidden fees. Start free and scale as you grow." />
+        <link rel="canonical" href="https://run.hopsworks.ai/pricing" />
+
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://run.hopsworks.ai/pricing" />
+        <meta property="og:title" content="Pricing - Hopsworks Managed | Pay-As-You-Go ML Platform" />
+        <meta property="og:description" content="Simple, transparent pricing for Hopsworks. Pay only for what you use. No upfront costs, no hidden fees." />
+        <meta property="og:image" content="https://cdn.prod.website-files.com/5f6353590bb01cacbcecfbac/60917a423cdde50b5a00feeb_og-hopsworks.png" />
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:url" content="https://run.hopsworks.ai/pricing" />
+        <meta name="twitter:title" content="Pricing - Hopsworks Managed | Pay-As-You-Go ML Platform" />
+        <meta name="twitter:description" content="Simple, transparent pricing for Hopsworks. Pay only for what you use. No upfront costs, no hidden fees." />
+        <meta name="twitter:image" content="https://cdn.prod.website-files.com/5f6353590bb01cacbcecfbac/60917a423cdde50b5a00feeb_og-hopsworks.png" />
       </Head>
       <Layout className="py-16 px-5">
         <Box className="max-w-6xl mx-auto">
