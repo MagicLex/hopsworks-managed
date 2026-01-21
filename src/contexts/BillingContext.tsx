@@ -25,6 +25,7 @@ export interface BillingInfo {
   };
   subscriptionStatus?: string;
   prepaidEnabled: boolean;
+  spendingCap?: number | null;
   currentUsage: {
     cpuHours: string;
     gpuHours: string;

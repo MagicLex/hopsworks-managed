@@ -122,6 +122,9 @@ export default function Dashboard() {
   const [deleteReason, setDeleteReason] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [reloadProgress, setReloadProgress] = useState(0);
+  const [spendingCapInput, setSpendingCapInput] = useState('');
+  const [savingSpendingCap, setSavingSpendingCap] = useState(false);
+  const [spendingCapEnabled, setSpendingCapEnabled] = useState(false);
 
   // Use context billing for current month, local state for historical
   const billing = selectedMonth === 'current' ? contextBilling : historicalBilling;
@@ -231,6 +234,38 @@ export default function Dashboard() {
       setReloadProgress(0);
     }
   }, [billingLoading, billing?.billingMode, hopsworksInfo?.hasCluster, hopsworksLoading]);
+
+  // Initialize spending cap state when billing loads
+  useEffect(() => {
+    if (billing && !billingLoading) {
+      const hasCap = billing.spendingCap !== null && billing.spendingCap !== undefined;
+      setSpendingCapEnabled(hasCap);
+      setSpendingCapInput(hasCap ? String(billing.spendingCap) : '');
+    }
+  }, [billing, billingLoading]);
+
+  const handleSaveSpendingCap = async () => {
+    setSavingSpendingCap(true);
+    try {
+      const capValue = spendingCapEnabled ? parseFloat(spendingCapInput) : null;
+      const response = await fetch('/api/spending-cap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cap: capValue })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to save spending cap');
+      }
+
+      await refetchBilling();
+    } catch (error: any) {
+      alert(error.message || 'Failed to save spending cap');
+    } finally {
+      setSavingSpendingCap(false);
+    }
+  };
 
   const fetchInvites = async () => {
     try {
@@ -1065,6 +1100,109 @@ mr = project.get_model_registry()`;
                             Last update: {usage?.lastUpdate ? new Date(usage.lastUpdate).toLocaleTimeString() : 'Never'}
                           </Text>
                         </Box>
+                      </Card>
+
+                      {/* Spending Cap */}
+                      <Card className="p-6 mb-6">
+                        <Flex align="center" gap={12} className="mb-4">
+                          <AlertTriangle size={20} className="text-[#1eb182]" />
+                          <Title as="h2" className="text-lg">Spending Cap</Title>
+                          <Badge variant={spendingCapEnabled ? 'success' : 'default'} size="sm">
+                            {spendingCapEnabled ? 'Active' : 'Disabled'}
+                          </Badge>
+                        </Flex>
+
+                        <Text className="text-sm text-gray-600 mb-4">
+                          Set a monthly spending cap to receive alerts at 80%, 90%, and 100% of your limit.
+                          This is a soft cap - your services will continue running.
+                        </Text>
+
+                        {/* Progress bar when cap is enabled */}
+                        {spendingCapEnabled && billing.spendingCap && (
+                          <Box className="mb-4">
+                            <Flex justify="between" className="mb-2">
+                              <Text className="text-sm text-gray-600">
+                                ${billing.currentUsage.currentMonth.total.toFixed(2)} of ${billing.spendingCap.toFixed(2)}
+                              </Text>
+                              <Text className={`text-sm font-medium ${
+                                (billing.currentUsage.currentMonth.total / billing.spendingCap) >= 1
+                                  ? 'text-red-600'
+                                  : (billing.currentUsage.currentMonth.total / billing.spendingCap) >= 0.9
+                                    ? 'text-orange-500'
+                                    : 'text-[#1eb182]'
+                              }`}>
+                                {Math.round((billing.currentUsage.currentMonth.total / billing.spendingCap) * 100)}%
+                              </Text>
+                            </Flex>
+                            {/* Progress bar with threshold markers */}
+                            <Box className="relative">
+                              <Box className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                <Box
+                                  className={`h-3 rounded-full transition-all ${
+                                    (billing.currentUsage.currentMonth.total / billing.spendingCap) >= 1
+                                      ? 'bg-red-500'
+                                      : (billing.currentUsage.currentMonth.total / billing.spendingCap) >= 0.9
+                                        ? 'bg-orange-500'
+                                        : (billing.currentUsage.currentMonth.total / billing.spendingCap) >= 0.8
+                                          ? 'bg-yellow-500'
+                                          : 'bg-[#1eb182]'
+                                  }`}
+                                  style={{ width: `${Math.min(100, (billing.currentUsage.currentMonth.total / billing.spendingCap) * 100)}%` }}
+                                />
+                              </Box>
+                              {/* Threshold markers at 80% and 90% */}
+                              <Box className="absolute top-0 left-[80%] w-px h-3 bg-gray-400/50" />
+                              <Box className="absolute top-0 left-[90%] w-px h-3 bg-gray-400/50" />
+                              {/* Labels */}
+                              <Text className="absolute -bottom-5 left-0 text-xs text-gray-400">$0</Text>
+                              <Text className="absolute -bottom-5 left-[80%] -translate-x-1/2 text-xs text-gray-400">80%</Text>
+                              <Text className="absolute -bottom-5 left-[90%] -translate-x-1/2 text-xs text-gray-400">90%</Text>
+                              <Text className="absolute -bottom-5 right-0 text-xs text-gray-400">${billing.spendingCap.toFixed(0)}</Text>
+                            </Box>
+                            {/* Spacer for labels */}
+                            <Box className="h-5" />
+                          </Box>
+                        )}
+
+                        <Flex gap={12} align="end">
+                          <Box className="flex-1">
+                            <label className="flex items-center mb-2">
+                              <input
+                                type="checkbox"
+                                checked={spendingCapEnabled}
+                                onChange={(e) => {
+                                  setSpendingCapEnabled(e.target.checked);
+                                  if (!e.target.checked) {
+                                    setSpendingCapInput('');
+                                  }
+                                }}
+                                className="mr-2"
+                              />
+                              <Text className="text-sm font-medium">Enable monthly spending cap (USD)</Text>
+                            </label>
+                            {spendingCapEnabled && (
+                              <Flex align="center" gap={8}>
+                                <Text className="text-lg font-medium text-gray-500">$</Text>
+                                <Input
+                                  type="number"
+                                  value={spendingCapInput}
+                                  onChange={(e) => setSpendingCapInput(e.target.value)}
+                                  placeholder="e.g. 100"
+                                  min="1"
+                                  step="1"
+                                />
+                              </Flex>
+                            )}
+                          </Box>
+                          <Button
+                            intent="primary"
+                            size="md"
+                            onClick={handleSaveSpendingCap}
+                            disabled={savingSpendingCap || (spendingCapEnabled && (!spendingCapInput || parseFloat(spendingCapInput) <= 0))}
+                          >
+                            {savingSpendingCap ? 'Saving...' : 'Save'}
+                          </Button>
+                        </Flex>
                       </Card>
 
                       {/* Usage Trend Chart */}

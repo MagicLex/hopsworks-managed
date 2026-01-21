@@ -137,22 +137,59 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   } else if (req.method === 'DELETE') {
     // Handle user-cluster unassignment
     const { userId, clusterId } = req.body;
-    
+
     try {
       const { error } = await supabase
         .from('user_hopsworks_assignments')
         .delete()
         .match({ user_id: userId, hopsworks_cluster_id: clusterId });
-        
+
       if (error) {
         console.error('Error removing user from cluster:', error);
         return res.status(500).json({ error: 'Failed to remove user from cluster' });
       }
-      
+
       // Update cluster current_users count
       await supabase.rpc('decrement_cluster_users', { cluster_id: clusterId });
-      
+
       return res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('Server error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  } else if (req.method === 'PATCH') {
+    // Handle user field updates (e.g., spending cap)
+    const { userId, spendingCap } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID required' });
+    }
+
+    try {
+      const updateData: any = {};
+
+      // Handle spending cap update
+      if (spendingCap !== undefined) {
+        updateData.spending_cap = spendingCap === null || spendingCap === '' ? null : parseFloat(spendingCap);
+        // Reset alerts when admin changes cap
+        updateData.spending_alerts_sent = null;
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ error: 'No fields to update' });
+      }
+
+      const { error } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Error updating user:', error);
+        return res.status(500).json({ error: 'Failed to update user' });
+      }
+
+      return res.status(200).json({ success: true, message: 'User updated' });
     } catch (error) {
       console.error('Server error:', error);
       return res.status(500).json({ error: 'Internal server error' });

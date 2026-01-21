@@ -30,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get user billing info
     const { data: user } = await supabaseAdmin
       .from('users')
-      .select('billing_mode, stripe_customer_id, feature_flags, account_owner_id, status, terms_accepted_at, marketing_consent')
+      .select('billing_mode, stripe_customer_id, feature_flags, account_owner_id, status, terms_accepted_at, marketing_consent, spending_cap')
       .eq('id', userId)
       .single();
     
@@ -183,6 +183,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Check if customer has payment methods and get details
     let hasPaymentMethod = false;
     let paymentMethodDetails = null;
+    console.log('[Billing API] Checking payment methods for customer:', user?.stripe_customer_id);
     if (user?.stripe_customer_id) {
       try {
         const Stripe = (await import('stripe')).default;
@@ -206,9 +207,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const hasDefaultPaymentMethod = !!(customer as any).invoice_settings?.default_payment_method || !!(customer as any).default_source;
         
         // Only check actual payment methods, not setup intent history
-        hasPaymentMethod = paymentMethods.data.length > 0 || 
-                          allPaymentMethods.data.length > 0 || 
+        hasPaymentMethod = paymentMethods.data.length > 0 ||
+                          allPaymentMethods.data.length > 0 ||
                           hasDefaultPaymentMethod;
+        console.log('[Billing API] Payment methods check:', {
+          cardMethods: paymentMethods.data.length,
+          allMethods: allPaymentMethods.data.length,
+          hasDefault: hasDefaultPaymentMethod,
+          result: hasPaymentMethod
+        });
         
         // Get payment method details if available
         if (paymentMethods.data.length > 0) {
@@ -244,17 +251,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
         
-      } catch (error) {
-        console.error('Error checking payment methods:', error);
+      } catch (error: any) {
+        console.error('[Billing API] Error checking payment methods:', error?.message || error);
         hasPaymentMethod = false;
       }
+    } else {
+      console.log('[Billing API] No stripe_customer_id, skipping payment check');
     }
 
     // Prevent caching of billing data
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
-    
+
+    console.log('[Billing API] Response:', {
+      hasPaymentMethod,
+      termsAcceptedAt: user?.terms_accepted_at,
+      isSuspended: user?.status === 'suspended',
+      billingMode: user?.billing_mode
+    });
+
     return res.status(200).json({
       billingMode: user?.billing_mode || 'postpaid',
       hasPaymentMethod,
@@ -264,6 +280,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       paymentMethodDetails,
       subscriptionStatus: null, // Column doesn't exist in DB
       prepaidEnabled: user?.feature_flags?.prepaid_enabled || false,
+      spendingCap: user?.spending_cap || null,
       currentUsage: {
         cpuHours: currentMonthTotals.cpuHours.toFixed(2),
         gpuHours: currentMonthTotals.gpuHours.toFixed(2),

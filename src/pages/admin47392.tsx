@@ -20,6 +20,7 @@ interface User {
   hopsworks_username?: string;
   billing_mode?: string;
   promo_code?: string;
+  spending_cap?: number | null;
   metadata?: {
     corporate_ref?: string;
     [key: string]: any;
@@ -68,7 +69,8 @@ export default function AdminPage() {
   const [metadataForm, setMetadataForm] = useState({
     promoCode: '',
     corporateRef: '',
-    clusterId: ''
+    clusterId: '',
+    spendingCap: ''
   });
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [loadingClusters, setLoadingClusters] = useState(true);
@@ -197,13 +199,14 @@ export default function AdminPage() {
     setMetadataForm({
       promoCode: user.promo_code || '',
       corporateRef: user.metadata?.corporate_ref || '',
-      clusterId: currentClusterId
+      clusterId: currentClusterId,
+      spendingCap: user.spending_cap !== null && user.spending_cap !== undefined ? String(user.spending_cap) : ''
     });
   };
 
   const closeMetadataModal = () => {
     setEditMetadataUser(null);
-    setMetadataForm({ promoCode: '', corporateRef: '', clusterId: '' });
+    setMetadataForm({ promoCode: '', corporateRef: '', clusterId: '', spendingCap: '' });
   };
 
   const openClusterModal = (cluster: Cluster) => {
@@ -278,6 +281,26 @@ export default function AdminPage() {
         setError(`Failed to update metadata: ${data.error}`);
         setActionLoading(prev => ({ ...prev, [editMetadataUser.id]: false }));
         return;
+      }
+
+      // Update spending cap if changed
+      const currentCap = editMetadataUser.spending_cap !== null && editMetadataUser.spending_cap !== undefined
+        ? String(editMetadataUser.spending_cap)
+        : '';
+      if (metadataForm.spendingCap !== currentCap) {
+        const capResponse = await fetch('/api/admin/users', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: editMetadataUser.id,
+            spendingCap: metadataForm.spendingCap === '' ? null : metadataForm.spendingCap
+          })
+        });
+
+        if (!capResponse.ok) {
+          const data = await capResponse.json();
+          alert(`Metadata updated but spending cap failed: ${data.error}`);
+        }
       }
 
       // Update cluster assignment if changed
@@ -512,11 +535,25 @@ export default function AdminPage() {
                           </td>
                           <td className="py-4 px-4 text-right">
                             {todayCost > 0 ? (
-                              <Text className="font-mono">
-                                ${todayCost.toFixed(4)}
-                              </Text>
+                              <Box>
+                                <Text className="font-mono">
+                                  ${todayCost.toFixed(4)}
+                                </Text>
+                                {user.spending_cap && (
+                                  <Text className="text-xs text-gray">
+                                    Cap: ${user.spending_cap}
+                                  </Text>
+                                )}
+                              </Box>
                             ) : (
-                              <Text className="text-xs text-gray">-</Text>
+                              <Box>
+                                <Text className="text-xs text-gray">-</Text>
+                                {user.spending_cap && (
+                                  <Text className="text-xs text-gray">
+                                    Cap: ${user.spending_cap}
+                                  </Text>
+                                )}
+                              </Box>
                             )}
                           </td>
                           <td className="py-4 px-4 text-right">
@@ -780,6 +817,20 @@ export default function AdminPage() {
                     className="w-full px-3 py-2 border border-grayShade2 rounded-md bg-surfaceShade1 text-sm"
                   />
                   <Text className="text-xs text-gray mt-1">HubSpot deal ID or corporate reference</Text>
+                </Box>
+
+                <Box>
+                  <Text className="text-sm font-medium mb-1">Spending Cap</Text>
+                  <input
+                    type="number"
+                    value={metadataForm.spendingCap}
+                    onChange={(e) => setMetadataForm(prev => ({ ...prev, spendingCap: e.target.value }))}
+                    placeholder="e.g., 100 (leave empty to disable)"
+                    min="0"
+                    step="1"
+                    className="w-full px-3 py-2 border border-grayShade2 rounded-md bg-surfaceShade1 text-sm"
+                  />
+                  <Text className="text-xs text-gray mt-1">Monthly spending cap in USD. Leave empty to disable.</Text>
                 </Box>
 
                 <Box>

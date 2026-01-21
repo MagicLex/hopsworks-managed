@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { OpenCostDirect } from '../../../lib/opencost-direct';
 import { getUserProjects, getAllProjects } from '../../../lib/hopsworks-api';
 import { calculateCreditsUsed, calculateDollarAmount } from '../../../config/billing-rates';
+import { checkSpendingCap } from '../../../lib/spending-alerts';
 
 type ProjectBreakdownEntry = {
   name: string;
@@ -800,6 +801,47 @@ async function collectOpenCostMetrics() {
         await opencost.cleanup();
       }
     }
+  }
+
+  // Check spending caps for all users who had usage processed
+  console.log(`\n=== Checking Spending Caps ===`);
+  const processedUserIds = new Set(aggregatedResults.namespaces.map(ns => ns.userId));
+
+  if (processedUserIds.size > 0) {
+    // Get current month's start date
+    const startOfMonth = new Date();
+    startOfMonth.setUTCDate(1);
+    startOfMonth.setUTCHours(0, 0, 0, 0);
+    const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
+
+    // Get monthly totals for all processed users
+    const { data: monthlyUsage } = await supabaseAdmin
+      .from('usage_daily')
+      .select('user_id, account_owner_id, total_cost')
+      .in('user_id', Array.from(processedUserIds))
+      .gte('date', startOfMonthStr);
+
+    // Aggregate by account owner (or user if no owner)
+    const monthlyTotals = new Map<string, { total: number; accountOwnerId: string | null }>();
+
+    for (const usage of monthlyUsage || []) {
+      const key = usage.account_owner_id || usage.user_id;
+      const existing = monthlyTotals.get(key) || { total: 0, accountOwnerId: usage.account_owner_id };
+      existing.total += usage.total_cost || 0;
+      monthlyTotals.set(key, existing);
+    }
+
+    // Check spending caps for each account owner
+    let capsChecked = 0;
+    for (const [targetUserId, data] of Array.from(monthlyTotals.entries())) {
+      try {
+        await checkSpendingCap(supabaseAdmin, targetUserId, data.accountOwnerId, data.total);
+        capsChecked++;
+      } catch (error) {
+        console.error(`[SpendingCap] Error checking cap for user ${targetUserId}:`, error);
+      }
+    }
+    console.log(`Spending caps checked for ${capsChecked} account owners`);
   }
 
   console.log(`\n=== Overall OpenCost Collection Summary ===`);

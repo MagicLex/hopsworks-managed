@@ -315,6 +315,7 @@ export default function BillingSetup() {
                       <Text className="text-sm text-gray-600">• Online Storage: $0.50/GB per month</Text>
                       <Text className="text-sm text-gray-600">• Offline Storage: $0.03/GB per month</Text>
                       <Text className="text-sm text-gray-600">• No upfront costs or minimum charges</Text>
+                      <Text className="text-sm text-gray-600">• Set a monthly spending cap anytime from your dashboard</Text>
                     </Box>
                   </Box>
 
