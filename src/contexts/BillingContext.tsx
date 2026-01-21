@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { useAuth } from './AuthContext';
 
 export interface BillingInfo {
-  billingMode: 'prepaid' | 'postpaid' | 'team';
+  billingMode: 'prepaid' | 'postpaid' | 'free' | 'team';
   hasPaymentMethod: boolean;
   isSuspended?: boolean;
   isTeamMember?: boolean;

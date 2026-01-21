@@ -30,15 +30,19 @@ export function selectClusterByCapacity(clusters: ClusterCapacity[]): ClusterCap
  * Calculate maxNumProjects based on user type and payment status
  * - Team members: always 0 (they use owner's projects)
  * - Account owners with payment (subscription or prepaid): 5
+ * - Free tier users: 1
  * - Account owners without payment: 0
  */
 export function calculateMaxNumProjects(
   isTeamMember: boolean,
   hasSubscription: boolean,
-  isPrepaid: boolean
+  isPrepaid: boolean,
+  isFree: boolean = false
 ): number {
   if (isTeamMember) return 0;
-  return (hasSubscription || isPrepaid) ? 5 : 0;
+  if (hasSubscription || isPrepaid) return 5;
+  if (isFree) return 1;
+  return 0;
 }
 
 /**
@@ -47,18 +51,19 @@ export function calculateMaxNumProjects(
  */
 export function canAssignCluster(
   isManualAssignment: boolean,
-  isPrepaid: boolean
+  isPrepaid: boolean,
+  isFree: boolean = false
 ): { allowed: true } | { allowed: false; reason: string } {
   // Manual assignment always allowed (admin action)
   if (isManualAssignment) return { allowed: true };
 
-  // Prepaid users can auto-assign
-  if (isPrepaid) return { allowed: true };
+  // Prepaid and free users can auto-assign
+  if (isPrepaid || isFree) return { allowed: true };
 
   // Postpaid users need manual assignment after payment verification
   return {
     allowed: false,
-    reason: 'Automatic cluster assignment requires payment verification or prepaid status'
+    reason: 'Automatic cluster assignment requires payment verification or prepaid/free status'
   };
 }
 
@@ -250,17 +255,19 @@ export async function assignUserToCluster(
       };
     }
 
-    // For account owners, check payment method (skip for prepaid users)
+    // For account owners, check payment method (skip for prepaid/free users)
     const isPrepaid = user.billing_mode === 'prepaid';
-    
+    const isFree = user.billing_mode === 'free';
+
     // IMPORTANT: Only allow cluster assignment for:
     // 1. Prepaid users (corporate)
-    // 2. Manual assignment (admin action or after payment verification)
+    // 2. Free tier users
+    // 3. Manual assignment (admin action or after payment verification)
     // DO NOT auto-assign based on stripe_customer_id alone!
-    if (!isManualAssignment && !isPrepaid) {
-      return { 
-        success: false, 
-        error: 'Automatic cluster assignment requires payment verification or prepaid status' 
+    if (!isManualAssignment && !isPrepaid && !isFree) {
+      return {
+        success: false,
+        error: 'Automatic cluster assignment requires payment verification or prepaid/free status'
       };
     }
 
@@ -312,7 +319,7 @@ export async function assignUserToCluster(
           console.log(`Found existing Hopsworks user ${hopsworksUsername} for ${user.email}`);
           
           // Check and update maxNumProjects if needed
-          const expectedMaxProjects = (user.stripe_subscription_id || isPrepaid) ? 5 : 0;
+          const expectedMaxProjects = isFree ? 1 : (user.stripe_subscription_id || isPrepaid) ? 5 : 0;
           if (existingHopsworksUser.maxNumProjects !== expectedMaxProjects) {
             console.log(`Updating maxNumProjects from ${existingHopsworksUser.maxNumProjects} to ${expectedMaxProjects} for ${user.email}`);
             await updateUserProjectLimit(
@@ -338,8 +345,8 @@ export async function assignUserToCluster(
             const firstName = user.email.split('@')[0];
             const lastName = '.';
             
-            // Account owners with payment or prepaid get 5 projects
-            const maxProjects = (user.stripe_subscription_id || isPrepaid) ? 5 : 0;
+            // Account owners: paid/prepaid = 5, free = 1, otherwise = 0
+            const maxProjects = isFree ? 1 : (user.stripe_subscription_id || isPrepaid) ? 5 : 0;
 
             console.log(`Attempt ${attempt}/${maxRetries}: Creating Hopsworks user for ${user.email} with ${maxProjects} max projects`);
             

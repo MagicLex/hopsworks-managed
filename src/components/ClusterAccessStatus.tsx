@@ -49,8 +49,8 @@ export default function ClusterAccessStatus({
     );
   }
 
-  // For prepaid users, show different message
-  if (billingMode === 'prepaid' && !hasCluster) {
+  // For prepaid/free users, show different message
+  if ((billingMode === 'prepaid' || billingMode === 'free') && !hasCluster) {
     return (
       <StatusMessage variant="info" icon={<AlertTriangle size={20} />}>
         <Box>

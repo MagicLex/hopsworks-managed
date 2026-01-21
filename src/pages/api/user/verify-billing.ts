@@ -57,6 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       subscriptionStatus: user.stripe_subscription_status,
       isPrepaid: user.billing_mode === 'prepaid',
       isPostpaid: user.billing_mode === 'postpaid',
+      isFree: user.billing_mode === 'free',
       billingEnabled: false,
       issues: [] as string[],
       fixes: [] as string[]
@@ -75,13 +76,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .single();
       
       if (owner) {
-        if (!owner.stripe_customer_id && owner.billing_mode !== 'prepaid') {
+        if (!owner.stripe_customer_id && owner.billing_mode !== 'prepaid' && owner.billing_mode !== 'free') {
           billingStatus.issues.push('Account owner does not have billing set up');
         }
       }
     } else {
       // Account owners need their own billing
-      if (user.billing_mode === 'prepaid') {
+      if (user.billing_mode === 'prepaid' || user.billing_mode === 'free') {
         billingStatus.billingEnabled = true;
       } else if (user.stripe_customer_id) {
         billingStatus.billingEnabled = true;
@@ -124,7 +125,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           billingStatus.issues.push('Manual intervention required to set billing mode');
         }
         
-        if (!user.stripe_customer_id && user.billing_mode !== 'prepaid') {
+        if (!user.stripe_customer_id && user.billing_mode !== 'prepaid' && user.billing_mode !== 'free') {
           billingStatus.issues.push('No Stripe customer ID');
           
           // Auto-fix disabled - manual intervention required

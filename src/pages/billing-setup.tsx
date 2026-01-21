@@ -33,8 +33,8 @@ export default function BillingSetup() {
       return;
     }
 
-    // Prepaid users with terms accepted go to dashboard
-    if (billing?.billingMode === 'prepaid' && !billing?.isSuspended && billing?.termsAcceptedAt) {
+    // Prepaid and free users with terms accepted go to dashboard
+    if ((billing?.billingMode === 'prepaid' || billing?.billingMode === 'free') && !billing?.isSuspended && billing?.termsAcceptedAt) {
       router.push('/dashboard');
       return;
     }
@@ -49,7 +49,7 @@ export default function BillingSetup() {
   // Derived state
   const isReady = synced && !billingLoading && user && !billing?.isTeamMember;
   const needsTermsAcceptance = !billing?.termsAcceptedAt;
-  const hasPaymentButNeedsTerms = (billing?.hasPaymentMethod || billing?.billingMode === 'prepaid') && needsTermsAcceptance && !billing?.isSuspended;
+  const hasPaymentButNeedsTerms = (billing?.hasPaymentMethod || billing?.billingMode === 'prepaid' || billing?.billingMode === 'free') && needsTermsAcceptance && !billing?.isSuspended;
 
   const handleSetupPayment = async () => {
     setLoading(true);
@@ -371,33 +371,48 @@ export default function BillingSetup() {
                     </Box>
                   )}
 
-                  <Flex gap={12}>
+                  <Box className="space-y-4">
                     <Button
                       intent="primary"
                       size="lg"
-                      className="flex-1"
+                      className="w-full"
                       onClick={handleSetupPayment}
                       isLoading={loading}
                       disabled={loading || (needsTermsAcceptance && !termsAccepted)}
                     >
                       <CreditCard size={18} />
-                      Set Up Payment Method
+                      Add Payment Method
                       <ArrowRight size={18} />
                     </Button>
+
+                    <Box className="relative">
+                      <Box className="absolute inset-0 flex items-center">
+                        <Box className="w-full border-t border-gray-200" />
+                      </Box>
+                      <Box className="relative flex justify-center">
+                        <Text className="px-4 bg-white text-sm text-gray-500">or</Text>
+                      </Box>
+                    </Box>
+
                     <Button
-                      intent="ghost"
+                      intent="secondary"
                       size="lg"
+                      className="w-full"
                       onClick={handleSkipForNow}
                       disabled={loading || savingConsent || (needsTermsAcceptance && !termsAccepted)}
                       isLoading={savingConsent}
                     >
-                      Skip for now
+                      Start for Free
+                      <ArrowRight size={18} />
                     </Button>
-                  </Flex>
+                    <Text className="text-sm text-gray-500 text-center">
+                      1 project included, no credit card required
+                    </Text>
+                  </Box>
 
-                  <Text className="text-xs text-gray-500 text-center mt-4">
-                    You can manage your payment methods and view invoices anytime from your dashboard.
-                    Your payment information is securely processed by Stripe.
+                  <Text className="text-xs text-gray-400 text-center mt-6">
+                    You can upgrade anytime from your dashboard.
+                    Payment information is securely processed by Stripe.
                   </Text>
                 </Box>
               </>

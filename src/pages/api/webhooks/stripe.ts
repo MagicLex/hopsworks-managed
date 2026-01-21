@@ -6,6 +6,7 @@ import { Resend } from 'resend';
 import { assignUserToCluster } from '../../../lib/cluster-assignment';
 import { suspendUser, reactivateUser } from '../../../lib/user-status';
 import { handleApiError } from '../../../lib/error-handler';
+import { updateUserProjectLimit } from '../../../lib/hopsworks-api';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -134,6 +135,46 @@ async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {
     if (user.status === 'suspended') {
       await reactivateUser(supabaseAdmin as any, user.id, 'payment_method_setup');
     }
+
+    // Upgrade free tier users to postpaid when they add a payment method
+    if (user.billing_mode === 'free') {
+      console.log(`Upgrading user ${user.id} from free to postpaid`);
+      await supabaseAdmin
+        .from('users')
+        .update({ billing_mode: 'postpaid' })
+        .eq('id', user.id);
+      user.billing_mode = 'postpaid'; // Update local reference
+
+      // Update maxNumProjects from 1 to 5 in Hopsworks
+      try {
+        const { data: assignment } = await supabaseAdmin
+          .from('user_hopsworks_assignments')
+          .select('hopsworks_user_id, hopsworks_cluster_id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (assignment?.hopsworks_user_id) {
+          const { data: cluster } = await supabaseAdmin
+            .from('hopsworks_clusters')
+            .select('api_url, api_key')
+            .eq('id', assignment.hopsworks_cluster_id)
+            .single();
+
+          if (cluster) {
+            await updateUserProjectLimit(
+              { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+              assignment.hopsworks_user_id,
+              5 // Upgrade from 1 (free) to 5 (paid)
+            );
+            console.log(`Updated maxNumProjects to 5 for user ${user.id} after free->postpaid upgrade`);
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to update maxNumProjects for user ${user.id}:`, error);
+        // Don't fail the whole process if this fails - user is still upgraded
+      }
+    }
+
     // For postpaid users (or null billing_mode), create subscription if not exists
     if ((!user.billing_mode || user.billing_mode === 'postpaid') && !user.stripe_subscription_id) {
       try {

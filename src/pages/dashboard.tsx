@@ -185,8 +185,8 @@ export default function Dashboard() {
   // Handle tab query parameter
   useEffect(() => {
     if (router.query.tab && typeof router.query.tab === 'string') {
-      // Redirect prepaid users away from billing tab
-      if (router.query.tab === 'billing' && billing?.billingMode === 'prepaid') {
+      // Redirect prepaid/free users away from billing tab
+      if (router.query.tab === 'billing' && (billing?.billingMode === 'prepaid' || billing?.billingMode === 'free')) {
         setActiveTab('cluster');
       } else {
         if (router.query.tab === 'billing') {
@@ -210,7 +210,7 @@ export default function Dashboard() {
 
   // Auto-reload page when waiting for cluster provisioning with progress bar
   useEffect(() => {
-    if (!billingLoading && billing?.billingMode === 'prepaid' && !hopsworksInfo?.hasCluster && !hopsworksLoading) {
+    if (!billingLoading && (billing?.billingMode === 'prepaid' || billing?.billingMode === 'free') && !hopsworksInfo?.hasCluster && !hopsworksLoading) {
       const reloadDelay = 15000; // 15 seconds
       const progressInterval = 100; // Update every 100ms
       const steps = reloadDelay / progressInterval;
@@ -415,7 +415,7 @@ export default function Dashboard() {
                   Billing
                 </TabsTrigger>
               ) : (
-                billing?.billingMode !== 'prepaid' && (
+                billing?.billingMode !== 'prepaid' && billing?.billingMode !== 'free' && (
                   <TabsTrigger value="billing">Billing</TabsTrigger>
                 )
               )}
@@ -435,6 +435,24 @@ export default function Dashboard() {
                   isTeamMember={billing?.isTeamMember}
                 />
               </Box>
+
+              {/* Free tier upsell banner */}
+              {billing?.billingMode === 'free' && hopsworksInfo?.hasCluster && (
+                <Card className="p-4 mb-6 border-blue-200 bg-blue-50">
+                  <Flex align="center" gap={12}>
+                    <TrendingUp size={20} className="text-blue-600" />
+                    <Box className="flex-1">
+                      <Text className="text-sm text-blue-800">
+                        <strong>Free plan:</strong> 1 project limit.{' '}
+                        <Link href="/billing-setup" className="underline hover:text-blue-900">
+                          Add a payment method
+                        </Link>{' '}
+                        to unlock 5 projects and remove quotas.
+                      </Text>
+                    </Box>
+                  </Flex>
+                </Card>
+              )}
 
               {instance && instance.endpoint ? (
                 <>

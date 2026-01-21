@@ -158,7 +158,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           registration_source: registrationSource,
           registration_ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress,
           status: 'active',
-          billing_mode: billingMode || 'postpaid', // Default to postpaid for non-corporate users
+          billing_mode: billingMode || 'free', // Default to free tier for non-corporate users
           promo_code: normalizedPromoCode, // Store promo code in dedicated column
           terms_accepted_at: termsAccepted ? new Date().toISOString() : null,
           marketing_consent: marketingConsent || false,
@@ -184,7 +184,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             userId,
             email,
             name: name || null,
-            plan: billingMode || 'postpaid',
+            plan: billingMode || 'free',
             source: registrationSource,
             marketingConsent: marketingConsent || false,
             ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || null,
@@ -200,19 +200,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq('id', userId)
         .single();
 
-      // DO NOT auto-assign cluster for new users - they need to set up payment first
-      // Only assign if prepaid (corporate/promo) user
-      if (userData?.billing_mode === 'prepaid') {
-        // Prepaid users get immediate access - use assignUserToCluster for full setup
-        // This creates the Hopsworks user with correct maxNumProjects = 5
+      // Auto-assign cluster for prepaid and free tier users
+      // Postpaid users need to set up payment first
+      if (userData?.billing_mode === 'prepaid' || userData?.billing_mode === 'free') {
+        // Prepaid/free users get immediate access - use assignUserToCluster for full setup
+        // This creates the Hopsworks user with correct maxNumProjects (5 for prepaid, 1 for free)
         const clusterResult = await assignUserToCluster(supabaseAdmin, userId);
         if (clusterResult.success) {
-          console.log(`Assigned prepaid user ${userId} to cluster ${clusterResult.clusterId}`);
+          console.log(`Assigned ${userData.billing_mode} user ${userId} to cluster ${clusterResult.clusterId}`);
         } else {
-          console.error(`Failed to assign prepaid user ${userId}: ${clusterResult.error}`);
+          console.error(`Failed to assign ${userData.billing_mode} user ${userId}: ${clusterResult.error}`);
         }
       } else {
-        console.log(`User ${userId} is not prepaid - cluster assignment requires payment method setup`);
+        console.log(`User ${userId} is postpaid - cluster assignment requires payment method setup`);
       }
     } else {
       healthCheckResults.userExists = true;
@@ -370,10 +370,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .single();
       
       if (!assignment) {
-        // Try to assign cluster - ONLY for team members or prepaid users
+        // Try to assign cluster - for team members, prepaid, or free users
         // DO NOT assign based on stripe_customer_id - that doesn't mean they have payment!
-        const shouldAssign = isTeamMember || 
-                           existingUser.billing_mode === 'prepaid';
+        const shouldAssign = isTeamMember ||
+                           existingUser.billing_mode === 'prepaid' ||
+                           existingUser.billing_mode === 'free';
         
         if (shouldAssign) {
           console.log(`[Health Check] User ${email} not assigned to cluster - attempting assignment`);
@@ -500,8 +501,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const firstName = (session.user as any).given_name || email.split('@')[0];
             const lastName = (session.user as any).family_name || '.';
             const expectedMaxProjects = isTeamMember ? 0 :
+                                      existingUser.billing_mode === 'free' ? 1 :
                                       (existingUser.stripe_subscription_id || existingUser.billing_mode === 'prepaid') ? 5 : 0;
-            
+
             const newHopsworksUser = await createHopsworksOAuthUser(
               credentials,
               email,
@@ -542,7 +544,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         // HEALTH CHECK 4: Verify Hopsworks account is activated (if Supabase is active AND billing is valid)
         if (hopsworksUser && hopsworksUserId && existingUser.status === 'active') {
-          const hasBilling = isTeamMember || existingUser.stripe_subscription_id || existingUser.billing_mode === 'prepaid';
+          const hasBilling = isTeamMember || existingUser.stripe_subscription_id || existingUser.billing_mode === 'prepaid' || existingUser.billing_mode === 'free';
           const hopsworksStatus = hopsworksUser.status;
 
           if (hasBilling && hopsworksStatus !== HOPSWORKS_STATUS.ACTIVATED_ACCOUNT) {
@@ -561,6 +563,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // HEALTH CHECK 5: Verify maxNumProjects is correct
         if (hopsworksUser && hopsworksUserId) {
           const expectedMaxProjects = isTeamMember ? 0 :
+                                    existingUser.billing_mode === 'free' ? 1 :
                                     (existingUser.stripe_subscription_id || existingUser.billing_mode === 'prepaid') ? 5 : 0;
           
           const currentMaxProjects = hopsworksUser.maxNumProjects ?? 0;
@@ -755,10 +758,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('id', userId)
       .single();
 
-    // Check if user needs to set up payment (only for account owners)
+    // Check if user needs to set up payment (only for postpaid account owners)
+    // Free and prepaid users don't need payment setup
     const needsPayment = !currentUser?.account_owner_id && // Not a team member
                         !currentUser?.stripe_customer_id && // No Stripe customer
-                        currentUser?.billing_mode !== 'prepaid'; // Not prepaid corporate
+                        currentUser?.billing_mode === 'postpaid'; // Only postpaid needs payment
 
     // Check if account is suspended (postpaid user who removed payment method)
     const isSuspended = currentUser?.status === 'suspended';
@@ -777,7 +781,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       needsPayment,
       isSuspended,
       isTeamMember: !!existingUser?.account_owner_id,
-      hasBilling: !!existingUser?.stripe_customer_id || existingUser?.billing_mode === 'prepaid',
+      hasBilling: !!existingUser?.stripe_customer_id || existingUser?.billing_mode === 'prepaid' || existingUser?.billing_mode === 'free',
       projectSync: projectSyncResult
     });
   } catch (error) {

@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
   account_owner_id TEXT REFERENCES users(id),
 
   -- Billing
-  billing_mode TEXT DEFAULT 'postpaid' CHECK (billing_mode IN ('prepaid', 'postpaid')),
+  billing_mode TEXT DEFAULT 'postpaid' CHECK (billing_mode IN ('prepaid', 'postpaid', 'free')),
   stripe_customer_id TEXT,
   stripe_test_customer_id TEXT,
   stripe_subscription_id TEXT,

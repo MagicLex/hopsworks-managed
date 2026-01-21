@@ -25,8 +25,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: 'userId is required' });
     }
 
-    if (!billingMode || !['prepaid', 'postpaid'].includes(billingMode)) {
-      return res.status(400).json({ error: 'billingMode must be either "prepaid" or "postpaid"' });
+    if (!billingMode || !['prepaid', 'postpaid', 'free'].includes(billingMode)) {
+      return res.status(400).json({ error: 'billingMode must be "prepaid", "postpaid", or "free"' });
     }
 
     // Check user exists
