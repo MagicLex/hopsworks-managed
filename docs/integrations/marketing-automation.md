@@ -41,7 +41,7 @@ The SaaS platform sends a single webhook to Windmill. Windmill handles all downs
 
 | Event             | Trigger Location           | Payload                                      |
 |-------------------|----------------------------|----------------------------------------------|
-| `user.registered` | `sync-user.ts` (new user)  | email, name, plan, source, marketingConsent  |
+| `user.registered` | `sync-user.ts` (new user)  | userId, email, name, plan, source, marketingConsent, ip |
 | `user.upgraded`   | Stripe webhook (future)    | email, previousPlan, newPlan                 |
 | `user.churned`    | Account deletion (future)  | email, reason                                |
 

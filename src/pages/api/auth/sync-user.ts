@@ -181,11 +181,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
           body: JSON.stringify({
             event: 'user.registered',
+            userId,
             email,
             name: name || null,
             plan: billingMode || 'postpaid',
             source: registrationSource,
             marketingConsent: marketingConsent || false,
+            ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || null,
             timestamp: new Date().toISOString()
           })
         }).catch(err => console.error('[Marketing] Webhook failed:', err.message));
