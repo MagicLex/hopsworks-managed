@@ -95,7 +95,7 @@ export default function BillingSetup() {
     }
   };
 
-  const handleSkipForNow = async () => {
+  const handleStartFree = async () => {
     // If user hasn't accepted terms yet, save consent first
     if (needsTermsAcceptance) {
       if (!termsAccepted) return; // Should not happen due to disabled button
@@ -114,15 +114,29 @@ export default function BillingSetup() {
           setSavingConsent(false);
           return;
         }
-
-        // Refetch billing to update the context with new termsAcceptedAt
-        await refetchBilling();
       } catch (consentErr) {
         console.error('Error saving consent:', consentErr);
         setError('Failed to save your preferences. Please try again.');
         setSavingConsent(false);
         return;
       }
+    }
+
+    // Switch to free tier and assign cluster
+    try {
+      const response = await fetch('/api/billing/start-free', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('Failed to start free:', data.error);
+        // Don't block - user might already be free, just continue
+      }
+    } catch (err) {
+      console.error('Error calling start-free:', err);
+      // Don't block navigation
     }
 
     sessionStorage.removeItem('payment_required');
@@ -247,7 +261,7 @@ export default function BillingSetup() {
                     intent="primary"
                     size="lg"
                     className="w-full"
-                    onClick={handleSkipForNow}
+                    onClick={handleStartFree}
                     isLoading={savingConsent}
                     disabled={savingConsent || !termsAccepted}
                   >
@@ -398,7 +412,7 @@ export default function BillingSetup() {
                       intent="secondary"
                       size="lg"
                       className="w-full"
-                      onClick={handleSkipForNow}
+                      onClick={handleStartFree}
                       disabled={loading || savingConsent || (needsTermsAcceptance && !termsAccepted)}
                       isLoading={savingConsent}
                     >
