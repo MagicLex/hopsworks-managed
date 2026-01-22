@@ -81,25 +81,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             .eq('active', true);
 
           if (stripeProducts && stripeProducts.length > 0) {
+            // Get the customer's default payment method
+            const paymentMethodsList = await stripe.paymentMethods.list({
+              customer: user.stripe_customer_id,
+              limit: 1
+            });
+            const defaultPaymentMethod = paymentMethodsList.data[0]?.id;
+
             const subscription = await stripe.subscriptions.create({
               customer: user.stripe_customer_id,
               items: stripeProducts.map(product => ({
                 price: product.stripe_price_id
               })),
+              default_payment_method: defaultPaymentMethod,
               metadata: {
                 user_id: userId,
                 email: user.email
               }
             });
 
-            // Update user to postpaid with subscription
+            console.log(`Created subscription ${subscription.id} with status ${subscription.status} for user ${userId}`);
+
+            // Update user to postpaid with subscription AND clear suspended status
             await supabaseAdmin
               .from('users')
               .update({
                 billing_mode: 'postpaid',
                 stripe_subscription_id: subscription.id,
                 stripe_subscription_status: subscription.status,
-                downgrade_deadline: null
+                downgrade_deadline: null,
+                status: 'active'
               })
               .eq('id', userId);
 
