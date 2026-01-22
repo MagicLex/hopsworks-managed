@@ -1946,7 +1946,7 @@ mr = project.get_model_registry()`;
               isLoading={hopsworksLoading}
             >
               <RefreshCw size={14} />
-              I've deleted a project - Refresh
+              I&apos;ve deleted a project - Refresh
             </Button>
           </Box>
 
