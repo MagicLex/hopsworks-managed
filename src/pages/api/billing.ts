@@ -282,7 +282,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.log(`[Billing API] Lazy upgrading user ${userId} from free to postpaid`);
         await supabaseAdmin
           .from('users')
-          .update({ billing_mode: 'postpaid' })
+          .update({ billing_mode: 'postpaid', downgrade_deadline: null })
           .eq('id', userId);
         user.billing_mode = 'postpaid';
 
@@ -313,6 +313,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         } catch (upgradeError) {
           console.error(`[Billing API] Failed to update maxNumProjects:`, upgradeError);
+          // Log to health_check_failures for tracking - sync-user will fix on next login
+          await supabaseAdmin.from('health_check_failures').insert({
+            user_id: userId,
+            email: user?.email,
+            check_type: 'lazy_upgrade_maxnumprojects',
+            error_message: 'Lazy upgrade succeeded but maxNumProjects update failed',
+            details: { error: String(upgradeError), expected: 5 }
+          }).catch(() => {}); // Don't fail if logging fails
         }
       }
     }

@@ -140,6 +140,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               }
             } catch (e) {
               console.error('Failed to update maxNumProjects:', e);
+              // Log to health_check_failures - sync-user will fix on next login
+              await supabaseAdmin.from('health_check_failures').insert({
+                user_id: userId,
+                email: user.email,
+                check_type: 'setup_payment_maxnumprojects',
+                error_message: 'Subscription created but maxNumProjects update failed',
+                details: { error: String(e), expected: 5 }
+              }).catch(() => {});
             }
 
             console.log(`User ${userId} upgraded to postpaid with subscription ${subscription.id}`);

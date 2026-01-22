@@ -171,7 +171,14 @@ async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {
         }
       } catch (error) {
         console.error(`Failed to update maxNumProjects for user ${user.id}:`, error);
-        // Don't fail the whole process if this fails - user is still upgraded
+        // Log to health_check_failures - sync-user will fix on next login
+        await supabaseAdmin.from('health_check_failures').insert({
+          user_id: user.id,
+          email: user.email,
+          check_type: 'webhook_upgrade_maxnumprojects',
+          error_message: 'Free->postpaid upgrade succeeded but maxNumProjects update failed',
+          details: { error: String(error), expected: 5 }
+        }).catch(() => {});
       }
     }
 
