@@ -54,22 +54,100 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const paymentMethods = await stripe.paymentMethods.list({
         customer: user.stripe_customer_id
       });
-      
+
       // Also check for successful setup intents
       const setupIntents = await stripe.setupIntents.list({
         customer: user.stripe_customer_id,
         limit: 1
       });
       const hasSuccessfulSetup = setupIntents.data.some(si => si.status === 'succeeded');
-      
+
       if (paymentMethods.data.length > 0 || hasSuccessfulSetup) {
+        // Check if user needs a subscription (free user with payment method but no sub)
+        const existingSubs = await stripe.subscriptions.list({
+          customer: user.stripe_customer_id,
+          status: 'active',
+          limit: 1
+        });
+
+        if (existingSubs.data.length === 0 && user.billing_mode === 'free') {
+          // User has payment method but no subscription - create one directly
+          console.log(`Creating subscription for free user ${userId} with existing payment method`);
+
+          // Get stripe products for metered billing
+          const { data: stripeProducts } = await supabaseAdmin
+            .from('stripe_products')
+            .select('*')
+            .eq('active', true);
+
+          if (stripeProducts && stripeProducts.length > 0) {
+            const subscription = await stripe.subscriptions.create({
+              customer: user.stripe_customer_id,
+              items: stripeProducts.map(product => ({
+                price: product.stripe_price_id
+              })),
+              metadata: {
+                user_id: userId,
+                email: user.email
+              }
+            });
+
+            // Update user to postpaid with subscription
+            await supabaseAdmin
+              .from('users')
+              .update({
+                billing_mode: 'postpaid',
+                stripe_subscription_id: subscription.id,
+                stripe_subscription_status: subscription.status,
+                downgrade_deadline: null
+              })
+              .eq('id', userId);
+
+            // Update maxNumProjects to 5 in Hopsworks
+            try {
+              const { updateUserProjectLimit } = await import('@/lib/hopsworks-api');
+              const { data: assignment } = await supabaseAdmin
+                .from('user_hopsworks_assignments')
+                .select('hopsworks_cluster_id, hopsworks_user_id')
+                .eq('user_id', userId)
+                .single();
+
+              if (assignment?.hopsworks_cluster_id && assignment?.hopsworks_user_id) {
+                const { data: cluster } = await supabaseAdmin
+                  .from('hopsworks_clusters')
+                  .select('api_url, api_key')
+                  .eq('id', assignment.hopsworks_cluster_id)
+                  .single();
+
+                if (cluster) {
+                  await updateUserProjectLimit(
+                    { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+                    assignment.hopsworks_user_id,
+                    5
+                  );
+                }
+              }
+            } catch (e) {
+              console.error('Failed to update maxNumProjects:', e);
+            }
+
+            console.log(`User ${userId} upgraded to postpaid with subscription ${subscription.id}`);
+
+            // Redirect back to dashboard
+            return res.status(200).json({
+              success: true,
+              redirectUrl: `${process.env.AUTH0_BASE_URL}/dashboard?payment=success&tab=billing`
+            });
+          }
+        }
+
         try {
           // Create billing portal session to manage existing payment methods
           const portalSession = await stripe.billingPortal.sessions.create({
             customer: user.stripe_customer_id,
             return_url: `${process.env.AUTH0_BASE_URL}/dashboard?tab=billing`,
           });
-          
+
           return res.status(200).json({ portalUrl: portalSession.url });
         } catch (portalError: any) {
           // If portal not configured, let them add another payment method

@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useBilling, BillingInfo } from '@/contexts/BillingContext';
 import { useApiData } from '@/hooks/useApiData';
 import { Box, Flex, Title, Text, Button, Card, Badge, Tabs, TabsContent, TabsList, TabsTrigger, Modal, Input, Select, IconLabel, StatusMessage } from 'tailwind-quartz';
-import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle, UserPlus, Mail, Download, Calendar, AlertTriangle, TrendingUp, Clock, FolderOpen } from 'lucide-react';
+import { CreditCard, Trash2, Server, LogOut, Database, Activity, Cpu, Users, Copy, ExternalLink, CheckCircle, UserPlus, Mail, Download, Calendar, AlertTriangle, TrendingUp, Clock, FolderOpen, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import Layout from '@/components/Layout';
 import ClusterAccessStatus from '@/components/ClusterAccessStatus';
@@ -101,7 +101,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [selectedMonth, setSelectedMonth] = useState('current');
   const { data: usage, loading: usageLoading, error: usageError } = useApiData<UsageData>('/api/usage');
-  const { data: hopsworksInfo, loading: hopsworksLoading, error: hopsworksError } = useApiData<HopsworksInfo>('/api/user/hopsworks-info');
+  const { data: hopsworksInfo, loading: hopsworksLoading, error: hopsworksError, refetch: refetchHopsworksInfo } = useApiData<HopsworksInfo>('/api/user/hopsworks-info');
   const { data: instance, loading: instanceLoading, error: instanceError } = useApiData<InstanceData>('/api/instance');
   const { data: teamData, loading: teamLoading, refetch: refetchTeamData, error: teamError } = useApiData<TeamData>('/api/team/members');
 
@@ -270,7 +270,10 @@ export default function Dashboard() {
         throw new Error(data.error || 'Failed to set up payment');
       }
 
-      if (data.checkoutUrl) {
+      if (data.success && data.redirectUrl) {
+        // Subscription created directly - refresh and redirect
+        window.location.href = data.redirectUrl;
+      } else if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else if (data.portalUrl) {
         window.location.href = data.portalUrl;
@@ -486,7 +489,7 @@ export default function Dashboard() {
                           disabled={upgradingToPostpaid}
                           className="underline hover:text-blue-900 disabled:opacity-50"
                         >
-                          {upgradingToPostpaid ? 'Redirecting...' : 'Add a payment method'}
+                          {upgradingToPostpaid ? 'Upgrading...' : (billing?.hasPaymentMethod ? 'Upgrade to Pay-as-you-go' : 'Add a payment method')}
                         </button>{' '}
                         to unlock 5 projects and remove quotas.
                       </Text>
@@ -1929,6 +1932,20 @@ mr = project.get_model_registry()`;
                 </Flex>
               ))}
             </Box>
+            <Button
+              intent="secondary"
+              size="sm"
+              className="w-full mt-3"
+              onClick={async () => {
+                await refetchHopsworksInfo();
+                await refetchBilling();
+              }}
+              disabled={hopsworksLoading}
+              isLoading={hopsworksLoading}
+            >
+              <RefreshCw size={14} />
+              I've deleted a project - Refresh
+            </Button>
           </Box>
 
           <Box className="border-t pt-4">

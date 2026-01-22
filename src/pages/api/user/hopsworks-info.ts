@@ -110,7 +110,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .eq('user_id', userId)
           .eq('status', 'active');
 
-        if (cachedProjects && cachedProjects.length > 0) {
+        // Use cache only if count matches Hopsworks (avoids stale data after project deletion)
+        const cacheIsValid = cachedProjects &&
+          cachedProjects.length > 0 &&
+          cachedProjects.length === hopsworksUser.numActiveProjects;
+
+        if (cacheIsValid) {
           projects = cachedProjects.map(p => ({
             id: p.project_id,
             name: p.project_name,
@@ -120,6 +125,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }));
           console.log(`Using ${projects.length} cached projects for ${userData.email}`);
         } else {
+          // Cache mismatch or empty - invalidate stale entries and fetch fresh
+          if (cachedProjects && cachedProjects.length !== hopsworksUser.numActiveProjects) {
+            console.log(`Cache mismatch for ${userData.email}: cached=${cachedProjects.length}, actual=${hopsworksUser.numActiveProjects} - refetching`);
+            // Mark all cached projects as potentially stale
+            await supabaseAdmin
+              .from('user_projects')
+              .update({ status: 'pending_verification' })
+              .eq('user_id', userId)
+              .eq('status', 'active');
+          }
           // Fallback to API if no cached projects
           try {
             const apiProjects = await getUserProjects(credentials, hopsworksUser.username, hopsworksUser.id);
