@@ -190,6 +190,8 @@ export default function Dashboard() {
       const projectCount = hopsworksInfo.hopsworksUser?.numActiveProjects || 0;
       if (billing.billingMode === 'free' && billing.downgradeDeadline && projectCount > 1) {
         setShowDowngradeModal(true);
+      } else {
+        setShowDowngradeModal(false);
       }
     }
   }, [billing, billingLoading, hopsworksInfo]);
