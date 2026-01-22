@@ -259,49 +259,67 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('[Billing API] No stripe_customer_id, skipping payment check');
     }
 
-    // Lazy upgrade: free user with payment method → postpaid
-    if (user?.billing_mode === 'free' && hasPaymentMethod) {
-      console.log(`[Billing API] Lazy upgrading user ${userId} from free to postpaid`);
-      await supabaseAdmin
-        .from('users')
-        .update({ billing_mode: 'postpaid' })
-        .eq('id', userId);
-      user.billing_mode = 'postpaid';
-
-      // Update maxNumProjects from 1 to 5 in Hopsworks
+    // Lazy upgrade: free user with payment method AND active subscription → postpaid
+    // Must have BOTH payment method and subscription to upgrade (avoid upgrade/downgrade loop)
+    let hasActiveSubscriptionForUpgrade = false;
+    if (user?.billing_mode === 'free' && hasPaymentMethod && user?.stripe_customer_id) {
       try {
-        const { updateUserProjectLimit } = await import('@/lib/hopsworks-api');
-        const { data: assignment } = await supabaseAdmin
-          .from('user_hopsworks_assignments')
-          .select('hopsworks_cluster_id, hopsworks_user_id')
-          .eq('user_id', userId)
-          .single();
+        const Stripe = (await import('stripe')).default;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+          apiVersion: '2025-06-30.basil'
+        });
+        const subs = await stripe.subscriptions.list({
+          customer: user.stripe_customer_id,
+          status: 'active',
+          limit: 1
+        });
+        hasActiveSubscriptionForUpgrade = subs.data.length > 0;
+      } catch (e) {
+        console.error('[Billing API] Failed to check subscription for upgrade:', e);
+      }
 
-        if (assignment?.hopsworks_cluster_id && assignment?.hopsworks_user_id) {
-          const { data: cluster } = await supabaseAdmin
-            .from('hopsworks_clusters')
-            .select('api_url, api_key')
-            .eq('id', assignment.hopsworks_cluster_id)
+      if (hasActiveSubscriptionForUpgrade) {
+        console.log(`[Billing API] Lazy upgrading user ${userId} from free to postpaid`);
+        await supabaseAdmin
+          .from('users')
+          .update({ billing_mode: 'postpaid' })
+          .eq('id', userId);
+        user.billing_mode = 'postpaid';
+
+        // Update maxNumProjects from 1 to 5 in Hopsworks
+        try {
+          const { updateUserProjectLimit } = await import('@/lib/hopsworks-api');
+          const { data: assignment } = await supabaseAdmin
+            .from('user_hopsworks_assignments')
+            .select('hopsworks_cluster_id, hopsworks_user_id')
+            .eq('user_id', userId)
             .single();
 
-          if (cluster) {
-            await updateUserProjectLimit(
-              { apiUrl: cluster.api_url, apiKey: cluster.api_key },
-              assignment.hopsworks_user_id,
-              5
-            );
-            console.log(`[Billing API] Updated maxNumProjects to 5 for user ${userId}`);
+          if (assignment?.hopsworks_cluster_id && assignment?.hopsworks_user_id) {
+            const { data: cluster } = await supabaseAdmin
+              .from('hopsworks_clusters')
+              .select('api_url, api_key')
+              .eq('id', assignment.hopsworks_cluster_id)
+              .single();
+
+            if (cluster) {
+              await updateUserProjectLimit(
+                { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+                assignment.hopsworks_user_id,
+                5
+              );
+              console.log(`[Billing API] Updated maxNumProjects to 5 for user ${userId}`);
+            }
           }
+        } catch (upgradeError) {
+          console.error(`[Billing API] Failed to update maxNumProjects:`, upgradeError);
         }
-      } catch (upgradeError) {
-        console.error(`[Billing API] Failed to update maxNumProjects:`, upgradeError);
       }
     }
 
-    // Lazy downgrade: postpaid without payment method → free
-    // Only downgrade if NO active subscription in Stripe (user truly lost payment)
+    // Lazy downgrade: postpaid without payment method OR without active subscription → free
     let downgradeInfo: { deadline: string | null; projectCount: number } | null = null;
-    if (user?.billing_mode === 'postpaid' && !hasPaymentMethod && user?.stripe_customer_id) {
+    if (user?.billing_mode === 'postpaid' && user?.stripe_customer_id) {
       // Check if subscription is still active in Stripe
       let hasActiveSubscription = false;
       try {
@@ -316,12 +334,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           limit: 1
         });
         hasActiveSubscription = subs.data.length > 0;
+        console.log(`[Billing API] Subscription check: hasActive=${hasActiveSubscription}, count=${subs.data.length}, ids=${subs.data.map(s => s.id).join(',')}`);
       } catch (e) {
         console.error('[Billing API] Failed to check Stripe subscription:', e);
       }
 
-      if (!hasActiveSubscription) {
-        console.log(`[Billing API] Lazy downgrading user ${userId} from postpaid to free (no payment method, no active subscription)`);
+      // Downgrade if no payment method OR no active subscription
+      if (!hasPaymentMethod || !hasActiveSubscription) {
+        const reason = !hasPaymentMethod ? 'no payment method' : 'no active subscription';
+        console.log(`[Billing API] Lazy downgrading user ${userId} from postpaid to free (${reason})`);
 
         // Get project count from Hopsworks
         let projectCount = 0;

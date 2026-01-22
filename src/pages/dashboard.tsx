@@ -1872,9 +1872,12 @@ mr = project.get_model_registry()`;
       {/* Downgrade Warning Modal - blocking for free users with too many projects */}
       <Modal
         isOpen={showDowngradeModal}
-        onClose={() => {}} // Cannot be dismissed
+        onClose={() => {}}
         title="Action Required"
         size="md"
+        showCloseButton={false}
+        closeOnOverlayClick={false}
+        blur={4}
       >
         <Flex direction="column" gap={16}>
           <Box className="p-4 bg-amber-50 border border-amber-200 rounded">

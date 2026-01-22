@@ -4,7 +4,7 @@ import Stripe from 'stripe';
 import { buffer } from 'micro';
 import { Resend } from 'resend';
 import { assignUserToCluster } from '../../../lib/cluster-assignment';
-import { suspendUser, reactivateUser } from '../../../lib/user-status';
+import { reactivateUser } from '../../../lib/user-status';
 import { handleApiError } from '../../../lib/error-handler';
 import { updateUserProjectLimit } from '../../../lib/hopsworks-api';
 
@@ -319,7 +319,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, email')
+    .select('id, email, billing_mode, downgrade_deadline')
     .eq('stripe_customer_id', customerId)
     .single();
 
@@ -327,11 +327,94 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     // Update subscription status in DB
     await supabaseAdmin
       .from('users')
-      .update({ stripe_subscription_status: 'canceled' })
+      .update({
+        stripe_subscription_status: 'canceled',
+        stripe_subscription_id: null
+      })
       .eq('id', user.id);
 
-    // Suspend user account (includes Hopsworks deactivation)
-    await suspendUser(supabaseAdmin as any, user.id, 'subscription_deleted');
+    // If user already has a valid downgrade deadline, they're in grace period - don't suspend
+    if (user.billing_mode === 'free' && user.downgrade_deadline) {
+      const deadline = new Date(user.downgrade_deadline);
+      if (deadline > new Date()) {
+        console.log(`User ${user.id} already in free tier with grace period until ${user.downgrade_deadline} - not suspending`);
+        return;
+      }
+    }
+
+    // Downgrade to free tier instead of suspending
+    // Get project count from Hopsworks
+    let projectCount = 0;
+    try {
+      const { data: assignment } = await supabaseAdmin
+        .from('user_hopsworks_assignments')
+        .select('hopsworks_cluster_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (assignment?.hopsworks_cluster_id) {
+        const { data: cluster } = await supabaseAdmin
+          .from('hopsworks_clusters')
+          .select('api_url, api_key')
+          .eq('id', assignment.hopsworks_cluster_id)
+          .single();
+
+        if (cluster && user.email) {
+          const { getHopsworksUserByEmail } = await import('../../../lib/hopsworks-api');
+          const hopsworksUser = await getHopsworksUserByEmail(
+            { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+            user.email
+          );
+          projectCount = hopsworksUser?.numActiveProjects || 0;
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to get project count for user ${user.id}:`, e);
+    }
+
+    // Set 7-day deadline if user has more than 1 project
+    const deadline = projectCount > 1
+      ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+
+    // Update user to free tier
+    await supabaseAdmin
+      .from('users')
+      .update({
+        billing_mode: 'free',
+        downgrade_deadline: deadline
+      })
+      .eq('id', user.id);
+
+    // Update maxNumProjects to 1 in Hopsworks
+    try {
+      const { data: assignment } = await supabaseAdmin
+        .from('user_hopsworks_assignments')
+        .select('hopsworks_cluster_id, hopsworks_user_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (assignment?.hopsworks_cluster_id && assignment?.hopsworks_user_id) {
+        const { data: cluster } = await supabaseAdmin
+          .from('hopsworks_clusters')
+          .select('api_url, api_key')
+          .eq('id', assignment.hopsworks_cluster_id)
+          .single();
+
+        if (cluster) {
+          await updateUserProjectLimit(
+            { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+            assignment.hopsworks_user_id,
+            1
+          );
+          console.log(`Updated maxNumProjects to 1 for user ${user.id} after subscription deletion`);
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to update maxNumProjects for user ${user.id}:`, e);
+    }
+
+    console.log(`User ${user.id} downgraded to free tier. Projects: ${projectCount}, Deadline: ${deadline || 'none'}`);
   }
 }
 
@@ -412,12 +495,12 @@ async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, 
   // Get user by customer ID
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, email, billing_mode')
+    .select('id, email, billing_mode, stripe_subscription_id')
     .eq('stripe_customer_id', customerId)
     .single();
 
   if (user) {
-    // Only suspend postpaid users who lose their payment method
+    // Only act on postpaid users who lose their payment method
     if (user.billing_mode === 'postpaid' || !user.billing_mode) {
       // Check if customer has any other payment methods
       try {
@@ -426,9 +509,94 @@ async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, 
           limit: 1
         });
 
-        // If no payment methods left, suspend the account
+        // If no payment methods left, downgrade to free tier
         if (paymentMethods.data.length === 0) {
-          await suspendUser(supabaseAdmin as any, user.id, 'payment_method_removed');
+          console.log(`User ${user.id} lost last payment method - downgrading to free tier`);
+
+          // Cancel subscription if exists (to avoid failed payment attempts)
+          if (user.stripe_subscription_id) {
+            try {
+              await stripe.subscriptions.cancel(user.stripe_subscription_id);
+              console.log(`Cancelled subscription ${user.stripe_subscription_id} for user ${user.id}`);
+            } catch (e) {
+              console.error(`Failed to cancel subscription for user ${user.id}:`, e);
+            }
+          }
+
+          // Get project count from Hopsworks
+          let projectCount = 0;
+          try {
+            const { data: assignment } = await supabaseAdmin
+              .from('user_hopsworks_assignments')
+              .select('hopsworks_cluster_id')
+              .eq('user_id', user.id)
+              .single();
+
+            if (assignment?.hopsworks_cluster_id) {
+              const { data: cluster } = await supabaseAdmin
+                .from('hopsworks_clusters')
+                .select('api_url, api_key')
+                .eq('id', assignment.hopsworks_cluster_id)
+                .single();
+
+              if (cluster && user.email) {
+                const { getHopsworksUserByEmail } = await import('../../../lib/hopsworks-api');
+                const hopsworksUser = await getHopsworksUserByEmail(
+                  { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+                  user.email
+                );
+                projectCount = hopsworksUser?.numActiveProjects || 0;
+              }
+            }
+          } catch (e) {
+            console.error(`Failed to get project count for user ${user.id}:`, e);
+          }
+
+          // Set 7-day deadline if user has more than 1 project
+          const deadline = projectCount > 1
+            ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+            : null;
+
+          // Update user to free tier
+          await supabaseAdmin
+            .from('users')
+            .update({
+              billing_mode: 'free',
+              downgrade_deadline: deadline,
+              stripe_subscription_id: null,
+              stripe_subscription_status: 'canceled'
+            })
+            .eq('id', user.id);
+
+          // Update maxNumProjects to 1 in Hopsworks
+          try {
+            const { data: assignment } = await supabaseAdmin
+              .from('user_hopsworks_assignments')
+              .select('hopsworks_cluster_id, hopsworks_user_id')
+              .eq('user_id', user.id)
+              .single();
+
+            if (assignment?.hopsworks_cluster_id && assignment?.hopsworks_user_id) {
+              const { data: cluster } = await supabaseAdmin
+                .from('hopsworks_clusters')
+                .select('api_url, api_key')
+                .eq('id', assignment.hopsworks_cluster_id)
+                .single();
+
+              if (cluster) {
+                await updateUserProjectLimit(
+                  { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+                  assignment.hopsworks_user_id,
+                  1
+                );
+                console.log(`Updated maxNumProjects to 1 for user ${user.id} after payment method removal`);
+              }
+            }
+          } catch (e) {
+            console.error(`Failed to update maxNumProjects for user ${user.id}:`, e);
+          }
+
+          console.log(`User ${user.id} downgraded to free tier. Projects: ${projectCount}, Deadline: ${deadline || 'none'}`);
         } else {
           console.log(`User ${user.id} still has ${paymentMethods.data.length} payment method(s)`);
         }
@@ -436,7 +604,7 @@ async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, 
         console.error(`Failed to check remaining payment methods for user ${user.id}:`, error);
       }
     } else {
-      console.log(`User ${user.id} is ${user.billing_mode} mode - not suspending`);
+      console.log(`User ${user.id} is ${user.billing_mode} mode - no action needed`);
     }
   }
 }
