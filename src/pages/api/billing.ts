@@ -30,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get user billing info
     const { data: user } = await supabaseAdmin
       .from('users')
-      .select('billing_mode, stripe_customer_id, feature_flags, account_owner_id, status, terms_accepted_at, marketing_consent, spending_cap')
+      .select('billing_mode, stripe_customer_id, stripe_subscription_id, feature_flags, account_owner_id, status, terms_accepted_at, marketing_consent, spending_cap, downgrade_deadline, email')
       .eq('id', userId)
       .single();
     
@@ -259,6 +259,219 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('[Billing API] No stripe_customer_id, skipping payment check');
     }
 
+    // Lazy upgrade: free user with payment method → postpaid
+    if (user?.billing_mode === 'free' && hasPaymentMethod) {
+      console.log(`[Billing API] Lazy upgrading user ${userId} from free to postpaid`);
+      await supabaseAdmin
+        .from('users')
+        .update({ billing_mode: 'postpaid' })
+        .eq('id', userId);
+      user.billing_mode = 'postpaid';
+
+      // Update maxNumProjects from 1 to 5 in Hopsworks
+      try {
+        const { updateUserProjectLimit } = await import('@/lib/hopsworks-api');
+        const { data: assignment } = await supabaseAdmin
+          .from('user_hopsworks_assignments')
+          .select('hopsworks_cluster_id, hopsworks_user_id')
+          .eq('user_id', userId)
+          .single();
+
+        if (assignment?.hopsworks_cluster_id && assignment?.hopsworks_user_id) {
+          const { data: cluster } = await supabaseAdmin
+            .from('hopsworks_clusters')
+            .select('api_url, api_key')
+            .eq('id', assignment.hopsworks_cluster_id)
+            .single();
+
+          if (cluster) {
+            await updateUserProjectLimit(
+              { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+              assignment.hopsworks_user_id,
+              5
+            );
+            console.log(`[Billing API] Updated maxNumProjects to 5 for user ${userId}`);
+          }
+        }
+      } catch (upgradeError) {
+        console.error(`[Billing API] Failed to update maxNumProjects:`, upgradeError);
+      }
+    }
+
+    // Lazy downgrade: postpaid without payment method → free
+    // Only downgrade if NO active subscription in Stripe (user truly lost payment)
+    let downgradeInfo: { deadline: string | null; projectCount: number } | null = null;
+    if (user?.billing_mode === 'postpaid' && !hasPaymentMethod && user?.stripe_customer_id) {
+      // Check if subscription is still active in Stripe
+      let hasActiveSubscription = false;
+      try {
+        const Stripe = (await import('stripe')).default;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+          apiVersion: '2025-06-30.basil'
+        });
+
+        const subs = await stripe.subscriptions.list({
+          customer: user.stripe_customer_id,
+          status: 'active',
+          limit: 1
+        });
+        hasActiveSubscription = subs.data.length > 0;
+      } catch (e) {
+        console.error('[Billing API] Failed to check Stripe subscription:', e);
+      }
+
+      if (!hasActiveSubscription) {
+        console.log(`[Billing API] Lazy downgrading user ${userId} from postpaid to free (no payment method, no active subscription)`);
+
+        // Get project count from Hopsworks
+        let projectCount = 0;
+        try {
+          const { getHopsworksUserByEmail } = await import('@/lib/hopsworks-api');
+          const { data: assignment } = await supabaseAdmin
+            .from('user_hopsworks_assignments')
+            .select('hopsworks_cluster_id')
+            .eq('user_id', userId)
+            .single();
+
+          if (assignment?.hopsworks_cluster_id) {
+            const { data: cluster } = await supabaseAdmin
+              .from('hopsworks_clusters')
+              .select('api_url, api_key')
+              .eq('id', assignment.hopsworks_cluster_id)
+              .single();
+
+            if (cluster && user.email) {
+              const hopsworksUser = await getHopsworksUserByEmail(
+                { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+                user.email
+              );
+              projectCount = hopsworksUser?.numActiveProjects || 0;
+            }
+          }
+        } catch (e) {
+          console.error('[Billing API] Failed to get project count:', e);
+        }
+
+        // Set deadline if user has more than 1 project
+        const deadline = projectCount > 1
+          ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+          : null;
+
+        // Update user to free
+        await supabaseAdmin
+          .from('users')
+          .update({
+            billing_mode: 'free',
+            downgrade_deadline: deadline
+          })
+          .eq('id', userId);
+        user.billing_mode = 'free';
+        user.downgrade_deadline = deadline;
+
+        // Update maxNumProjects to 1 in Hopsworks
+        try {
+          const { updateUserProjectLimit } = await import('@/lib/hopsworks-api');
+          const { data: assignment } = await supabaseAdmin
+            .from('user_hopsworks_assignments')
+            .select('hopsworks_cluster_id, hopsworks_user_id')
+            .eq('user_id', userId)
+            .single();
+
+          if (assignment?.hopsworks_cluster_id && assignment?.hopsworks_user_id) {
+            const { data: cluster } = await supabaseAdmin
+              .from('hopsworks_clusters')
+              .select('api_url, api_key')
+              .eq('id', assignment.hopsworks_cluster_id)
+              .single();
+
+            if (cluster) {
+              await updateUserProjectLimit(
+                { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+                assignment.hopsworks_user_id,
+                1
+              );
+              console.log(`[Billing API] Updated maxNumProjects to 1 for user ${userId}`);
+            }
+          }
+        } catch (downgradeError) {
+          console.error(`[Billing API] Failed to update maxNumProjects on downgrade:`, downgradeError);
+        }
+
+        // Send alert to team
+        if (projectCount > 1) {
+          try {
+            await fetch(`${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000'}/api/alerts/downgrade`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId,
+                email: user.email,
+                projectCount,
+                deadline
+              })
+            });
+          } catch (alertError) {
+            console.error('[Billing API] Failed to send downgrade alert:', alertError);
+          }
+        }
+
+        downgradeInfo = { deadline, projectCount };
+        console.log(`[Billing API] User ${userId} downgraded to free. Projects: ${projectCount}, Deadline: ${deadline || 'none'}`);
+      }
+    }
+
+    // Auto-suspend: free user past deadline with >1 project
+    if (user?.billing_mode === 'free' && user?.downgrade_deadline && user?.status !== 'suspended') {
+      const deadline = new Date(user.downgrade_deadline);
+      if (deadline < new Date()) {
+        // Check project count
+        let currentProjectCount = 0;
+        try {
+          const { getHopsworksUserByEmail } = await import('@/lib/hopsworks-api');
+          const { data: assignment } = await supabaseAdmin
+            .from('user_hopsworks_assignments')
+            .select('hopsworks_cluster_id')
+            .eq('user_id', userId)
+            .single();
+
+          if (assignment?.hopsworks_cluster_id) {
+            const { data: cluster } = await supabaseAdmin
+              .from('hopsworks_clusters')
+              .select('api_url, api_key')
+              .eq('id', assignment.hopsworks_cluster_id)
+              .single();
+
+            if (cluster && user.email) {
+              const hopsworksUser = await getHopsworksUserByEmail(
+                { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+                user.email
+              );
+              currentProjectCount = hopsworksUser?.numActiveProjects || 0;
+            }
+          }
+        } catch (e) {
+          console.error('[Billing API] Failed to get project count for suspension check:', e);
+        }
+
+        if (currentProjectCount > 1) {
+          console.log(`[Billing API] Auto-suspending user ${userId}: deadline passed, still has ${currentProjectCount} projects`);
+          await supabaseAdmin
+            .from('users')
+            .update({ status: 'suspended' })
+            .eq('id', userId);
+          user.status = 'suspended';
+        } else {
+          // User complied - clear deadline
+          console.log(`[Billing API] User ${userId} complied with free tier (${currentProjectCount} projects) - clearing deadline`);
+          await supabaseAdmin
+            .from('users')
+            .update({ downgrade_deadline: null })
+            .eq('id', userId);
+          user.downgrade_deadline = null;
+        }
+      }
+    }
+
     // Prevent caching of billing data
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
@@ -272,7 +485,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     return res.status(200).json({
-      billingMode: user?.billing_mode || 'postpaid',
+      billingMode: user?.billing_mode || 'free',
       hasPaymentMethod,
       isSuspended: user?.status === 'suspended',
       termsAcceptedAt: user?.terms_accepted_at || null,
@@ -281,6 +494,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       subscriptionStatus: null, // Column doesn't exist in DB
       prepaidEnabled: user?.feature_flags?.prepaid_enabled || false,
       spendingCap: user?.spending_cap || null,
+      downgradeDeadline: user?.downgrade_deadline || null,
+      downgradeInfo, // Only set during lazy downgrade
       currentUsage: {
         cpuHours: currentMonthTotals.cpuHours.toFixed(2),
         gpuHours: currentMonthTotals.gpuHours.toFixed(2),

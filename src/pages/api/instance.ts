@@ -33,8 +33,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('id', userId)
       .single();
 
-    const billingMode = userData?.billing_mode || 'prepaid';
-    const planName = billingMode === 'postpaid' ? 'Pay-as-you-go' : 'Prepaid';
+    const billingMode = userData?.billing_mode || 'free';
+    const planName = billingMode === 'postpaid' ? 'Pay-as-you-go' :
+                     billingMode === 'free' ? 'Free' : 'Prepaid';
 
     // Get user's assigned Hopsworks cluster
     const { data: clusterAssignment, error: assignmentError } = await supabaseAdmin

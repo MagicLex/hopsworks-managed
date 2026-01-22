@@ -87,22 +87,23 @@ Get user's current month usage totals.
 ### GET /api/billing
 Get billing information and usage summary.
 
+**Side effects (lazy transitions):**
+- If `billing_mode = 'free'` and payment method detected → upgrades to `postpaid`, sets `maxNumProjects = 5`
+- If `billing_mode = 'postpaid'` and no payment method/subscription → downgrades to `free`, sets `maxNumProjects = 1`, sends alert
+
 **Response:**
 ```json
 {
-  "billingMode": "postpaid",
-  "hasPaymentMethod": true,
-  "paymentMethodDetails": {
-    "type": "card",
-    "card": {
-      "brand": "visa",
-      "last4": "4242",
-      "expMonth": 12,
-      "expYear": 2025
-    }
-  },
+  "billingMode": "free",
+  "hasPaymentMethod": false,
+  "paymentMethodDetails": null,
   "subscriptionStatus": null,
   "prepaidEnabled": false,
+  "downgradeDeadline": "2025-02-14T12:00:00.000Z",
+  "downgradeInfo": {
+    "deadline": "2025-02-14T12:00:00.000Z",
+    "projectCount": 3
+  },
   "currentUsage": {
     "cpuHours": "120.50",
     "gpuHours": "0.00",
@@ -187,6 +188,52 @@ Return company info for prepaid/corporate users.
   "companyDomain": "acme.com"
 }
 ```
+
+### POST /api/billing/start-free
+Switch user to free tier (for existing postpaid users without payment method).
+
+**Request:** Empty POST body
+
+**Response:**
+```json
+{
+  "success": true,
+  "billingMode": "free",
+  "clusterAssigned": true,
+  "clusterId": 1
+}
+```
+
+**Notes:**
+- Only works for postpaid users without active subscription
+- Sets `billing_mode = 'free'`
+- Assigns cluster with `maxNumProjects = 1`
+- Team members cannot call this endpoint
+
+### POST /api/alerts/downgrade
+Internal endpoint for sending downgrade alerts.
+
+**Request:**
+```json
+{
+  "userId": "auth0|...",
+  "email": "user@example.com",
+  "projectCount": 3,
+  "deadline": "2025-02-14T12:00:00.000Z"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+**Notes:**
+- Called internally by `/api/billing` during lazy downgrade
+- Sends email to user explaining they need to delete projects
+- Sends alert to admin email (if `ADMIN_ALERT_EMAIL` configured)
 
 ### POST /api/user/accept-terms
 Save user's acceptance of Terms of Service, AUP, and Privacy Policy.

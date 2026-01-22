@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS users (
   stripe_test_customer_id TEXT,
   stripe_subscription_id TEXT,
   stripe_subscription_status TEXT,
+  downgrade_deadline TIMESTAMPTZ, -- Deadline to comply with free tier (delete projects)
 
   -- Features
   is_admin BOOLEAN DEFAULT false,

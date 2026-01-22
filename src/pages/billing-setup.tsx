@@ -139,6 +139,10 @@ export default function BillingSetup() {
       // Don't block navigation
     }
 
+    // Refetch billing to update context before redirect
+    await refetchBilling();
+    setSavingConsent(false);
+
     sessionStorage.removeItem('payment_required');
     router.push('/dashboard');
   };

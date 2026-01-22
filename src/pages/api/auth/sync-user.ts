@@ -292,6 +292,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   stripe_subscription_status: activeSubscription.status
                 })
                 .eq('id', userId);
+
+              // Update local reference so later health checks see the new value
+              existingUser.stripe_subscription_id = activeSubscription.id;
             } else {
               // No active subscription found - check if customer has payment method
               console.log(`[Health Check] No active subscription found for ${email} - checking for payment method`);
@@ -329,6 +332,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     })
                     .eq('id', userId);
 
+                  // Update local reference so later health checks see the new value
+                  existingUser.stripe_subscription_id = subscription.id;
                   console.log(`[Health Check] Created subscription ${subscription.id} for ${email}`);
                 } else {
                   console.log(`[Health Check] No active stripe products found - cannot create subscription`);

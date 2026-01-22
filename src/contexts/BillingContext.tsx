@@ -26,6 +26,11 @@ export interface BillingInfo {
   subscriptionStatus?: string;
   prepaidEnabled: boolean;
   spendingCap?: number | null;
+  downgradeDeadline?: string | null;
+  downgradeInfo?: {
+    deadline: string | null;
+    projectCount: number;
+  } | null;
   currentUsage: {
     cpuHours: string;
     gpuHours: string;

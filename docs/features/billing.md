@@ -2,7 +2,7 @@
 
 ## Overview
 
-The billing system tracks resource usage via OpenCost and applies our pricing model. We support both **prepaid** (enterprise/invoice) and **postpaid** (Stripe) billing modes.
+The billing system tracks resource usage via OpenCost and applies our pricing model. We support three billing modes: **free** (limited tier), **postpaid** (Stripe), and **prepaid** (enterprise/invoice).
 
 ## Architecture
 
@@ -36,6 +36,26 @@ Rates live in `src/config/billing-rates.ts` and represent the single source of t
 - Credits are **not** sold directly in the app; corporate customers settle invoices off-platform using the reported credit totals.
 
 ### Billing Modes
+
+#### Free (Default for New Users)
+- **Registration**: Standard signup → lands on `/billing-setup` → click "Start for Free"
+- **Payment**: None required (no Stripe customer)
+- **Cluster access**: Immediate upon registration
+- **Projects**: **1 project only** (`maxNumProjects = 1`)
+- **Quotas**: K8s resource quotas applied via external cronjob (`quotas-bookkeeper`)
+- **Usage tracking**: For visibility only, not billed
+- **Database**: `billing_mode = 'free'`
+- **Upgrade path**: Add payment method → automatic upgrade to postpaid (5 projects)
+
+#### Downgrade Flow (Postpaid → Free)
+When a postpaid user removes their payment method:
+1. `/api/billing` detects `postpaid` + no payment method → sets `billing_mode = 'free'`
+2. `maxNumProjects` reduced to 1
+3. If user has >1 project: `downgrade_deadline` set to 7 days from now
+4. **Modal shown**: "You have X projects. Delete all but 1 within Y days or account suspended."
+5. Modal links directly to project settings pages for deletion
+6. Alert sent to team (email/webhook)
+7. After deadline: user suspended until compliant
 
 #### Prepaid (Corporate/Enterprise)
 - **Registration**: Via special link with `?corporate_ref=deal_id`

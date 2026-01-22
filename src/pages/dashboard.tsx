@@ -125,6 +125,8 @@ export default function Dashboard() {
   const [spendingCapInput, setSpendingCapInput] = useState('');
   const [savingSpendingCap, setSavingSpendingCap] = useState(false);
   const [spendingCapEnabled, setSpendingCapEnabled] = useState(false);
+  const [upgradingToPostpaid, setUpgradingToPostpaid] = useState(false);
+  const [showDowngradeModal, setShowDowngradeModal] = useState(false);
 
   // Use context billing for current month, local state for historical
   const billing = selectedMonth === 'current' ? contextBilling : historicalBilling;
@@ -181,6 +183,16 @@ export default function Dashboard() {
       }
     }
   }, [billing, billingLoading, router]);
+
+  // Show downgrade modal for free users with >1 project and a deadline
+  useEffect(() => {
+    if (!billingLoading && billing && hopsworksInfo) {
+      const projectCount = hopsworksInfo.hopsworksUser?.numActiveProjects || 0;
+      if (billing.billingMode === 'free' && billing.downgradeDeadline && projectCount > 1) {
+        setShowDowngradeModal(true);
+      }
+    }
+  }, [billing, billingLoading, hopsworksInfo]);
 
   // Handle tab query parameter
   useEffect(() => {
@@ -243,6 +255,31 @@ export default function Dashboard() {
       setSpendingCapInput(hasCap ? String(billing.spendingCap) : '');
     }
   }, [billing, billingLoading]);
+
+  const handleUpgradeToPostpaid = async () => {
+    setUpgradingToPostpaid(true);
+    try {
+      const response = await fetch('/api/billing/setup-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to set up payment');
+      }
+
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else if (data.portalUrl) {
+        window.location.href = data.portalUrl;
+      }
+    } catch (error) {
+      console.error('Error upgrading to postpaid:', error);
+      setUpgradingToPostpaid(false);
+    }
+  };
 
   const handleSaveSpendingCap = async () => {
     setSavingSpendingCap(true);
@@ -444,9 +481,13 @@ export default function Dashboard() {
                     <Box className="flex-1">
                       <Text className="text-sm text-blue-800">
                         <strong>Free plan:</strong> 1 project limit.{' '}
-                        <Link href="/billing-setup" className="underline hover:text-blue-900">
-                          Add a payment method
-                        </Link>{' '}
+                        <button
+                          onClick={handleUpgradeToPostpaid}
+                          disabled={upgradingToPostpaid}
+                          className="underline hover:text-blue-900 disabled:opacity-50"
+                        >
+                          {upgradingToPostpaid ? 'Redirecting...' : 'Add a payment method'}
+                        </button>{' '}
                         to unlock 5 projects and remove quotas.
                       </Text>
                     </Box>
@@ -1825,6 +1866,84 @@ mr = project.get_model_registry()`;
               {deletingAccount ? 'Deleting...' : 'Delete Account'}
             </Button>
           </Flex>
+        </Flex>
+      </Modal>
+
+      {/* Downgrade Warning Modal - blocking for free users with too many projects */}
+      <Modal
+        isOpen={showDowngradeModal}
+        onClose={() => {}} // Cannot be dismissed
+        title="Action Required"
+        size="md"
+      >
+        <Flex direction="column" gap={16}>
+          <Box className="p-4 bg-amber-50 border border-amber-200 rounded">
+            <Flex align="start" gap={8}>
+              <AlertTriangle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <Box>
+                <Text className="text-sm font-medium text-amber-800 mb-2">
+                  Your account is now on the Free plan
+                </Text>
+                <Text className="text-sm text-amber-700">
+                  Free plan includes <strong>1 project only</strong>. You currently have{' '}
+                  <strong>{hopsworksInfo?.hopsworksUser?.numActiveProjects || 0} projects</strong>.
+                </Text>
+              </Box>
+            </Flex>
+          </Box>
+
+          {billing?.downgradeDeadline && (
+            <Box className="p-3 bg-gray-50 rounded border">
+              <Text className="text-sm text-gray-700">
+                <strong>Deadline:</strong>{' '}
+                {new Date(billing.downgradeDeadline).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </Text>
+              <Text className="text-xs text-gray-500 mt-1">
+                Delete {(hopsworksInfo?.hopsworksUser?.numActiveProjects || 0) - 1} project(s) by this date or your account will be suspended.
+              </Text>
+            </Box>
+          )}
+
+          <Box>
+            <Text className="text-sm font-medium mb-3">Your projects:</Text>
+            <Box className="space-y-2 max-h-48 overflow-y-auto">
+              {hopsworksInfo?.projects?.map((project) => (
+                <Flex key={project.id} justify="between" align="center" className="p-2 bg-gray-50 rounded border">
+                  <Text className="text-sm font-mono">{project.name}</Text>
+                  <a
+                    href={`${instance?.endpoint?.replace('/hopsworks-api', '')}/p/${project.id}/settings/general`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-red-600 hover:text-red-800 underline"
+                  >
+                    Delete project
+                  </a>
+                </Flex>
+              ))}
+            </Box>
+          </Box>
+
+          <Box className="border-t pt-4">
+            <Text className="text-sm text-gray-600 mb-3">
+              <strong>Alternatively</strong>, add a payment method to upgrade to Pay-as-you-go (5 projects included):
+            </Text>
+            <Button
+              intent="primary"
+              size="md"
+              className="w-full"
+              onClick={handleUpgradeToPostpaid}
+              disabled={upgradingToPostpaid}
+              isLoading={upgradingToPostpaid}
+            >
+              <CreditCard size={16} />
+              Add Payment Method
+            </Button>
+          </Box>
         </Flex>
       </Modal>
     </>
