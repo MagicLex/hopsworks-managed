@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { createHopsworksOAuthUser, getHopsworksUserByEmail, updateUserProjectLimit } from './hopsworks-api';
+import { createHopsworksOAuthUser, getHopsworksUserByEmail, getHopsworksUserById, updateUserProjectLimit } from './hopsworks-api';
 
 // ============================================================================
 // Pure logic functions - testable without DB/API dependencies
@@ -85,10 +85,65 @@ export async function assignUserToCluster(
       .single();
 
     if (existingAssignment) {
-      return { 
-        success: true, 
+      // User already assigned - but check if maxNumProjects needs correction
+      // This handles cases like postpaid user switching to free tier
+      const { data: user } = await supabaseAdmin
+        .from('users')
+        .select('billing_mode, stripe_subscription_id, account_owner_id')
+        .eq('id', userId)
+        .single();
+
+      if (user) {
+        const isFree = user.billing_mode === 'free';
+        const isTeamMember = !!user.account_owner_id;
+        const isPrepaid = user.billing_mode === 'prepaid';
+        const expectedMaxProjects = calculateMaxNumProjects(
+          isTeamMember,
+          !!user.stripe_subscription_id,
+          isPrepaid,
+          isFree
+        );
+
+        // Get cluster credentials and check/update maxNumProjects
+        const { data: cluster } = await supabaseAdmin
+          .from('hopsworks_clusters')
+          .select('api_url, api_key')
+          .eq('id', existingAssignment.hopsworks_cluster_id)
+          .single();
+
+        if (cluster) {
+          const { data: assignment } = await supabaseAdmin
+            .from('user_hopsworks_assignments')
+            .select('hopsworks_user_id')
+            .eq('user_id', userId)
+            .single();
+
+          if (assignment?.hopsworks_user_id) {
+            try {
+              const hopsworksUser = await getHopsworksUserById(
+                { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+                assignment.hopsworks_user_id
+              );
+
+              if (hopsworksUser && hopsworksUser.maxNumProjects !== expectedMaxProjects) {
+                console.log(`[Cluster Assignment] Correcting maxNumProjects from ${hopsworksUser.maxNumProjects} to ${expectedMaxProjects} for user ${userId}`);
+                await updateUserProjectLimit(
+                  { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+                  assignment.hopsworks_user_id,
+                  expectedMaxProjects
+                );
+              }
+            } catch (e) {
+              console.error(`[Cluster Assignment] Failed to check/update maxNumProjects for existing user ${userId}:`, e);
+            }
+          }
+        }
+      }
+
+      return {
+        success: true,
         clusterId: existingAssignment.hopsworks_cluster_id,
-        error: 'User already assigned to cluster' 
+        error: 'User already assigned to cluster'
       };
     }
 

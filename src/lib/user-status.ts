@@ -177,10 +177,13 @@ export async function reactivateUser(
 
     const userEmail = user?.email || userId;
 
-    // Update Supabase status
+    // Update Supabase status and clear any lingering downgrade deadline
     const { error: supabaseError } = await supabase
       .from('users')
-      .update({ status: 'active' })
+      .update({
+        status: 'active',
+        downgrade_deadline: null
+      })
       .eq('id', userId);
 
     if (supabaseError) {
