@@ -185,8 +185,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq('id', userId);
     }
 
-    // For postpaid users (or null billing_mode) - create checkout session to add payment method
-    if (!user.billing_mode || user.billing_mode === 'postpaid') {
+    // For postpaid users, free users upgrading, or null billing_mode - create checkout session to add payment method
+    // This triggers subscription creation in the webhook after successful setup
+    if (!user.billing_mode || user.billing_mode === 'postpaid' || user.billing_mode === 'free') {
       // Payment method setup - subscription will be created by webhook after successful setup
       const setupSession = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,

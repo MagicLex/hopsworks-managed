@@ -49,7 +49,9 @@ export default function BillingSetup() {
   // Derived state
   const isReady = synced && !billingLoading && user && !billing?.isTeamMember;
   const needsTermsAcceptance = !billing?.termsAcceptedAt;
-  const hasPaymentButNeedsTerms = (billing?.hasPaymentMethod || billing?.billingMode === 'prepaid' || billing?.billingMode === 'free') && needsTermsAcceptance && !billing?.isSuspended;
+  // Only show simplified "just accept terms" view for prepaid or users with payment method
+  // Free users should see the full view with both "Add Payment" and "Start for Free" options
+  const hasPaymentButNeedsTerms = (billing?.hasPaymentMethod || billing?.billingMode === 'prepaid') && needsTermsAcceptance && !billing?.isSuspended;
 
   const handleSetupPayment = async () => {
     setLoading(true);
