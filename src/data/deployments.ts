@@ -4,7 +4,8 @@ export interface DeploymentOption {
   monthlyPrice: number;
   yearlyPrice: number;
   isRecommended?: boolean;
-  buttonStyle?: 'primary' | 'secondary' | 'enterprise';
+  buttonStyle?: 'primary' | 'secondary' | 'enterprise' | 'free';
+  subtitle?: string;
   specs: {
     compute: string[];
     storage: string[];
@@ -14,11 +15,26 @@ export interface DeploymentOption {
 
 export const deploymentOptions: DeploymentOption[] = [
   {
+    id: 'free',
+    name: 'Free',
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    buttonStyle: 'free',
+    subtitle: '1 project · Full features · Capped capacity · No credit card',
+    specs: {
+      compute: [],
+      storage: [],
+      capabilities: [],
+    },
+  },
+  {
     id: 'payg',
     name: 'Pay-As-You-Go',
     monthlyPrice: 0,
     yearlyPrice: 0,
+    isRecommended: true,
     buttonStyle: 'primary',
+    subtitle: 'Up to 5 projects',
     specs: {
       compute: ['Spark/Flink/Pandas engines', 'Dynamic compute', 'Auto-scaling workers'],
       storage: ['RonDB sub-ms latency', 'Delta/Hudi/Iceberg', 'Version-controlled features'],

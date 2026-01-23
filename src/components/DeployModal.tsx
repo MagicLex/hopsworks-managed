@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Terminal, User, Activity } from 'lucide-react';
+import { Zap, Terminal, User, Activity, Gift } from 'lucide-react';
 import { DeploymentOption } from '@/data/deployments';
 import { Modal, Button, Box, Flex, Title, Text, Labeling, Card } from 'tailwind-quartz';
 import { useAuth } from '@/contexts/AuthContext';
@@ -70,14 +70,22 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
           </Card>
         )}
         
-        <Card className="border-[#1eb182] bg-[#e8f5f0] p-4">
+        <Card className={`p-4 ${deployment?.id === 'free' ? 'border-gray-400 bg-gray-50' : 'border-[#1eb182] bg-[#e8f5f0]'}`}>
           <Flex align="center" gap={8} className="mb-2">
-            <Activity size={16} className="text-[#1eb182]" />
-            <Title as="h3" className="font-mono text-sm uppercase">Pay-As-You-Go</Title>
+            {deployment?.id === 'free' ? (
+              <Gift size={16} className="text-gray-600" />
+            ) : (
+              <Activity size={16} className="text-[#1eb182]" />
+            )}
+            <Title as="h3" className="font-mono text-sm uppercase">
+              {deployment?.id === 'free' ? 'Free Tier' : 'Pay-As-You-Go'}
+            </Title>
           </Flex>
           <Text className="text-sm font-mono text-gray-700">
-            Start using Hopsworks immediately. Only pay for what you use.
-            No upfront costs, cancel anytime.
+            {deployment?.id === 'free'
+              ? 'Start learning with 1 project. No credit card required. Upgrade anytime.'
+              : 'Start using Hopsworks immediately. Only pay for what you use. No upfront costs, cancel anytime.'
+            }
           </Text>
         </Card>
 
@@ -97,20 +105,41 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
           </Flex>
         </Card>
 
-        <Card variant="readOnly" className="p-4">
-          <Title as="h3" className="font-mono text-sm uppercase text-gray-600 mb-3">Pricing</Title>
-          <Flex direction="column" gap={8}>
-            <Flex justify="between">
-              <Labeling className="font-mono">Hops Credits</Labeling>
-              <Text className="font-mono">${pricing.compute_credits.toFixed(2)}/credit</Text>
+        {deployment?.id === 'free' ? (
+          <Card variant="readOnly" className="p-4">
+            <Title as="h3" className="font-mono text-sm uppercase text-gray-600 mb-3">What&apos;s Included</Title>
+            <Flex direction="column" gap={8}>
+              <Flex justify="between">
+                <Labeling className="font-mono">Projects</Labeling>
+                <Text className="font-mono font-semibold">1</Text>
+              </Flex>
+              <Flex justify="between">
+                <Labeling className="font-mono">Credit Card</Labeling>
+                <Text className="font-mono font-semibold">Not required</Text>
+              </Flex>
+              <Box className="pt-2 border-t border-grayShade2">
+                <Text className="font-mono text-sm text-gray-600">
+                  Upgrade to Pay-As-You-Go anytime for more projects
+                </Text>
+              </Box>
             </Flex>
-            <Box className="pt-2 border-t border-grayShade2">
-              <Text className="font-mono text-sm text-gray-600">
-                {user ? 'Add payment method to get started' : 'Sign up and add payment method to get started'}
-              </Text>
-            </Box>
-          </Flex>
-        </Card>
+          </Card>
+        ) : (
+          <Card variant="readOnly" className="p-4">
+            <Title as="h3" className="font-mono text-sm uppercase text-gray-600 mb-3">Pricing</Title>
+            <Flex direction="column" gap={8}>
+              <Flex justify="between">
+                <Labeling className="font-mono">Hops Credits</Labeling>
+                <Text className="font-mono">${pricing.compute_credits.toFixed(2)}/credit</Text>
+              </Flex>
+              <Box className="pt-2 border-t border-grayShade2">
+                <Text className="font-mono text-sm text-gray-600">
+                  {user ? 'Add payment method to get started' : 'Sign up and add payment method to get started'}
+                </Text>
+              </Box>
+            </Flex>
+          </Card>
+        )}
       </Flex>
 
 
@@ -129,7 +158,10 @@ export const DeployModal: React.FC<DeployModalProps> = ({ isOpen, deployment, on
           className="font-mono uppercase"
           onClick={handleStartNow}
         >
-          {user ? 'Add Payment Method' : 'Sign Up'}
+          {deployment?.id === 'free'
+            ? (user ? 'Start Free' : 'Sign Up Free')
+            : (user ? 'Add Payment Method' : 'Sign Up')
+          }
         </Button>
       </Flex>
     </Modal>

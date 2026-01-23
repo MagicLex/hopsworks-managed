@@ -26,12 +26,15 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
         return 'secondary';
       case 'enterprise':
         return 'primary';
+      case 'free':
+        return 'secondary';
       default:
         return 'primary';
     }
   };
-  
+
   const getButtonText = () => {
+    if (deployment.id === 'free') return 'Start Free';
     if (deployment.id === 'payg') return 'Get Started';
     if (deployment.buttonStyle === 'enterprise') return 'Contact Sales';
     return 'Join Cluster';
@@ -46,21 +49,28 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
     }
   };
 
-  if (deployment.buttonStyle === 'enterprise') {
+  // Compact card for enterprise and free tier
+  if (deployment.buttonStyle === 'enterprise' || deployment.buttonStyle === 'free') {
+    const isEnterprise = deployment.buttonStyle === 'enterprise';
     return (
       <Card className="p-6 bg-gray-50 border-gray-200">
         <Flex justify="between" align="center">
           <Box>
             <Title as="h3" className="text-base mb-1">{deployment.name}</Title>
-            <Text className="text-sm text-gray-600">Contact us for bespoke deployment solutions tailored to your needs</Text>
+            <Text className="text-sm text-gray-600">
+              {isEnterprise
+                ? 'Contact us for bespoke deployment solutions tailored to your needs'
+                : deployment.subtitle
+              }
+            </Text>
           </Box>
-          <Button 
+          <Button
             onClick={() => onDeploy(deployment)}
             intent="secondary"
             size="md"
             className="font-mono uppercase tracking-wide w-[150px] justify-center"
           >
-            Contact Sales
+            {isEnterprise ? 'Contact Sales' : 'Start Free'}
           </Button>
         </Flex>
       </Card>
@@ -89,13 +99,15 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
         <Flex style={{ minHeight: '120px' }}>
           <Box className="flex-none w-[180px] p-5 border-r border-grayShade2 relative">
             <Box className="absolute top-2 left-2">
-              <Box className="w-1.5 h-1.5 bg-[#1eb182] rounded-full animate-pulse" />
+              <Box className={`w-1.5 h-1.5 rounded-full animate-pulse ${deployment.id === 'free' ? 'bg-gray-400' : 'bg-[#1eb182]'}`} />
             </Box>
             <Title as="h4" className="text-base mb-1">
               {isCorporate && deployment.id === 'payg' ? 'Corporate' : deployment.name}
             </Title>
             <Box className="text-sm text-gray-600 mb-2">
-              {deployment.id === 'payg' ? (
+              {deployment.id === 'free' ? (
+                <Badge variant="primary" size="sm" className="font-mono font-semibold bg-gray-800 text-white">$0</Badge>
+              ) : deployment.id === 'payg' ? (
                 isCorporate ? (
                   <Badge variant="primary" size="sm" className="font-mono font-semibold">PREPAID</Badge>
                 ) : (
@@ -111,6 +123,9 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
                 </Flex>
               )}
             </Box>
+            {deployment.subtitle && (
+              <Text className="text-xs text-gray-500 mb-2">{deployment.subtitle}</Text>
+            )}
             <Box className="inline-flex items-center px-2 py-0.5 bg-black text-white text-xs font-mono font-semibold uppercase tracking-wider">
               EU-WEST
             </Box>
