@@ -33,6 +33,53 @@ async function sendSlackAlert(issues: IntegrityIssue[]) {
   }).catch(err => console.error('[Slack] Failed to send alert:', err));
 }
 
+interface DailyStats {
+  totalUsers: number;
+  activeUsers: number;
+  paidUsers: number;
+  freeUsers: number;
+  prepaidUsers: number;
+  teamMembers: number;
+  newUsersToday: number;
+  newUsers7d: number;
+  clustersActive: number;
+  totalUsageThisMonth: number;
+}
+
+async function sendDailyDigest(stats: DailyStats, issueCount: number) {
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  const statusEmoji = issueCount === 0 ? ':white_check_mark:' : ':warning:';
+  const statusText = issueCount === 0 ? 'All systems healthy' : `${issueCount} issues detected`;
+
+  const text = `:chart_with_upwards_trend: *Daily SaaS Report* - ${new Date().toISOString().split('T')[0]}
+
+*Users*
+• Total: *${stats.totalUsers}* (${stats.activeUsers} active)
+• Paid (postpaid): *${stats.paidUsers}*
+• Free tier: *${stats.freeUsers}*
+• Prepaid/Corporate: *${stats.prepaidUsers}*
+• Team members: *${stats.teamMembers}*
+
+*Growth*
+• New today: *${stats.newUsersToday}*
+• New last 7d: *${stats.newUsers7d}*
+
+*Infrastructure*
+• Active clusters: *${stats.clustersActive}*
+• Usage this month: *$${stats.totalUsageThisMonth.toFixed(2)}*
+
+*Health* ${statusEmoji}
+${statusText}`;
+
+  fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
+  }).catch(err => console.error('[Slack] Failed to send daily digest:', err));
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Verify cron secret
   const authHeader = req.headers.authorization;
@@ -167,13 +214,108 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error('[Data Integrity] ALERT:', JSON.stringify(criticalIssues, null, 2));
   }
 
+  // DAILY STATS for digest
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+  // Total users (not deleted)
+  const { count: totalUsers } = await supabaseAdmin
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .is('deleted_at', null);
+
+  // Active users (logged in last 30 days)
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { count: activeUsers } = await supabaseAdmin
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .is('deleted_at', null)
+    .gte('last_login_at', thirtyDaysAgo);
+
+  // Paid users (postpaid with subscription)
+  const { count: paidUsers } = await supabaseAdmin
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .is('deleted_at', null)
+    .is('account_owner_id', null)
+    .eq('billing_mode', 'postpaid')
+    .not('stripe_subscription_id', 'is', null);
+
+  // Free tier users
+  const { count: freeUsers } = await supabaseAdmin
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .is('deleted_at', null)
+    .is('account_owner_id', null)
+    .eq('billing_mode', 'free');
+
+  // Prepaid/corporate users
+  const { count: prepaidUsers } = await supabaseAdmin
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .is('deleted_at', null)
+    .is('account_owner_id', null)
+    .eq('billing_mode', 'prepaid');
+
+  // Team members
+  const { count: teamMembers } = await supabaseAdmin
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .is('deleted_at', null)
+    .not('account_owner_id', 'is', null);
+
+  // New users today
+  const { count: newUsersToday } = await supabaseAdmin
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', todayStart);
+
+  // New users last 7 days
+  const { count: newUsers7d } = await supabaseAdmin
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', sevenDaysAgo);
+
+  // Active clusters
+  const { count: clustersActive } = await supabaseAdmin
+    .from('hopsworks_clusters')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'active');
+
+  // Total usage this month
+  const { data: usageData } = await supabaseAdmin
+    .from('usage_daily')
+    .select('total_cost')
+    .gte('date', monthStart.split('T')[0]);
+
+  const totalUsageThisMonth = usageData?.reduce((sum, row) => sum + (row.total_cost || 0), 0) || 0;
+
+  const stats: DailyStats = {
+    totalUsers: totalUsers || 0,
+    activeUsers: activeUsers || 0,
+    paidUsers: paidUsers || 0,
+    freeUsers: freeUsers || 0,
+    prepaidUsers: prepaidUsers || 0,
+    teamMembers: teamMembers || 0,
+    newUsersToday: newUsersToday || 0,
+    newUsers7d: newUsers7d || 0,
+    clustersActive: clustersActive || 0,
+    totalUsageThisMonth
+  };
+
+  // Always send daily digest
+  await sendDailyDigest(stats, issues.length);
+
   const summary = {
     timestamp: new Date().toISOString(),
     totalIssues: issues.length,
     critical: issues.filter(i => i.severity === 'critical').length,
     high: issues.filter(i => i.severity === 'high').length,
     medium: issues.filter(i => i.severity === 'medium').length,
-    issues
+    issues,
+    stats
   };
 
   console.log('[Data Integrity] Check completed:', JSON.stringify(summary, null, 2));
