@@ -359,7 +359,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       // HEALTH CHECK 2: Verify cluster assignment
       console.log(`[Health Check] Checking cluster assignment for ${email}`);
-      const { data: assignment } = await supabaseAdmin
+      let { data: assignment } = await supabaseAdmin
         .from('user_hopsworks_assignments')
         .select(`
           *,
@@ -406,7 +406,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               .single();
             
             if (newAssignment) {
-              Object.assign(assignment, newAssignment);
+              assignment = newAssignment;
             }
           } else {
             await logHealthCheckFailure(userId, email, 'cluster_assignment', 
@@ -445,19 +445,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               hopsworksUserId = hopsworksUser.id;
               hopsworksUsername = hopsworksUser.username;
 
-              // Update database if username is missing
-              if (!assignment.hopsworks_username || !existingUser.hopsworks_username) {
-                console.log(`[Health Check] Found Hopsworks username ${hopsworksUsername} for user ID ${userId}`);
+              // Sync hopsworks_user_id and username if either is missing from either table
+              const needsUserIdSync = !assignment.hopsworks_user_id || !existingUser.hopsworks_user_id;
+              const needsUsernameSync = !assignment.hopsworks_username || !existingUser.hopsworks_username;
 
-                await supabaseAdmin
+              if (needsUserIdSync || needsUsernameSync) {
+                console.log(`[Health Check] Syncing Hopsworks data for user ID ${hopsworksUserId}: needsUserIdSync=${needsUserIdSync}, needsUsernameSync=${needsUsernameSync}`);
+
+                const { error: userUpdateError } = await supabaseAdmin
                   .from('users')
-                  .update({ hopsworks_username: hopsworksUsername })
+                  .update({
+                    hopsworks_user_id: hopsworksUserId,
+                    hopsworks_username: hopsworksUsername
+                  })
                   .eq('id', existingUser.id);
 
-                await supabaseAdmin
+                if (userUpdateError) {
+                  console.error(`[Health Check] Failed to update users table:`, userUpdateError);
+                }
+
+                const { error: assignmentUpdateError } = await supabaseAdmin
                   .from('user_hopsworks_assignments')
-                  .update({ hopsworks_username: hopsworksUsername })
+                  .update({
+                    hopsworks_user_id: hopsworksUserId,
+                    hopsworks_username: hopsworksUsername
+                  })
                   .eq('user_id', existingUser.id);
+
+                if (assignmentUpdateError) {
+                  console.error(`[Health Check] Failed to update user_hopsworks_assignments table:`, assignmentUpdateError);
+                }
               }
             }
           } catch (error) {
@@ -589,12 +606,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             console.log(`[Health Check] User ${email} already has correct maxNumProjects: ${currentMaxProjects}`);
           }
           
-          // Sync username if needed
+          // Sync username if needed - update BOTH tables
           if (hopsworksUsername && hopsworksUsername !== existingUser.hopsworks_username) {
-            await supabaseAdmin
+            const { error: userError } = await supabaseAdmin
               .from('users')
               .update({ hopsworks_username: hopsworksUsername })
               .eq('id', userId);
+
+            if (userError) {
+              console.error(`[Health Check] Failed to sync username to users:`, userError);
+            }
+
+            const { error: assignmentError } = await supabaseAdmin
+              .from('user_hopsworks_assignments')
+              .update({ hopsworks_username: hopsworksUsername })
+              .eq('user_id', userId);
+
+            if (assignmentError) {
+              console.error(`[Health Check] Failed to sync username to assignments:`, assignmentError);
+            }
+
             healthCheckResults.usernamesSynced = true;
           } else if (hopsworksUsername) {
             healthCheckResults.usernamesSynced = true;
@@ -682,51 +713,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
         .eq('id', userId);
         
-      // Check if user needs Hopsworks username sync
-      if (!currentUser?.hopsworks_username && currentUser?.user_hopsworks_assignments?.[0]) {
-        const assignment = currentUser.user_hopsworks_assignments[0];
-        
-        // Get cluster details
-        const { data: cluster } = await supabaseAdmin
-          .from('hopsworks_clusters')
-          .select('api_url, api_key')
-          .eq('id', assignment.hopsworks_cluster_id)
-          .single();
-          
-        if (cluster) {
-          try {
-            // Import the function to look up user by email
-            const { getHopsworksUserByEmail } = await import('../../../lib/hopsworks-api');
-            
-            const credentials = {
-              apiUrl: cluster.api_url,
-              apiKey: cluster.api_key
-            };
-            
-            // Try to find existing Hopsworks user by email
-            const hopsworksUser = await getHopsworksUserByEmail(credentials, email);
-            
-            if (hopsworksUser?.username) {
-              // Update both users table and assignment with the username
-              await supabaseAdmin
-                .from('users')
-                .update({ hopsworks_username: hopsworksUser.username })
-                .eq('id', userId);
-                
-              await supabaseAdmin
-                .from('user_hopsworks_assignments')
-                .update({ hopsworks_username: hopsworksUser.username })
-                .eq('user_id', userId)
-                .eq('hopsworks_cluster_id', assignment.hopsworks_cluster_id);
-                
-              console.log(`Synced Hopsworks username ${hopsworksUser.username} for user ${email}`);
-            }
-          } catch (error) {
-            console.error(`Failed to sync Hopsworks username for ${email}:`, error);
-            // Don't fail the login if we can't sync the username
-          }
-        }
-      }
+      // NOTE: Main Hopsworks sync is handled above in Health Check 3.
+      // This secondary block is now redundant and has been removed to avoid duplication.
       
       // Log health check summary
       const failedChecks = Object.entries(healthCheckResults)
