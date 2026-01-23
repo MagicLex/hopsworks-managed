@@ -41,6 +41,16 @@ export default function Home() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
 
+    // Check for tier preference in URL params - auto-open modal
+    const tier = urlParams.get('tier');
+    if (tier === 'free' || tier === 'payg') {
+      const deployment = deploymentOptions.find(d => d.id === tier);
+      if (deployment) {
+        setSelectedDeployment(deployment);
+        setIsModalOpen(true);
+      }
+    }
+
     // Check for corporate_ref in URL params
     const ref = urlParams.get('corporate_ref');
     if (ref) {
