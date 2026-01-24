@@ -43,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log(`Starting Stripe usage sync for date: ${reportDate}`);
 
-    // Get all unreported usage for yesterday (postpaid users only)
+    // Get all unreported usage for yesterday (postpaid account owners only)
     const { data: unreportedUsage, error: usageError } = await supabaseAdmin
       .from('usage_daily')
       .select(`
@@ -52,12 +52,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           stripe_customer_id,
           stripe_subscription_id,
           email,
-          billing_mode
+          billing_mode,
+          account_owner_id
         )
       `)
       .eq('date', reportDate)
       .eq('reported_to_stripe', false)
       .eq('users.billing_mode', 'postpaid')
+      .is('users.account_owner_id', null)
       .not('users.stripe_subscription_id', 'is', null);
 
     if (usageError) {

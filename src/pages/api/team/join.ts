@@ -35,36 +35,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'You must accept the Terms of Service to join' });
     }
 
-    // Get invite details
-    const { data: invite, error: inviteError } = await supabase
+    // Atomically claim the invite - UPDATE with WHERE accepted_at IS NULL
+    // This prevents race conditions where two requests could both see the invite as valid
+    const { data: invite, error: claimError } = await supabase
       .from('team_invites')
-      .select('*')
+      .update({
+        accepted_at: new Date().toISOString(),
+        accepted_by_user_id: userId
+      })
       .eq('token', token)
       .is('accepted_at', null)
+      .select('*')
       .single();
 
-    if (inviteError || !invite) {
+    if (claimError || !invite) {
       return res.status(404).json({ error: 'Invite not found or already used' });
     }
 
-    // Check if invite is expired
+    // Check if invite is expired (claimed but expired - rollback not needed, just reject)
     if (new Date(invite.expires_at) < new Date()) {
       return res.status(410).json({ error: 'Invite has expired' });
     }
 
     // Verify email matches
     if (invite.email.toLowerCase() !== userEmail.toLowerCase()) {
+      // Unclaim the invite since email doesn't match
+      await supabase
+        .from('team_invites')
+        .update({ accepted_at: null, accepted_by_user_id: null })
+        .eq('id', invite.id);
       return res.status(403).json({ error: 'This invite is for a different email address' });
     }
 
-    // Use upsert to handle race conditions
-    const { data: existingUser, error: fetchError } = await supabase
+    // Check if user is already part of a team
+    const { data: existingUser } = await supabase
       .from('users')
       .select('id, account_owner_id')
       .eq('id', userId)
       .single();
 
     if (existingUser?.account_owner_id) {
+      // Unclaim the invite since user is already in a team
+      await supabase
+        .from('team_invites')
+        .update({ accepted_at: null, accepted_by_user_id: null })
+        .eq('id', invite.id);
       return res.status(400).json({ error: 'You are already part of a team' });
     }
 
@@ -94,22 +109,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (upsertError) {
       console.error('Failed to upsert user:', upsertError);
       return res.status(500).json({ error: 'Failed to join team' });
-    }
-
-    // Mark invite as accepted
-    const { error: acceptError } = await supabase
-      .from('team_invites')
-      .update({ 
-        accepted_at: new Date().toISOString(),
-        accepted_by_user_id: userId
-      })
-      .eq('id', invite.id);
-
-    let inviteAcceptWarning: string | null = null;
-    if (acceptError) {
-      console.error('Failed to mark invite as accepted:', acceptError);
-      inviteAcceptWarning = 'Failed to mark invite as accepted. You may receive duplicate invites.';
-      // Don't fail the whole operation
     }
 
     // Assign team member to cluster (same as account owner)
@@ -239,17 +238,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       projects_assigned: projectsAssigned
     };
 
-    // Add warnings if there were errors
-    const warnings: string[] = [];
-    if (inviteAcceptWarning) {
-      warnings.push(inviteAcceptWarning);
-    }
+    // Add warnings if there were project assignment errors
     if (projectErrors.length > 0) {
-      warnings.push('Some projects could not be assigned. The cluster may need to be upgraded to support OAuth group mappings.');
+      response.warning = 'Some projects could not be assigned. The cluster may need to be upgraded to support OAuth group mappings.';
       response.project_errors = projectErrors;
-    }
-    if (warnings.length > 0) {
-      response.warning = warnings.join(' ');
     }
 
     return res.status(200).json(response);

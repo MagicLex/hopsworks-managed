@@ -38,6 +38,11 @@ async function inviteHandler(req: NextApiRequest, res: NextApiResponse) {
       }
       const { normalizedEmail, role } = validation;
 
+      // Prevent self-invite
+      if (normalizedEmail === session.user.email?.toLowerCase()) {
+        return res.status(400).json({ error: 'You cannot invite yourself' });
+      }
+
       // Check if user is an account owner (account_owner_id is NULL) and has cluster access
       const { data: currentUser, error: userError } = await supabase
         .from('users')

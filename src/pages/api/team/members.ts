@@ -109,7 +109,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Verify the member belongs to this account
       const { data: member, error: memberError } = await supabase
         .from('users')
-        .select('account_owner_id')
+        .select('account_owner_id, email')
         .eq('id', memberId)
         .single();
 
@@ -117,8 +117,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'Team member not found' });
       }
 
+      // Suspend the member FIRST to revoke Hopsworks access
+      // This must succeed before we orphan them from the team
+      const suspendResult = await suspendUser(supabase as any, memberId, 'removed_from_team');
+      if (!suspendResult.success) {
+        console.error(`Failed to suspend team member ${memberId}:`, suspendResult.error);
+        return res.status(500).json({
+          error: 'Failed to revoke member access. Please try again or contact support.',
+          details: suspendResult.error
+        });
+      }
+
+      // Delete project_member_roles to clean up project access records
+      const { error: rolesDeleteError } = await supabase
+        .from('project_member_roles')
+        .delete()
+        .eq('member_id', memberId);
+
+      if (rolesDeleteError) {
+        console.error(`Failed to delete project roles for ${memberId}:`, rolesDeleteError);
+        // Log but don't fail - member is already suspended, roles are orphaned but harmless
+      }
+
       // Remove team member by setting account_owner_id to NULL
-      // This converts them to a standalone account
+      // This converts them to a standalone (suspended) account
       const { error } = await supabase
         .from('users')
         .update({
@@ -129,15 +151,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (error) {
         console.error('Failed to remove team member:', error);
         return res.status(500).json({ error: 'Failed to remove team member' });
-      }
-
-      // Suspend the removed member to revoke Hopsworks access
-      // They no longer have billing, so they shouldn't have cluster access
-      const suspendResult = await suspendUser(supabase as any, memberId, 'removed_from_team');
-      if (!suspendResult.success) {
-        console.error(`Failed to suspend removed team member ${memberId}:`, suspendResult.error);
-        // Don't fail the request - the member is already removed from the team
-        // They just might still have temporary Hopsworks access until manually cleaned up
       }
 
       // Track team member removal in PostHog

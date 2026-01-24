@@ -19,6 +19,36 @@ if (typeof process !== 'undefined' && process.versions?.node) {
   });
 }
 
+// Default timeout for Hopsworks API calls (15 seconds)
+const HOPSWORKS_API_TIMEOUT_MS = 15000;
+
+/**
+ * Fetch with timeout using AbortController
+ */
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit & { agent?: any },
+  timeoutMs: number = HOPSWORKS_API_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetchWithTimeout(url, {
+      ...options,
+      signal: controller.signal
+    });
+    return response;
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error(`Hopsworks API request timed out after ${timeoutMs}ms: ${url}`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 interface HopsworksCredentials {
   apiUrl: string;
   apiKey: string;
@@ -105,7 +135,7 @@ export async function createHopsworksOAuthUser(
 
   const url = `${credentials.apiUrl}${HOPSWORKS_API_BASE}/admin/users?${params.toString()}`;
 
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     method: 'POST',
     headers: {
       'Authorization': `ApiKey ${credentials.apiKey}`
@@ -140,6 +170,10 @@ export async function createHopsworksOAuthUser(
     throw new Error(`User ${username} (${email}) created on ${credentials.apiUrl} but could not be retrieved`);
   }
 
+  if (!fullUser.id || fullUser.id <= 0) {
+    throw new Error(`User ${username} (${email}) created on ${credentials.apiUrl} but returned invalid ID: ${fullUser.id}`);
+  }
+
   console.log(`[Hopsworks API] Successfully created OAuth user: ${email} (username: ${username}, id: ${fullUser.id})`);
 
   return {
@@ -159,7 +193,7 @@ export async function createHopsworksProject(
   username: string,
   projectName: string
 ): Promise<void> {
-  const response = await fetch(`${credentials.apiUrl}${HOPSWORKS_API_BASE}/admin/projects/createas`, {
+  const response = await fetchWithTimeout(`${credentials.apiUrl}${HOPSWORKS_API_BASE}/admin/projects/createas`, {
     method: 'POST',
     headers: {
       'Authorization': `ApiKey ${credentials.apiKey}`,
@@ -195,7 +229,7 @@ export async function getUserProjects(
   userId?: number
 ): Promise<HopsworksProject[]> {
   // Fetch all projects and filter by owner
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${credentials.apiUrl}${ADMIN_API_BASE}/projects?expand=creator`,
     {
       headers: {
@@ -242,7 +276,7 @@ export async function getProjectUsage(
 ): Promise<ProjectUsage> {
   // This endpoint needs to be implemented by Hopsworks
   // For now, we'll return mock data structure
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${credentials.apiUrl}${HOPSWORKS_API_BASE}/admin/projects/${projectId}/usage?date=${date}`,
     {
       headers: {
@@ -276,7 +310,7 @@ export async function getHopsworksUserByEmail(
   credentials: HopsworksCredentials,
   email: string
 ): Promise<HopsworksUser | null> {
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${credentials.apiUrl}${ADMIN_API_BASE}/users`,
     {
       headers: {
@@ -315,7 +349,7 @@ export async function updateUserProjectLimit(
   hopsworksUserId: number,
   maxNumProjects: number
 ): Promise<void> {
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${credentials.apiUrl}${ADMIN_API_BASE}/users/${hopsworksUserId}`,
     {
       method: 'PUT',
@@ -350,7 +384,7 @@ export async function updateHopsworksUserStatus(
   hopsworksUserId: number,
   status: 2 | 3 | 4
 ): Promise<void> {
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${credentials.apiUrl}${ADMIN_API_BASE}/users/${hopsworksUserId}`,
     {
       method: 'PUT',
@@ -381,7 +415,7 @@ export async function getHopsworksUserById(
   userId: number
 ): Promise<HopsworksUser | null> {
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${credentials.apiUrl}${ADMIN_API_BASE}/users/${userId}`,
       {
         headers: {
@@ -415,7 +449,7 @@ export async function getAllUsers(
   credentials: HopsworksCredentials,
   authToken: string
 ): Promise<HopsworksUser[]> {
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${credentials.apiUrl}${ADMIN_API_BASE}/users`,
     {
       headers: {
@@ -442,7 +476,7 @@ export async function getAllProjects(
   authToken: string
 ): Promise<HopsworksProject[]> {
   // Use expand=creator to get owner details in single query (avoid N+1)
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${credentials.apiUrl}${ADMIN_API_BASE}/projects?expand=creator`,
     {
       headers: {
