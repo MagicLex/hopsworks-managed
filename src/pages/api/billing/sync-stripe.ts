@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import { alertBillingFailure } from '../../../lib/error-handler';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-06-30.basil'
@@ -166,6 +167,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     console.log(`Stripe sync completed: ${results.successful} successful, ${results.failed} failed`);
+
+    // Alert if any failures
+    if (results.failed > 0) {
+      await alertBillingFailure(
+        'sync_stripe_usage',
+        `${results.failed} users`,
+        new Error(results.errors.slice(0, 3).join('; ')),
+        { date: reportDate, failed: results.failed, successful: results.successful }
+      );
+    }
 
     return res.status(200).json({
       message: 'Usage sync completed',

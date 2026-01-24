@@ -224,6 +224,33 @@ CREATE TABLE stripe_products (
 - `product_type` should match the keys expected in billing code (e.g. `cpu_hours`, `storage_gb`, `api_calls`).
 - Keep live vs test data in separate environments—do not mix credentials in production.
 
+## stripe_processed_events
+
+Tracks processed Stripe webhook events for idempotence.
+
+### Schema
+```sql
+CREATE TABLE stripe_processed_events (
+  event_id TEXT PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  processed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_stripe_processed_events_processed_at
+  ON stripe_processed_events(processed_at);
+```
+
+### Purpose
+- Prevents double-processing of Stripe webhooks (idempotence)
+- Stripe can retry webhooks up to 72 hours
+- Events auto-expire after 7 days (manual cleanup recommended)
+
+### Business Rules
+- Check `event_id` before processing any webhook
+- If exists, return 200 without processing (already handled)
+- If not exists, process and then insert record
+- Old events can be cleaned up: `DELETE FROM stripe_processed_events WHERE processed_at < NOW() - INTERVAL '7 days'`
+
 ## Billing Workflows
 
 ### Project Sync Flow (Every 30 minutes)

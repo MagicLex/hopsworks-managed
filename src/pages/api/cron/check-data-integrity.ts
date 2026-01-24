@@ -1,5 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-06-30.basil'
+});
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,7 +13,7 @@ const supabaseAdmin = createClient(
 
 interface IntegrityIssue {
   check: string;
-  severity: 'critical' | 'high' | 'medium';
+  severity: 'critical' | 'high' | 'medium' | 'info';
   count: number;
   affected: string[];
 }
@@ -132,13 +137,65 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (missingBoth.length > 0) {
     issues.push({
       check: 'assignment_without_hopsworks_user',
-      severity: 'high',
+      severity: 'info',
       count: missingBoth.length,
       affected: missingBoth.map(a => (a as any).users?.email)
     });
   }
 
-  // CHECK 3: Cluster user count drift
+  // CHECK 3: Postpaid users without subscription (stuck/blocked)
+  const { data: stuckPostpaid } = await supabaseAdmin
+    .from('users')
+    .select('email')
+    .eq('billing_mode', 'postpaid')
+    .is('stripe_subscription_id', null)
+    .is('account_owner_id', null)
+    .is('deleted_at', null);
+
+  if (stuckPostpaid && stuckPostpaid.length > 0) {
+    issues.push({
+      check: 'postpaid_without_subscription',
+      severity: 'high',
+      count: stuckPostpaid.length,
+      affected: stuckPostpaid.map(u => u.email)
+    });
+  }
+
+  // CHECK 4: Subscription desync - DB says active but Stripe says no
+  const { data: usersWithSub } = await supabaseAdmin
+    .from('users')
+    .select('id, email, stripe_subscription_id')
+    .eq('billing_mode', 'postpaid')
+    .not('stripe_subscription_id', 'is', null)
+    .is('deleted_at', null)
+    .limit(20); // Limit to avoid Stripe rate limits
+
+  const desyncedUsers: string[] = [];
+  for (const user of usersWithSub || []) {
+    try {
+      const sub = await stripe.subscriptions.retrieve(user.stripe_subscription_id!);
+      // If subscription is canceled/incomplete_expired, user has "ghost access"
+      if (sub.status === 'canceled' || sub.status === 'incomplete_expired') {
+        desyncedUsers.push(`${user.email} (${sub.status})`);
+      }
+    } catch (e: any) {
+      // Subscription doesn't exist in Stripe at all
+      if (e.code === 'resource_missing') {
+        desyncedUsers.push(`${user.email} (not found in Stripe)`);
+      }
+    }
+  }
+
+  if (desyncedUsers.length > 0) {
+    issues.push({
+      check: 'subscription_desync',
+      severity: 'high',
+      count: desyncedUsers.length,
+      affected: desyncedUsers
+    });
+  }
+
+  // CHECK 5: Cluster user count drift
   const { data: clusters } = await supabaseAdmin
     .from('hopsworks_clusters')
     .select('id, name, current_users');
@@ -305,8 +362,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     totalUsageThisMonth
   };
 
-  // Always send daily digest
-  await sendDailyDigest(stats, issues.length);
+  // Always send daily digest (exclude info-level from issue count)
+  const actionableIssues = issues.filter(i => i.severity !== 'info').length;
+  await sendDailyDigest(stats, actionableIssues);
 
   const summary = {
     timestamp: new Date().toISOString(),
@@ -314,6 +372,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     critical: issues.filter(i => i.severity === 'critical').length,
     high: issues.filter(i => i.severity === 'high').length,
     medium: issues.filter(i => i.severity === 'medium').length,
+    info: issues.filter(i => i.severity === 'info').length,
     issues,
     stats
   };

@@ -13,6 +13,32 @@ async function sendToSlack(message: string, context?: string) {
   }).catch(() => {}); // Fire and forget
 }
 
+export async function alertBillingFailure(
+  action: string,
+  userEmail: string,
+  error: unknown,
+  details?: Record<string, unknown>
+) {
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  const errorMsg = error instanceof Error ? error.message : String(error);
+  const detailsStr = details ? `\n${JSON.stringify(details, null, 2)}` : '';
+
+  const text = `:credit_card: :x: *Billing Failure*
+• *Action:* \`${action}\`
+• *User:* ${userEmail}
+• *Error:* ${errorMsg.slice(0, 500)}${detailsStr}`;
+
+  console.error(`[BILLING ALERT] ${action} for ${userEmail}:`, error);
+
+  fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
+  }).catch(() => {});
+}
+
 export function handleApiError(error: unknown, res: NextApiResponse, context?: string) {
   // Log the full error for debugging
   console.error(`API Error${context ? ` in ${context}` : ''}:`, error);

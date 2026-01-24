@@ -5,7 +5,7 @@ import { buffer } from 'micro';
 import { Resend } from 'resend';
 import { assignUserToCluster } from '../../../lib/cluster-assignment';
 import { reactivateUser } from '../../../lib/user-status';
-import { handleApiError } from '../../../lib/error-handler';
+import { handleApiError, alertBillingFailure } from '../../../lib/error-handler';
 import { updateUserProjectLimit } from '../../../lib/hopsworks-api';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -51,6 +51,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch (err) {
     console.error('Webhook signature verification failed:', err instanceof Error ? err.message : String(err));
     return res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // Idempotence check - skip if already processed
+  const { data: existingEvent } = await supabaseAdmin
+    .from('stripe_processed_events')
+    .select('event_id')
+    .eq('event_id', event.id)
+    .single();
+
+  if (existingEvent) {
+    console.log(`Webhook event ${event.id} already processed - skipping`);
+    return res.status(200).json({ received: true, duplicate: true });
   }
 
   try {
@@ -113,6 +125,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.log(`Unhandled event type: ${event.type}`);
     }
 
+    // Mark event as processed (idempotence)
+    try {
+      await supabaseAdmin
+        .from('stripe_processed_events')
+        .insert({ event_id: event.id, event_type: event.type });
+    } catch {} // Don't fail webhook if insert fails
+
     return res.status(200).json({ received: true });
   } catch (error) {
     return handleApiError(error, res, 'POST /api/webhooks/stripe');
@@ -170,17 +189,7 @@ async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {
           }
         }
       } catch (error) {
-        console.error(`Failed to update maxNumProjects for user ${user.id}:`, error);
-        // Log to health_check_failures - sync-user will fix on next login
-        try {
-          await supabaseAdmin.from('health_check_failures').insert({
-            user_id: user.id,
-            email: user.email,
-            check_type: 'webhook_upgrade_maxnumprojects',
-            error_message: 'Free->postpaid upgrade succeeded but maxNumProjects update failed',
-            details: { error: String(error), expected: 5 }
-          });
-        } catch {} // Don't fail if logging fails
+        await alertBillingFailure('update_maxNumProjects', user.email, error, { userId: user.id, expected: 5 });
       }
     }
 
@@ -237,7 +246,7 @@ async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {
           }
         }
       } catch (error) {
-        console.error(`Failed to create subscription for user ${user.id}:`, error);
+        await alertBillingFailure('create_subscription', user.email, error, { userId: user.id, customerId });
       }
     }
     
@@ -254,7 +263,7 @@ async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {
       if (success) {
         console.log(`Assigned cluster to user ${user.id} after payment method setup`);
       } else {
-        console.error(`Failed to assign cluster to user ${user.id}: ${error}`);
+        await alertBillingFailure('assign_cluster', user.email, error, { userId: user.id, trigger: 'payment_method_setup' });
       }
     }
   }
@@ -266,7 +275,7 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   // Get user by Stripe customer ID
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('id')
+    .select('id, email')
     .eq('stripe_customer_id', customerId)
     .single();
 
@@ -296,7 +305,7 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
       if (success) {
         console.log(`Assigned cluster to user ${user.id} after subscription creation`);
       } else {
-        console.error(`Failed to assign cluster: ${error}`);
+        await alertBillingFailure('assign_cluster', user.email, error, { userId: user.id, trigger: 'subscription_created' });
       }
     }
   }
@@ -378,7 +387,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         }
       }
     } catch (e) {
-      console.error(`Failed to get project count for user ${user.id}:`, e);
+      await alertBillingFailure('get_project_count', user.email, e, { userId: user.id, trigger: 'subscription_deleted' });
     }
 
     // Set 7-day deadline if user has more than 1 project
@@ -420,7 +429,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         }
       }
     } catch (e) {
-      console.error(`Failed to update maxNumProjects for user ${user.id}:`, e);
+      await alertBillingFailure('update_maxNumProjects', user.email, e, { userId: user.id, trigger: 'subscription_deleted' });
     }
 
     console.log(`User ${user.id} downgraded to free tier. Projects: ${projectCount}, Deadline: ${deadline || 'none'}`);
@@ -484,7 +493,7 @@ async function handlePaymentMethodAttached(paymentMethod: Stripe.PaymentMethod) 
       if (success) {
         console.log(`Assigned cluster to user ${user.id} after payment method attached`);
       } else {
-        console.error(`Failed to assign cluster to user ${user.id}: ${error}`);
+        await alertBillingFailure('assign_cluster', user.email, error, { userId: user.id, trigger: 'payment_method_attached' });
       }
     }
   }
@@ -528,7 +537,7 @@ async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, 
               await stripe.subscriptions.cancel(user.stripe_subscription_id);
               console.log(`Cancelled subscription ${user.stripe_subscription_id} for user ${user.id}`);
             } catch (e) {
-              console.error(`Failed to cancel subscription for user ${user.id}:`, e);
+              await alertBillingFailure('cancel_subscription', user.email, e, { userId: user.id, subscriptionId: user.stripe_subscription_id });
             }
           }
 
@@ -558,7 +567,7 @@ async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, 
               }
             }
           } catch (e) {
-            console.error(`Failed to get project count for user ${user.id}:`, e);
+            await alertBillingFailure('get_project_count', user.email, e, { userId: user.id, trigger: 'payment_method_detached' });
           }
 
           // Set 7-day deadline if user has more than 1 project
@@ -602,7 +611,7 @@ async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, 
               }
             }
           } catch (e) {
-            console.error(`Failed to update maxNumProjects for user ${user.id}:`, e);
+            await alertBillingFailure('update_maxNumProjects', user.email, e, { userId: user.id, trigger: 'payment_method_detached' });
           }
 
           console.log(`User ${user.id} downgraded to free tier. Projects: ${projectCount}, Deadline: ${deadline || 'none'}`);
@@ -610,7 +619,7 @@ async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, 
           console.log(`User ${user.id} still has ${paymentMethods.data.length} payment method(s)`);
         }
       } catch (error) {
-        console.error(`Failed to check remaining payment methods for user ${user.id}:`, error);
+        await alertBillingFailure('check_payment_methods', user.email, error, { userId: user.id });
       }
     } else {
       console.log(`User ${user.id} is ${user.billing_mode} mode - no action needed`);
@@ -665,7 +674,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
       });
       console.log(`[BILLING] Payment failure notification sent to ${user.email}`);
     } catch (emailError) {
-      console.error(`[BILLING] Failed to send payment failure email to ${user.email}:`, emailError);
+      await alertBillingFailure('send_payment_failure_email', user.email, emailError, { userId: user.id });
     }
   }
 }
