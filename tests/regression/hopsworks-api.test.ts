@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { HOPSWORKS_API_BASE, ADMIN_API_BASE } from '@/lib/hopsworks-api';
 
 describe('fetchWithTimeout', () => {
   let originalFetch: typeof global.fetch;
@@ -48,7 +49,17 @@ describe('fetchWithTimeout', () => {
     // If we got here without timeout, fetch was called (not infinite recursion)
     expect(mockFetch).toHaveBeenCalled();
   });
+});
 
+describe('API endpoint constants', () => {
+  it('uses correct API base paths', () => {
+    expect(HOPSWORKS_API_BASE).toBe('/hopsworks-api/api');
+    expect(ADMIN_API_BASE).toBe('/hopsworks-api/api/admin');
+  });
+
+  it('admin base includes hopsworks-api base', () => {
+    expect(ADMIN_API_BASE.startsWith(HOPSWORKS_API_BASE.replace('/api', ''))).toBe(true);
+  });
 });
 
 describe('wrapper function patterns', () => {
@@ -80,5 +91,17 @@ describe('wrapper function patterns', () => {
         `${funcName} should not call itself (found ${selfCalls.length} self-calls)`
       ).toBe(0);
     }
+  });
+
+  it('no API functions have hardcoded URLs', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+
+    const sourceFile = path.join(process.cwd(), 'src/lib/hopsworks-api.ts');
+    const source = fs.readFileSync(sourceFile, 'utf-8');
+
+    // Should not have hardcoded hopsworks URLs in fetch calls
+    const hardcodedUrls = source.match(/fetch\s*\(\s*['"`]https?:\/\/[^'"`]+hopsworks/gi);
+    expect(hardcodedUrls, 'Found hardcoded Hopsworks URLs in fetch calls').toBeNull();
   });
 });

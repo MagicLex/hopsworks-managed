@@ -18,18 +18,18 @@ describe('calculateCreditsUsed', () => {
   })
 
   it('calculates single resource correctly', () => {
-    expect(calculateCreditsUsed({ cpuHours: 10 })).toBe(5)      // 10 * 0.5
+    expect(calculateCreditsUsed({ cpuHours: 10 })).toBe(10)     // 10 * 1
     expect(calculateCreditsUsed({ gpuHours: 1 })).toBe(10)      // 1 * 10
-    expect(calculateCreditsUsed({ ramGbHours: 100 })).toBe(5)   // 100 * 0.05
+    expect(calculateCreditsUsed({ ramGbHours: 100 })).toBe(10)  // 100 * 0.1
   })
 
   it('calculates mixed usage correctly', () => {
     const credits = calculateCreditsUsed({
-      cpuHours: 100,    // 50 credits
+      cpuHours: 100,    // 100 credits
       gpuHours: 5,      // 50 credits
-      ramGbHours: 200,  // 10 credits
+      ramGbHours: 200,  // 20 credits
     })
-    expect(credits).toBe(110)
+    expect(credits).toBe(170)
   })
 
   it('handles edge cases', () => {
