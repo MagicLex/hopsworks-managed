@@ -8,7 +8,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   calculateCreditsUsed,
-  calculateDollarAmount
+  calculateDollarAmount,
+  CREDIT_RATES,
+  DEFAULT_RATES
 } from '@/config/billing-rates'
 
 describe('calculateCreditsUsed', () => {
@@ -107,5 +109,43 @@ describe('storage proration (GB-month billing)', () => {
 
     // Specifically, should be ~1/30th
     expect(proratedValue).toBeCloseTo(storage / 30, 2)
+  })
+})
+
+/**
+ * Rate Consistency Tests
+ *
+ * ⚠️ CRITICAL: pricing.ts must use the same rates as billing-rates.ts
+ * If these diverge, users see different prices than they're charged!
+ */
+describe('rate consistency across files', () => {
+  it('pricing.ts uses same credit multipliers as billing-rates.ts', async () => {
+    const fs = await import('fs')
+    const path = await import('path')
+
+    const pricingFile = path.join(process.cwd(), 'src/pages/api/pricing.ts')
+    const source = fs.readFileSync(pricingFile, 'utf-8')
+
+    // CPU_HOUR multiplier must be 1 (not 0.5)
+    expect(source).toContain('product.unit_price * 1')
+    expect(source).not.toContain('product.unit_price * 0.5')
+
+    // RAM_GB_HOUR multiplier must be 0.1 (not 0.05)
+    expect(source).toContain('product.unit_price * 0.1')
+    expect(source).not.toContain('product.unit_price * 0.05')
+  })
+
+  it('default rates in pricing.ts match billing-rates.ts', () => {
+    // These are the canonical rates - if billing-rates.ts changes,
+    // this test should fail and remind you to update pricing.ts
+    expect(CREDIT_RATES.CPU_HOUR).toBe(1)
+    expect(CREDIT_RATES.GPU_HOUR).toBe(10)
+    expect(CREDIT_RATES.RAM_GB_HOUR).toBe(0.1)
+    expect(DEFAULT_RATES.CREDIT_VALUE).toBe(0.35)
+
+    // Verify dollar calculations
+    expect(DEFAULT_RATES.CPU_HOUR).toBeCloseTo(0.35, 2)      // 1 * 0.35
+    expect(DEFAULT_RATES.GPU_HOUR).toBeCloseTo(3.50, 2)      // 10 * 0.35
+    expect(DEFAULT_RATES.RAM_GB_HOUR).toBeCloseTo(0.035, 3)  // 0.1 * 0.35
   })
 })
