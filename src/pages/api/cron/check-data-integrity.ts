@@ -235,7 +235,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  // CHECK 5: Unresolved health check failures older than 7 days
+  // CHECK 6: Stripe sync didn't run (yesterday's postpaid usage unreported at 6 AM)
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayDate = yesterday.toISOString().split('T')[0];
+
+  const { data: unreportedYesterday } = await supabaseAdmin
+    .from('usage_daily')
+    .select(`
+      id,
+      users!usage_daily_user_id_fkey!inner(email)
+    `)
+    .eq('date', yesterdayDate)
+    .eq('reported_to_stripe', false)
+    .eq('users.billing_mode', 'postpaid')
+    .is('users.account_owner_id', null)
+    .not('users.stripe_subscription_id', 'is', null)
+    .gt('total_credits', 0);
+
+  if (unreportedYesterday && unreportedYesterday.length > 0) {
+    issues.push({
+      check: 'stripe_sync_not_run',
+      severity: 'critical',
+      count: unreportedYesterday.length,
+      affected: unreportedYesterday.map(u => (u as any).users?.email)
+    });
+  }
+
+  // CHECK 7: Unresolved health check failures older than 7 days
   const { data: oldFailures, count: oldFailureCount } = await supabaseAdmin
     .from('health_check_failures')
     .select('email, check_type', { count: 'exact' })
