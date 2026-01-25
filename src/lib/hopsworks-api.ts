@@ -34,7 +34,7 @@ async function fetchWithTimeout(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetchWithTimeout(url, {
+    const response = await fetch(url, {
       ...options,
       signal: controller.signal
     });
