@@ -7,7 +7,7 @@
  * - POST /on_plan_updated: billing_mode changed
  * - POST /on_marketing_updated: marketing_consent changed
  *
- * Base URL: WINDMILL_WEBHOOK_BASE_URL (e.g., https://auto.hops.io/api/w/hopsworks/jobs/run/f/saas)
+ * Base URL: WINDMILL_WEBHOOK_BASE_URL (e.g., https://auto.hops.io/api/w/hopsworks/jobs/run/f/f/saas)
  */
 
 // Endpoint paths for each event type
