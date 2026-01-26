@@ -128,6 +128,18 @@ export async function syncUserProjects(userId: string): Promise<ProjectSyncResul
       last_seen_at: new Date().toISOString()
     }));
 
+    // Clean up any inactive entries with conflicting namespaces from OTHER users
+    // This handles the case where a project was reassigned to a new user
+    const namespaces = validProjects.map(p => p.namespace);
+    if (namespaces.length > 0) {
+      await supabaseAdmin
+        .from('user_projects')
+        .delete()
+        .in('namespace', namespaces)
+        .neq('user_id', userId)
+        .eq('status', 'inactive');
+    }
+
     // Get existing project IDs for this user
     const { data: existingProjects } = await supabaseAdmin
       .from('user_projects')

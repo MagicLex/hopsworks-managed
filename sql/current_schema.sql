@@ -102,12 +102,13 @@ CREATE TABLE IF NOT EXISTS project_member_roles (
 -- =====================================================
 
 -- User projects mapping (OpenCost namespace to user)
+-- Note: namespace uniqueness is enforced via partial index (active only)
 CREATE TABLE IF NOT EXISTS user_projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   project_id INTEGER NOT NULL,
   project_name TEXT NOT NULL,
-  namespace TEXT NOT NULL UNIQUE,
+  namespace TEXT NOT NULL,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   last_seen_at TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -237,7 +238,8 @@ CREATE INDEX IF NOT EXISTS idx_team_invites_token ON team_invites(token) WHERE a
 CREATE INDEX IF NOT EXISTS idx_team_invites_email ON team_invites(email) WHERE accepted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_team_invites_owner ON team_invites(account_owner_id);
 
-CREATE INDEX IF NOT EXISTS idx_user_projects_namespace ON user_projects(namespace) WHERE status = 'active';
+-- Partial unique: namespace must be unique among ACTIVE projects only
+CREATE UNIQUE INDEX IF NOT EXISTS user_projects_namespace_active_unique ON user_projects(namespace) WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS idx_user_projects_user_id ON user_projects(user_id) WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS idx_user_projects_last_seen ON user_projects(last_seen_at);
 
