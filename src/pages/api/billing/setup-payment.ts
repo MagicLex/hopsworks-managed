@@ -3,6 +3,7 @@ import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { getPostHogClient } from '@/lib/posthog-server';
+import { sendPlanUpdated, sendUserActivated } from '../../../lib/marketing-webhooks';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-06-30.basil'
@@ -153,6 +154,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
 
             console.log(`User ${userId} upgraded to postpaid with subscription ${subscription.id}`);
+
+            // Fire webhooks for plan change (free → postpaid)
+            sendPlanUpdated({
+              userId,
+              email: user.email,
+              oldPlan: 'free',
+              newPlan: 'postpaid',
+              trigger: 'payment_setup'
+            }).catch(err => console.error('[Marketing] Plan webhook failed:', err));
 
             // Redirect back to dashboard
             return res.status(200).json({

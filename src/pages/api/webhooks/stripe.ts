@@ -7,6 +7,7 @@ import { assignUserToCluster } from '../../../lib/cluster-assignment';
 import { reactivateUser } from '../../../lib/user-status';
 import { handleApiError, alertBillingFailure } from '../../../lib/error-handler';
 import { updateUserProjectLimit } from '../../../lib/hopsworks-api';
+import { sendPlanUpdated } from '../../../lib/marketing-webhooks';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -163,6 +164,15 @@ async function handlePaymentMethodSetup(session: Stripe.Checkout.Session) {
         .update({ billing_mode: 'postpaid' })
         .eq('id', user.id);
       user.billing_mode = 'postpaid'; // Update local reference
+
+      // Fire webhook for plan change
+      sendPlanUpdated({
+        userId: user.id,
+        email: user.email,
+        oldPlan: 'free',
+        newPlan: 'postpaid',
+        trigger: 'payment_setup'
+      }).catch(err => console.error('[Marketing] Plan webhook failed:', err));
 
       // Update maxNumProjects from 1 to 5 in Hopsworks
       try {
@@ -396,6 +406,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       : null;
 
     // Update user to free tier
+    const oldBillingMode = user.billing_mode;
     await supabaseAdmin
       .from('users')
       .update({
@@ -403,6 +414,15 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         downgrade_deadline: deadline
       })
       .eq('id', user.id);
+
+    // Fire webhook for downgrade
+    sendPlanUpdated({
+      userId: user.id,
+      email: user.email,
+      oldPlan: oldBillingMode,
+      newPlan: 'free',
+      trigger: 'payment_setup' // Triggered by payment method removal
+    }).catch(err => console.error('[Marketing] Plan webhook failed:', err));
 
     // Update maxNumProjects to 1 in Hopsworks
     try {
@@ -576,6 +596,7 @@ async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, 
             : null;
 
           // Update user to free tier
+          const oldBillingMode = user.billing_mode;
           await supabaseAdmin
             .from('users')
             .update({
@@ -585,6 +606,15 @@ async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, 
               stripe_subscription_status: 'canceled'
             })
             .eq('id', user.id);
+
+          // Fire webhook for downgrade
+          sendPlanUpdated({
+            userId: user.id,
+            email: user.email,
+            oldPlan: oldBillingMode,
+            newPlan: 'free',
+            trigger: 'payment_setup' // Triggered by payment method detached
+          }).catch(err => console.error('[Marketing] Plan webhook failed:', err));
 
           // Update maxNumProjects to 1 in Hopsworks
           try {

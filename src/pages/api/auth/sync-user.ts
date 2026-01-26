@@ -6,6 +6,7 @@ import { assignUserToCluster } from '../../../lib/cluster-assignment';
 import { getHopsworksUserById, getHopsworksUserByEmail, updateUserProjectLimit, createHopsworksOAuthUser, updateHopsworksUserStatus } from '../../../lib/hopsworks-api';
 import { HOPSWORKS_STATUS } from '../../../lib/user-status';
 import { handleApiError } from '../../../lib/error-handler';
+import { sendUserRegistered, sendPlanUpdated } from '../../../lib/marketing-webhooks';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -149,6 +150,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Names are now handled by Auth0 Action with prompt
       
       // Create new user
+      // billing_mode and marketing_consent are NULL until user explicitly chooses
+      // This allows us to identify users in "limbo" who haven't completed registration
       const { error: userError } = await supabaseAdmin
         .from('users')
         .insert({
@@ -158,10 +161,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           registration_source: registrationSource,
           registration_ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress,
           status: 'active',
-          billing_mode: billingMode || 'free', // Default to free tier for non-corporate users
+          billing_mode: billingMode || null, // NULL until user chooses plan (prepaid set by corporate/promo)
           promo_code: normalizedPromoCode, // Store promo code in dedicated column
           terms_accepted_at: termsAccepted ? new Date().toISOString() : null,
-          marketing_consent: marketingConsent || false,
+          marketing_consent: null, // NULL until user explicitly accepts/declines in terms modal
           metadata
         });
 
@@ -170,27 +173,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Fire marketing webhook for genuinely new users (not duplicates)
-      if (!userError && process.env.WINDMILL_WEBHOOK_URL) {
-        fetch(process.env.WINDMILL_WEBHOOK_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(process.env.WINDMILL_API_TOKEN && {
-              'Authorization': `Bearer ${process.env.WINDMILL_API_TOKEN}`
-            })
-          },
-          body: JSON.stringify({
-            event: 'user.registered',
+      // Only sends lead capture data - plan and consent come later via user.activated
+      if (!userError) {
+        sendUserRegistered({
+          userId,
+          email,
+          name: name || null,
+          source: registrationSource,
+          ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || null
+        }).catch(err => console.error('[Marketing] Registration webhook failed:', err));
+
+        // For prepaid users (corporate/promo), also fire plan.updated since plan is known at registration
+        if (billingMode === 'prepaid') {
+          sendPlanUpdated({
             userId,
             email,
-            name: name || null,
-            plan: billingMode || 'free',
-            source: registrationSource,
-            marketingConsent: marketingConsent || false,
-            ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || null,
-            timestamp: new Date().toISOString()
-          })
-        }).catch(err => console.error('[Marketing] Webhook failed:', err.message));
+            oldPlan: null,
+            newPlan: 'prepaid',
+            trigger: 'registration'
+          }).catch(err => console.error('[Marketing] Plan webhook failed:', err));
+        }
       }
 
       // Check if user has payment method set up or is prepaid
@@ -200,19 +202,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq('id', userId)
         .single();
 
-      // Auto-assign cluster for prepaid and free tier users
-      // Postpaid users need to set up payment first
-      if (userData?.billing_mode === 'prepaid' || userData?.billing_mode === 'free') {
-        // Prepaid/free users get immediate access - use assignUserToCluster for full setup
-        // This creates the Hopsworks user with correct maxNumProjects (5 for prepaid, 1 for free)
+      // Auto-assign cluster only for prepaid users (corporate/promo) who have billing_mode set at registration
+      // Other users have billing_mode=NULL and must choose plan via accept-terms before getting cluster access
+      if (userData?.billing_mode === 'prepaid') {
+        // Prepaid users get immediate access - use assignUserToCluster for full setup
+        // This creates the Hopsworks user with correct maxNumProjects (5 for prepaid)
         const clusterResult = await assignUserToCluster(supabaseAdmin, userId);
         if (clusterResult.success) {
-          console.log(`Assigned ${userData.billing_mode} user ${userId} to cluster ${clusterResult.clusterId}`);
+          console.log(`Assigned prepaid user ${userId} to cluster ${clusterResult.clusterId}`);
         } else {
-          console.error(`Failed to assign ${userData.billing_mode} user ${userId}: ${clusterResult.error}`);
+          console.error(`Failed to assign prepaid user ${userId}: ${clusterResult.error}`);
         }
       } else {
-        console.log(`User ${userId} is postpaid - cluster assignment requires payment method setup`);
+        console.log(`User ${userId} has billing_mode=${userData?.billing_mode} - cluster assignment happens after plan selection`);
       }
     } else {
       healthCheckResults.userExists = true;

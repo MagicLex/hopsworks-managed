@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import { assignUserToCluster } from '../../../lib/cluster-assignment';
+import { sendPlanUpdated, sendUserActivated } from '../../../lib/marketing-webhooks';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,7 +55,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // If already free, just ensure cluster is assigned
-    if (user.billing_mode !== 'free') {
+    const oldBillingMode = user.billing_mode;
+    if (oldBillingMode !== 'free') {
       // Update billing mode to free
       const { error: updateError } = await supabaseAdmin
         .from('users')
@@ -66,7 +68,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Failed to update billing mode' });
       }
 
-      console.log(`User ${userId} switched from ${user.billing_mode || 'null'} to free`);
+      console.log(`User ${userId} switched from ${oldBillingMode || 'null'} to free`);
+
+      // Fire webhooks (don't block response)
+      // If this is first plan selection (oldBillingMode was null), also fire user.activated
+      const isFirstPlan = !oldBillingMode;
+
+      sendPlanUpdated({
+        userId,
+        email: user.email,
+        oldPlan: oldBillingMode,
+        newPlan: 'free',
+        trigger: 'user_choice'
+      }).catch(err => console.error('[Marketing] Plan webhook failed:', err));
+
+      if (isFirstPlan) {
+        // Get marketing consent for activation event
+        const { data: userData } = await supabaseAdmin
+          .from('users')
+          .select('marketing_consent')
+          .eq('id', userId)
+          .single();
+
+        sendUserActivated({
+          userId,
+          email: user.email,
+          plan: 'free',
+          marketingConsent: userData?.marketing_consent ?? false
+        }).catch(err => console.error('[Marketing] Activation webhook failed:', err));
+      }
     }
 
     // Assign cluster (will create Hopsworks user with maxProjects=1)

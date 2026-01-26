@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { withAdminAuth } from '../../../middleware/adminAuth';
+import { sendPlanUpdated } from '../../../lib/marketing-webhooks';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -63,6 +64,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.error('Error updating billing mode:', updateError);
       return res.status(500).json({ error: 'Failed to update billing mode' });
     }
+
+    // Fire webhook for plan change (admin action)
+    sendPlanUpdated({
+      userId,
+      email: targetUser.email,
+      oldPlan: targetUser.billing_mode,
+      newPlan: billingMode,
+      trigger: 'admin'
+    }).catch(err => console.error('[Marketing] Plan webhook failed:', err));
 
     return res.status(200).json({
       success: true,
