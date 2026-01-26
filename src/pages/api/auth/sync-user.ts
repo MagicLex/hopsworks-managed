@@ -175,10 +175,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Fire marketing webhook for genuinely new users (not duplicates)
       // Only sends lead capture data - plan and consent come later via user.activated
       if (!userError) {
+        // Don't use email as name - Auth0 sometimes returns email in name field
+        const actualName = name && !name.includes('@') ? name : null;
+
         sendUserRegistered({
           userId,
           email,
-          name: name || null,
+          name: actualName,
           source: registrationSource,
           ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || null
         }).catch(err => console.error('[Marketing] Registration webhook failed:', err));
