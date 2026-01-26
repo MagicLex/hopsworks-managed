@@ -161,12 +161,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  // CHECK 4: Subscription desync - DB says active but Stripe says no
+  // CHECK 4: Subscription desync - DB says active but Stripe says canceled/missing
+  // Only check users whose DB status is NOT already canceled (those are legitimately in cancellation flow)
   const { data: usersWithSub } = await supabaseAdmin
     .from('users')
-    .select('id, email, stripe_subscription_id')
+    .select('id, email, stripe_subscription_id, stripe_subscription_status')
     .eq('billing_mode', 'postpaid')
     .not('stripe_subscription_id', 'is', null)
+    .neq('stripe_subscription_status', 'canceled')
     .is('deleted_at', null)
     .limit(20); // Limit to avoid Stripe rate limits
 
