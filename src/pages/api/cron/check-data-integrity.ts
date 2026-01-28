@@ -213,11 +213,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('hopsworks_cluster_id', cluster.id);
 
     if (count !== null && count !== cluster.current_users) {
+      // Auto-correct: assignments table is source of truth
+      await supabaseAdmin
+        .from('hopsworks_clusters')
+        .update({ current_users: count })
+        .eq('id', cluster.id);
+
       issues.push({
         check: 'cluster_user_count_drift',
         severity: 'medium',
         count: Math.abs(count - cluster.current_users),
-        affected: [`${cluster.name}: current_users=${cluster.current_users}, actual=${count}`]
+        affected: [`${cluster.name}: current_users=${cluster.current_users} → corrected to ${count}`]
       });
     }
   }

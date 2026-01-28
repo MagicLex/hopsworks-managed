@@ -277,6 +277,14 @@ export async function assignUserToCluster(
         }
       }
 
+      // Check if already assigned before upserting
+      const { data: existingAssignment } = await supabaseAdmin
+        .from('user_hopsworks_assignments')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('hopsworks_cluster_id', ownerAssignment.hopsworks_cluster_id)
+        .maybeSingle();
+
       // Assign team member to same cluster as owner (upsert to handle race conditions)
       const { error: assignError } = await supabaseAdmin
         .from('user_hopsworks_assignments')
@@ -294,13 +302,15 @@ export async function assignUserToCluster(
         throw assignError;
       }
 
-      // Increment cluster user count
-      const { error: rpcError } = await supabaseAdmin.rpc('increment_cluster_users', {
-        p_cluster_id: ownerAssignment.hopsworks_cluster_id
-      });
+      // Only increment if this is a new assignment, not an upsert update
+      if (!existingAssignment) {
+        const { error: rpcError } = await supabaseAdmin.rpc('increment_cluster_users', {
+          p_cluster_id: ownerAssignment.hopsworks_cluster_id
+        });
 
-      if (rpcError) {
-        throw rpcError;
+        if (rpcError) {
+          throw rpcError;
+        }
       }
 
       console.log(`Successfully assigned team member ${userId} to same cluster as account owner`);
@@ -462,6 +472,14 @@ export async function assignUserToCluster(
       }
     }
 
+    // Check if already assigned before upserting
+    const { data: existingAssignment } = await supabaseAdmin
+      .from('user_hopsworks_assignments')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('hopsworks_cluster_id', availableCluster.id)
+      .maybeSingle();
+
     // Assign user to cluster (upsert to handle race conditions)
     const { error: assignError } = await supabaseAdmin
       .from('user_hopsworks_assignments')
@@ -479,13 +497,15 @@ export async function assignUserToCluster(
       throw assignError;
     }
 
-    // Increment cluster user count
-    const { error: rpcError } = await supabaseAdmin.rpc('increment_cluster_users', {
-      p_cluster_id: availableCluster.id
-    });
+    // Only increment if this is a new assignment, not an upsert update
+    if (!existingAssignment) {
+      const { error: rpcError } = await supabaseAdmin.rpc('increment_cluster_users', {
+        p_cluster_id: availableCluster.id
+      });
 
-    if (rpcError) {
-      throw rpcError;
+      if (rpcError) {
+        throw rpcError;
+      }
     }
 
     console.log(`Successfully assigned user ${userId} to cluster ${availableCluster.name} (${isManualAssignment ? 'manual' : 'automatic'})`);
