@@ -78,13 +78,13 @@ export async function assignUserToCluster(
 ): Promise<{ success: boolean; clusterId?: string; error?: string }> {
   try {
     // Check if user already has cluster assignment
-    const { data: existingAssignment } = await supabaseAdmin
+    const { data: currentAssignment } = await supabaseAdmin
       .from('user_hopsworks_assignments')
       .select('hopsworks_cluster_id')
       .eq('user_id', userId)
       .single();
 
-    if (existingAssignment) {
+    if (currentAssignment) {
       // User already assigned - but check if maxNumProjects needs correction
       // This handles cases like postpaid user switching to free tier
       const { data: user } = await supabaseAdmin
@@ -108,7 +108,7 @@ export async function assignUserToCluster(
         const { data: cluster } = await supabaseAdmin
           .from('hopsworks_clusters')
           .select('api_url, api_key')
-          .eq('id', existingAssignment.hopsworks_cluster_id)
+          .eq('id', currentAssignment.hopsworks_cluster_id)
           .single();
 
         if (cluster) {
@@ -142,7 +142,7 @@ export async function assignUserToCluster(
 
       return {
         success: true,
-        clusterId: existingAssignment.hopsworks_cluster_id,
+        clusterId: currentAssignment.hopsworks_cluster_id,
         error: 'User already assigned to cluster'
       };
     }
@@ -473,7 +473,7 @@ export async function assignUserToCluster(
     }
 
     // Check if already assigned before upserting
-    const { data: existingAssignment } = await supabaseAdmin
+    const { data: priorAssignment } = await supabaseAdmin
       .from('user_hopsworks_assignments')
       .select('id')
       .eq('user_id', userId)
@@ -498,7 +498,7 @@ export async function assignUserToCluster(
     }
 
     // Only increment if this is a new assignment, not an upsert update
-    if (!existingAssignment) {
+    if (!priorAssignment) {
       const { error: rpcError } = await supabaseAdmin.rpc('increment_cluster_users', {
         p_cluster_id: availableCluster.id
       });
