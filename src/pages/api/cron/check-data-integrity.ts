@@ -59,7 +59,7 @@ async function sendDailyDigest(stats: DailyStats, issues: IntegrityIssue[]) {
   const statusEmoji = actionableIssues.length === 0 ? ':white_check_mark:' : ':warning:';
   const issueLines = actionableIssues.length === 0
     ? 'All systems healthy'
-    : actionableIssues.map(i => `• *${i.severity.toUpperCase()}* \`${i.check}\`: ${i.count} affected`).join('\n');
+    : actionableIssues.map(i => `• *${i.severity.toUpperCase()}* \`${i.check}\`: ${i.count} affected\n  ${i.affected.slice(0, 5).join(', ')}${i.affected.length > 5 ? ` (+${i.affected.length - 5} more)` : ''}`).join('\n');
 
   const text = `:chart_with_upwards_trend: *Daily SaaS Report* - ${new Date().toISOString().split('T')[0]}
 
