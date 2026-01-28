@@ -51,12 +51,15 @@ interface DailyStats {
   totalUsageThisMonth: number;
 }
 
-async function sendDailyDigest(stats: DailyStats, issueCount: number) {
+async function sendDailyDigest(stats: DailyStats, issues: IntegrityIssue[]) {
   const webhookUrl = process.env.SLACK_WEBHOOK_URL;
   if (!webhookUrl) return;
 
-  const statusEmoji = issueCount === 0 ? ':white_check_mark:' : ':warning:';
-  const statusText = issueCount === 0 ? 'All systems healthy' : `${issueCount} issues detected`;
+  const actionableIssues = issues.filter(i => i.severity !== 'info');
+  const statusEmoji = actionableIssues.length === 0 ? ':white_check_mark:' : ':warning:';
+  const issueLines = actionableIssues.length === 0
+    ? 'All systems healthy'
+    : actionableIssues.map(i => `• *${i.severity.toUpperCase()}* \`${i.check}\`: ${i.count} affected`).join('\n');
 
   const text = `:chart_with_upwards_trend: *Daily SaaS Report* - ${new Date().toISOString().split('T')[0]}
 
@@ -76,7 +79,7 @@ async function sendDailyDigest(stats: DailyStats, issueCount: number) {
 • Usage this month: *$${stats.totalUsageThisMonth.toFixed(2)}*
 
 *Health* ${statusEmoji}
-${statusText}`;
+${issueLines}`;
 
   await fetch(webhookUrl, {
     method: 'POST',
@@ -392,9 +395,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     totalUsageThisMonth
   };
 
-  // Always send daily digest (exclude info-level from issue count)
-  const actionableIssues = issues.filter(i => i.severity !== 'info').length;
-  await sendDailyDigest(stats, actionableIssues);
+  // Always send daily digest
+  await sendDailyDigest(stats, issues);
 
   const summary = {
     timestamp: new Date().toISOString(),
