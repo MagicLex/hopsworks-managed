@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { assignUserToCluster } from '@/lib/cluster-assignment';
 import { getPostHogClient } from '@/lib/posthog-server';
 import { handleApiError } from '@/lib/error-handler';
+import { sendUserRegistered, sendUserActivated } from '@/lib/marketing-webhooks';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -109,6 +110,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (upsertError) {
       console.error('Failed to upsert user:', upsertError);
       return res.status(500).json({ error: 'Failed to join team' });
+    }
+
+    // Fire marketing webhooks for team member join
+    try {
+      // Fetch owner's email and billing_mode for webhook context
+      const { data: ownerData } = await supabase
+        .from('users')
+        .select('email, billing_mode')
+        .eq('id', invite.account_owner_id)
+        .single();
+
+      const accountOwnerEmail = ownerData?.email || null;
+      const ownerBillingMode = ownerData?.billing_mode || 'free';
+
+      await sendUserRegistered({
+        userId,
+        email: userEmail,
+        name: session.user.name || null,
+        source: 'team_invite',
+        ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || null,
+        accountType: 'team_member',
+        accountOwnerEmail
+      });
+
+      await sendUserActivated({
+        userId,
+        email: userEmail,
+        plan: ownerBillingMode,
+        marketingConsent: marketingConsent || false,
+        accountType: 'team_member',
+        accountOwnerEmail
+      });
+    } catch (webhookError) {
+      console.error('Failed to send team join webhooks:', webhookError);
+      // Don't fail the join operation for webhook errors
     }
 
     // Assign team member to cluster (same as account owner)

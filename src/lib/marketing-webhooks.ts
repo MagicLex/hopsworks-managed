@@ -28,6 +28,8 @@ interface UserRegisteredPayload {
   name: string | null;
   source: string;
   ip: string | null;
+  accountType: 'owner' | 'team_member';
+  accountOwnerEmail: string | null;
   timestamp: string;
 }
 
@@ -36,6 +38,8 @@ interface UserActivatedPayload {
   email: string;
   plan: string;
   marketingConsent: boolean;
+  accountType: 'owner' | 'team_member';
+  accountOwnerEmail: string | null;
   timestamp: string;
 }
 
@@ -45,6 +49,8 @@ interface PlanUpdatedPayload {
   oldPlan: string | null;
   newPlan: string;
   trigger: string;
+  accountType: 'owner' | 'team_member';
+  accountOwnerEmail: string | null;
   timestamp: string;
 }
 
@@ -53,6 +59,8 @@ interface MarketingUpdatedPayload {
   email: string;
   oldConsent: boolean | null;
   newConsent: boolean;
+  accountType: 'owner' | 'team_member';
+  accountOwnerEmail: string | null;
   timestamp: string;
 }
 
@@ -94,6 +102,8 @@ export async function sendUserRegistered(params: {
   name: string | null;
   source: string;
   ip: string | null;
+  accountType?: 'owner' | 'team_member';
+  accountOwnerEmail?: string | null;
 }): Promise<void> {
   const payload: UserRegisteredPayload = {
     userId: params.userId,
@@ -101,6 +111,8 @@ export async function sendUserRegistered(params: {
     name: params.name,
     source: params.source,
     ip: params.ip,
+    accountType: params.accountType || 'owner',
+    accountOwnerEmail: params.accountOwnerEmail || null,
     timestamp: new Date().toISOString()
   };
   await sendWebhook('registered', payload, params.email);
@@ -111,12 +123,16 @@ export async function sendUserActivated(params: {
   email: string;
   plan: string;
   marketingConsent: boolean;
+  accountType?: 'owner' | 'team_member';
+  accountOwnerEmail?: string | null;
 }): Promise<void> {
   const payload: UserActivatedPayload = {
     userId: params.userId,
     email: params.email,
     plan: params.plan,
     marketingConsent: params.marketingConsent,
+    accountType: params.accountType || 'owner',
+    accountOwnerEmail: params.accountOwnerEmail || null,
     timestamp: new Date().toISOString()
   };
   await sendWebhook('activated', payload, params.email);
@@ -128,6 +144,8 @@ export async function sendPlanUpdated(params: {
   oldPlan: string | null;
   newPlan: string;
   trigger: string;
+  accountType?: 'owner' | 'team_member';
+  accountOwnerEmail?: string | null;
 }): Promise<void> {
   const payload: PlanUpdatedPayload = {
     userId: params.userId,
@@ -135,6 +153,8 @@ export async function sendPlanUpdated(params: {
     oldPlan: params.oldPlan,
     newPlan: params.newPlan,
     trigger: params.trigger,
+    accountType: params.accountType || 'owner',
+    accountOwnerEmail: params.accountOwnerEmail || null,
     timestamp: new Date().toISOString()
   };
   await sendWebhook('plan_updated', payload, params.email);
@@ -145,12 +165,16 @@ export async function sendMarketingUpdated(params: {
   email: string;
   oldConsent: boolean | null;
   newConsent: boolean;
+  accountType?: 'owner' | 'team_member';
+  accountOwnerEmail?: string | null;
 }): Promise<void> {
   const payload: MarketingUpdatedPayload = {
     userId: params.userId,
     email: params.email,
     oldConsent: params.oldConsent,
     newConsent: params.newConsent,
+    accountType: params.accountType || 'owner',
+    accountOwnerEmail: params.accountOwnerEmail || null,
     timestamp: new Date().toISOString()
   };
   await sendWebhook('marketing_updated', payload, params.email);
