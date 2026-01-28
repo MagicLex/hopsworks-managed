@@ -46,6 +46,19 @@ async function logHealthCheckFailure(
   }
 }
 
+async function resolveHealthCheckFailures(userId: string, checkTypes: string[]) {
+  try {
+    await supabaseAdmin
+      .from('health_check_failures')
+      .update({ resolved_at: new Date().toISOString(), resolution_notes: 'auto-resolved on successful sync' })
+      .eq('user_id', userId)
+      .in('check_type', checkTypes)
+      .is('resolved_at', null);
+  } catch (err) {
+    console.error('Failed to resolve health check failures:', err);
+  }
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -721,11 +734,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // NOTE: Main Hopsworks sync is handled above in Health Check 3.
       // This secondary block is now redundant and has been removed to avoid duplication.
       
+      // Auto-resolve stale health check failures for checks that now pass
+      const resolvedTypes: string[] = [];
+      if (healthCheckResults.billingEnabled) {
+        resolvedTypes.push('stripe_customer_creation', 'missing_subscription', 'subscription_check');
+      }
+      if (healthCheckResults.clusterAssigned) {
+        resolvedTypes.push('cluster_assignment');
+      }
+      if (healthCheckResults.hopsworksUserExists) {
+        resolvedTypes.push('hopsworks_user_creation', 'hopsworks_user_creation_owner', 'hopsworks_user_creation_team');
+      }
+      if (healthCheckResults.maxNumProjectsCorrect) {
+        resolvedTypes.push('maxnumprojects_update', 'setup_payment_maxnumprojects', 'lazy_upgrade_maxnumprojects');
+      }
+      if (resolvedTypes.length > 0) {
+        await resolveHealthCheckFailures(userId, resolvedTypes);
+      }
+
       // Log health check summary
       const failedChecks = Object.entries(healthCheckResults)
         .filter(([_, passed]) => !passed)
         .map(([check]) => check);
-      
+
       if (failedChecks.length > 0) {
         console.log(`[Health Check] User ${email} failed checks: ${failedChecks.join(', ')}`);
       } else {
