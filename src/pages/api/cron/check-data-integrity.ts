@@ -31,7 +31,7 @@ async function sendSlackAlert(issues: IntegrityIssue[]) {
 
   const text = `:warning: *Data Integrity Alert*\n${criticalCount} critical, ${highCount} high severity issues found\n\n${issueList}`;
 
-  fetch(webhookUrl, {
+  await fetch(webhookUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text })
@@ -78,7 +78,7 @@ async function sendDailyDigest(stats: DailyStats, issueCount: number) {
 *Health* ${statusEmoji}
 ${statusText}`;
 
-  fetch(webhookUrl, {
+  await fetch(webhookUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text })
@@ -94,6 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const issues: IntegrityIssue[] = [];
 
+  try {
   // CHECK 1: hopsworks_user_id desync between users and assignments
   const { data: hwIdDesync } = await supabaseAdmin.rpc('check_hopsworks_id_desync');
 
@@ -409,4 +410,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   console.log('[Data Integrity] Check completed:', JSON.stringify(summary, null, 2));
 
   return res.status(200).json(summary);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('[Data Integrity] Handler crashed:', errorMsg);
+
+    // Still try to send what we have to Slack so we're never blind
+    const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+    if (webhookUrl) {
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: `:x: *Data Integrity Check CRASHED*\n\`\`\`${errorMsg}\`\`\`\n${issues.length} issues collected before crash.`
+        })
+      }).catch(() => {});
+    }
+
+    return res.status(500).json({ error: 'Internal error', message: errorMsg });
+  }
 }
