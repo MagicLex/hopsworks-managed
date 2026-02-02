@@ -183,7 +183,8 @@ export class OpenCostDirect {
         '/Projects'
       ];
 
-      const output = await this.execInPod('hopsworks', namenodePod.metadata.name, command);
+      // HDFS du command can take 70-90 seconds on clusters with many projects
+      const output = await this.execInPod('hopsworks', namenodePod.metadata.name, command, 120000);
 
       // Parse output: each line is "bytes  bytes_with_replication  /Projects/projectname"
       const lines = output.split('\n').filter(line => line.trim() && !line.includes('WARNING') && !line.includes('SLF4J'));

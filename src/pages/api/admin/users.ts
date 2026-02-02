@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { requireAdmin } from '../../../middleware/adminAuth';
 import { createClient } from '@supabase/supabase-js';
 import { assignUserToCluster } from '../../../lib/cluster-assignment';
+import { calculateCreditsUsed, calculateDollarAmount, DEFAULT_RATES } from '../../../config/billing-rates';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -72,12 +73,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           // Build project details with usage from OpenCost
           user.projects = projects.map(project => {
             const projectData = todayData?.project_breakdown?.[project.namespace] || {};
-            // Calculate cost from usage
-            const cpuCost = (projectData.cpuHours || 0) * 0.125;
-            const gpuCost = (projectData.gpuHours || 0) * 2.50;
-            const ramCost = (projectData.ramGBHours || 0) * 0.0125;
-            const totalCost = cpuCost + gpuCost + ramCost;
-            
+            // Calculate cost using actual billing rates
+            const credits = calculateCreditsUsed({
+              cpuHours: projectData.cpuHours || 0,
+              gpuHours: projectData.gpuHours || 0,
+              ramGbHours: projectData.ramGBHours || 0,
+              onlineStorageGb: projectData.onlineStorageGB || 0,
+              offlineStorageGb: projectData.offlineStorageGB || 0
+            });
+            const totalCost = calculateDollarAmount(credits);
+
             return {
               namespace: project.namespace,
               name: project.project_name,
@@ -87,7 +92,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               total_cost: totalCost,
               cpu_hours: projectData.cpuHours || 0,
               gpu_hours: projectData.gpuHours || 0,
-              ram_gb_hours: projectData.ramGBHours || 0
+              ram_gb_hours: projectData.ramGBHours || 0,
+              online_storage_gb: projectData.onlineStorageGB || 0,
+              offline_storage_gb: projectData.offlineStorageGB || 0
             };
           });
           
