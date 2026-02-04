@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { createHopsworksOAuthUser, getHopsworksUserByEmail, getHopsworksUserById, updateUserProjectLimit } from './hopsworks-api';
+import { sendClusterAssigned } from './marketing-webhooks';
 
 // ============================================================================
 // Pure logic functions - testable without DB/API dependencies
@@ -313,10 +314,37 @@ export async function assignUserToCluster(
         }
       }
 
+      // Get cluster name for webhook
+      const { data: clusterInfo } = await supabaseAdmin
+        .from('hopsworks_clusters')
+        .select('name')
+        .eq('id', ownerAssignment.hopsworks_cluster_id)
+        .single();
+
+      // Get account owner email
+      const { data: owner } = await supabaseAdmin
+        .from('users')
+        .select('email')
+        .eq('id', user.account_owner_id)
+        .single();
+
+      // Fire marketing webhook (fire-and-forget)
+      if (hopsworksUsername && clusterInfo?.name) {
+        sendClusterAssigned({
+          userId,
+          email: user.email,
+          name: user.name || null,
+          hopsworksUsername,
+          cluster: clusterInfo.name,
+          accountType: 'team_member',
+          accountOwnerEmail: owner?.email || null
+        }).catch(err => console.error('[Cluster Assignment] Webhook error:', err));
+      }
+
       console.log(`Successfully assigned team member ${userId} to same cluster as account owner`);
-      return { 
-        success: true, 
-        clusterId: ownerAssignment.hopsworks_cluster_id 
+      return {
+        success: true,
+        clusterId: ownerAssignment.hopsworks_cluster_id
       };
     }
 
@@ -508,17 +536,30 @@ export async function assignUserToCluster(
       }
     }
 
+    // Fire marketing webhook (fire-and-forget)
+    if (hopsworksUsername) {
+      sendClusterAssigned({
+        userId,
+        email: user.email,
+        name: user.name || null,
+        hopsworksUsername,
+        cluster: availableCluster.name,
+        accountType: 'owner',
+        accountOwnerEmail: null
+      }).catch(err => console.error('[Cluster Assignment] Webhook error:', err));
+    }
+
     console.log(`Successfully assigned user ${userId} to cluster ${availableCluster.name} (${isManualAssignment ? 'manual' : 'automatic'})`);
 
-    return { 
-      success: true, 
-      clusterId: availableCluster.id 
+    return {
+      success: true,
+      clusterId: availableCluster.id
     };
   } catch (error) {
     console.error('Error assigning user to cluster:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to assign cluster' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to assign cluster'
     };
   }
 }

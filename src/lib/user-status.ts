@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { updateHopsworksUserStatus } from './hopsworks-api';
+import { sendUserSuspended, sendUserDeleted, sendUserReactivated } from './marketing-webhooks';
 
 /**
  * Centralized user status management
@@ -79,14 +80,44 @@ export async function suspendUser(
   };
 
   try {
-    // Get user info including account_owner_id to check if they're an owner
+    // Get full user info for webhook payload
     const { data: user } = await supabase
       .from('users')
-      .select('email, account_owner_id')
+      .select(`
+        email,
+        name,
+        account_owner_id,
+        billing_mode,
+        hopsworks_username
+      `)
       .eq('id', userId)
       .single();
 
     const userEmail = user?.email || userId;
+
+    // Get cluster info if assigned
+    const { data: assignment } = await supabase
+      .from('user_hopsworks_assignments')
+      .select(`
+        hopsworks_username,
+        hopsworks_clusters ( name )
+      `)
+      .eq('user_id', userId)
+      .single();
+
+    const clusterName = (assignment?.hopsworks_clusters as any)?.name || null;
+    const hwUsername = assignment?.hopsworks_username || user?.hopsworks_username || null;
+
+    // Get account owner email if this is a team member
+    let accountOwnerEmail: string | null = null;
+    if (user?.account_owner_id) {
+      const { data: owner } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', user.account_owner_id)
+        .single();
+      accountOwnerEmail = owner?.email || null;
+    }
 
     // Update Supabase status
     const { error: supabaseError } = await supabase
@@ -141,6 +172,19 @@ export async function suspendUser(
       }
     }
 
+    // Fire marketing webhook (fire-and-forget)
+    sendUserSuspended({
+      userId,
+      email: userEmail,
+      name: user?.name || null,
+      reason: reason || 'unknown',
+      accountType: user?.account_owner_id ? 'team_member' : 'owner',
+      accountOwnerEmail,
+      hopsworksUsername: hwUsername,
+      cluster: clusterName,
+      plan: user?.billing_mode || null
+    }).catch(err => console.error('[suspendUser] Webhook error:', err));
+
     result.success = true;
     return result;
   } catch (error) {
@@ -168,14 +212,44 @@ export async function reactivateUser(
   };
 
   try {
-    // Get user info including account_owner_id to check if they're an owner
+    // Get full user info for webhook payload
     const { data: user } = await supabase
       .from('users')
-      .select('email, account_owner_id')
+      .select(`
+        email,
+        name,
+        account_owner_id,
+        billing_mode,
+        hopsworks_username
+      `)
       .eq('id', userId)
       .single();
 
     const userEmail = user?.email || userId;
+
+    // Get cluster info if assigned
+    const { data: assignment } = await supabase
+      .from('user_hopsworks_assignments')
+      .select(`
+        hopsworks_username,
+        hopsworks_clusters ( name )
+      `)
+      .eq('user_id', userId)
+      .single();
+
+    const clusterName = (assignment?.hopsworks_clusters as any)?.name || null;
+    const hwUsername = assignment?.hopsworks_username || user?.hopsworks_username || null;
+
+    // Get account owner email if this is a team member
+    let accountOwnerEmail: string | null = null;
+    if (user?.account_owner_id) {
+      const { data: owner } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', user.account_owner_id)
+        .single();
+      accountOwnerEmail = owner?.email || null;
+    }
 
     // Update Supabase status and clear any lingering downgrade deadline
     const { error: supabaseError } = await supabase
@@ -233,6 +307,19 @@ export async function reactivateUser(
       }
     }
 
+    // Fire marketing webhook (fire-and-forget)
+    sendUserReactivated({
+      userId,
+      email: userEmail,
+      name: user?.name || null,
+      reason: reason || 'unknown',
+      accountType: user?.account_owner_id ? 'team_member' : 'owner',
+      accountOwnerEmail,
+      hopsworksUsername: hwUsername,
+      cluster: clusterName,
+      plan: user?.billing_mode || null
+    }).catch(err => console.error('[reactivateUser] Webhook error:', err));
+
     result.success = true;
     return result;
   } catch (error) {
@@ -259,14 +346,44 @@ export async function deactivateUser(
   };
 
   try {
-    // Get user email for logging
+    // Get full user info for webhook payload
     const { data: user } = await supabase
       .from('users')
-      .select('email')
+      .select(`
+        email,
+        name,
+        account_owner_id,
+        billing_mode,
+        hopsworks_username
+      `)
       .eq('id', userId)
       .single();
 
     const userEmail = user?.email || userId;
+
+    // Get cluster info if assigned
+    const { data: assignment } = await supabase
+      .from('user_hopsworks_assignments')
+      .select(`
+        hopsworks_username,
+        hopsworks_clusters ( name )
+      `)
+      .eq('user_id', userId)
+      .single();
+
+    const clusterName = (assignment?.hopsworks_clusters as any)?.name || null;
+    const hwUsername = assignment?.hopsworks_username || user?.hopsworks_username || null;
+
+    // Get account owner email if this is a team member
+    let accountOwnerEmail: string | null = null;
+    if (user?.account_owner_id) {
+      const { data: owner } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', user.account_owner_id)
+        .single();
+      accountOwnerEmail = owner?.email || null;
+    }
 
     // Update Supabase status
     const { error: supabaseError } = await supabase
@@ -305,6 +422,19 @@ export async function deactivateUser(
       // Log but don't fail the whole operation
       console.error(`[deactivateUser] Failed to deactivate Hopsworks user for ${userEmail}:`, error);
     }
+
+    // Fire marketing webhook (fire-and-forget)
+    sendUserDeleted({
+      userId,
+      email: userEmail,
+      name: user?.name || null,
+      reason: reason || 'user_requested',
+      accountType: user?.account_owner_id ? 'team_member' : 'owner',
+      accountOwnerEmail,
+      hopsworksUsername: hwUsername,
+      cluster: clusterName,
+      plan: user?.billing_mode || null
+    }).catch(err => console.error('[deactivateUser] Webhook error:', err));
 
     result.success = true;
     return result;
