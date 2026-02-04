@@ -91,9 +91,9 @@ export async function suspendUser(
         hopsworks_username
       `)
       .eq('id', userId)
-      .single();
+      .single() as { data: { email: string; name: string | null; account_owner_id: string | null; billing_mode: string | null; hopsworks_username: string | null } | null };
 
-    const userEmail = user?.email || userId;
+    const userEmail: string = user?.email || userId;
 
     // Get cluster info if assigned
     const { data: assignment } = await supabase
@@ -223,9 +223,9 @@ export async function reactivateUser(
         hopsworks_username
       `)
       .eq('id', userId)
-      .single();
+      .single() as { data: { email: string; name: string | null; account_owner_id: string | null; billing_mode: string | null; hopsworks_username: string | null } | null };
 
-    const userEmail = user?.email || userId;
+    const userEmail: string = user?.email || userId;
 
     // Get cluster info if assigned
     const { data: assignment } = await supabase
@@ -357,9 +357,9 @@ export async function deactivateUser(
         hopsworks_username
       `)
       .eq('id', userId)
-      .single();
+      .single() as { data: { email: string; name: string | null; account_owner_id: string | null; billing_mode: string | null; hopsworks_username: string | null } | null };
 
-    const userEmail = user?.email || userId;
+    const userEmail: string = user?.email || userId;
 
     // Get cluster info if assigned
     const { data: assignment } = await supabase
