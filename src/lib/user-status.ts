@@ -115,7 +115,7 @@ export async function suspendUser(
         .from('users')
         .select('email')
         .eq('id', user.account_owner_id)
-        .single();
+        .single() as { data: { email: string } | null };
       accountOwnerEmail = owner?.email || null;
     }
 
@@ -247,7 +247,7 @@ export async function reactivateUser(
         .from('users')
         .select('email')
         .eq('id', user.account_owner_id)
-        .single();
+        .single() as { data: { email: string } | null };
       accountOwnerEmail = owner?.email || null;
     }
 
@@ -381,7 +381,7 @@ export async function deactivateUser(
         .from('users')
         .select('email')
         .eq('id', user.account_owner_id)
-        .single();
+        .single() as { data: { email: string } | null };
       accountOwnerEmail = owner?.email || null;
     }
 
