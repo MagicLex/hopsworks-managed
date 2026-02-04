@@ -103,10 +103,10 @@ export async function suspendUser(
         hopsworks_clusters ( name )
       `)
       .eq('user_id', userId)
-      .single();
+      .single() as { data: { hopsworks_username: string | null; hopsworks_clusters: { name: string } | null } | null };
 
-    const clusterName = (assignment?.hopsworks_clusters as any)?.name || null;
-    const hwUsername = assignment?.hopsworks_username || user?.hopsworks_username || null;
+    const clusterName: string | null = assignment?.hopsworks_clusters?.name || null;
+    const hwUsername: string | null = assignment?.hopsworks_username || user?.hopsworks_username || null;
 
     // Get account owner email if this is a team member
     let accountOwnerEmail: string | null = null;
@@ -235,10 +235,10 @@ export async function reactivateUser(
         hopsworks_clusters ( name )
       `)
       .eq('user_id', userId)
-      .single();
+      .single() as { data: { hopsworks_username: string | null; hopsworks_clusters: { name: string } | null } | null };
 
-    const clusterName = (assignment?.hopsworks_clusters as any)?.name || null;
-    const hwUsername = assignment?.hopsworks_username || user?.hopsworks_username || null;
+    const clusterName: string | null = assignment?.hopsworks_clusters?.name || null;
+    const hwUsername: string | null = assignment?.hopsworks_username || user?.hopsworks_username || null;
 
     // Get account owner email if this is a team member
     let accountOwnerEmail: string | null = null;
@@ -369,10 +369,10 @@ export async function deactivateUser(
         hopsworks_clusters ( name )
       `)
       .eq('user_id', userId)
-      .single();
+      .single() as { data: { hopsworks_username: string | null; hopsworks_clusters: { name: string } | null } | null };
 
-    const clusterName = (assignment?.hopsworks_clusters as any)?.name || null;
-    const hwUsername = assignment?.hopsworks_username || user?.hopsworks_username || null;
+    const clusterName: string | null = assignment?.hopsworks_clusters?.name || null;
+    const hwUsername: string | null = assignment?.hopsworks_username || user?.hopsworks_username || null;
 
     // Get account owner email if this is a team member
     let accountOwnerEmail: string | null = null;
