@@ -150,18 +150,31 @@ CREATE TABLE usage_daily (
       "cpuHours": 2.75,
       "gpuHours": 0,
       "ramGBHours": 0.72,
+      "onlineStorageGB": 0.0006,
+      "offlineStorageGB": 0.56,
       "cpuEfficiency": 0.78,
       "ramEfficiency": 0.71,
-      "lastUpdated": "2025-02-07T03:10:02Z"
+      "lastUpdated": "2025-02-07T03:10:02Z",
+      "lastContribution": {
+        "cpuHours": 0.12,
+        "gpuHours": 0,
+        "ramGBHours": 0.03,
+        "onlineStorageGB": 0.0006,
+        "offlineStorageGB": 0.56,
+        "hourlyCost": 0.0234,
+        "processedAt": "2025-02-07T03:10:02Z"
+      }
     }
   }
   ```
+  Storage-only entries (Pass 2) have `cpuHours`, `gpuHours`, `ramGBHours` all at 0.
 
 ### Business Rules
 - One record per user per day
 - Costs accumulate throughout the day (24 hourly updates)
 - All project costs for a user are aggregated into one daily record
 - `total_cost` = sum of all project costs for that user
+- Storage-only entries (from Pass 2) have zero compute hours but contribute storage costs to `total_cost`
 
 ### Usage Examples
 ```sql
@@ -261,14 +274,20 @@ CREATE INDEX idx_stripe_processed_events_processed_at
 5. Updates `last_seen_at` for active projects
 
 ### OpenCost Collection Flow (Hourly)
-1. Cron job triggers `/api/usage/collect-opencost`
+1. Cron job triggers usage collection (via Windmill → opencost-collector service)
 2. Queries OpenCost via Kubernetes API service proxy (HTTPS)
-3. Gets resource usage (CPU/GPU/RAM hours) per namespace for last hour
-4. Skips system namespaces (`hopsworks`, `kube-system`, etc.)
-5. Maps namespaces to users via `user_projects` table
-6. Calculates costs using `billing-rates.ts` (NOT OpenCost's costs)
-7. Accumulates hourly usage/costs into `usage_daily` records (ADD not UPDATE)
-8. Updates `project_breakdown` JSONB with per-project details
+3. Collects storage batch queries (HDFS + NDB) for all projects
+4. **Pass 1 — Compute + Storage:** For namespaces with active pods:
+   - Gets resource usage (CPU/GPU/RAM hours) per namespace for last hour
+   - Skips system namespaces (`hopsworks`, `kube-system`, etc.)
+   - Maps namespaces to users via `user_projects` table
+   - Calculates costs using `billing-rates.ts` (NOT OpenCost's costs)
+   - Accumulates hourly usage/costs into `usage_daily` records
+5. **Pass 2 — Storage-only:** For projects with HDFS/NDB data but no active pods:
+   - Resolves project name to user via `user_projects` or Hopsworks API
+   - Bills storage at prorated hourly rate (compute = 0)
+   - Creates/updates `usage_daily` records with storage costs only
+6. Updates `project_breakdown` JSONB with per-project details
 
 ### Prepaid Flow
 1. User purchases credits via Stripe

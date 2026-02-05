@@ -382,7 +382,11 @@ Storage tracking is **fully implemented** using batch queries:
 **Batch Query Approach:**
 - Single HDFS query for all projects: `hdfs dfs -du /Projects`
 - Single NDB query for all projects via `ndbinfo.table_memory_usage`
-- Runs hourly alongside OpenCost collection
+- Runs hourly as part of the OpenCost collection job
+- **Two-pass collection**: Pass 1 bills compute + storage for namespaces with
+  active pods. Pass 2 bills storage-only for projects that have HDFS/NDB data
+  but no running workloads that hour. This ensures storage is billed every
+  hour (prorated at `storageGB / 720 * rate`) regardless of compute activity.
 - ~3-5 seconds total overhead per run
 - Scales to ~500-1000 projects before timeout concerns
 
@@ -426,7 +430,8 @@ Filtering:
 
 ### Cost Calculation
 
-Storage costs are **pro-rated hourly** from monthly rates:
+Storage costs are **pro-rated hourly** from monthly rates, billed **every hour**
+(not only when compute is active):
 
 ```typescript
 const HOURS_PER_MONTH = 30 * 24; // 720 hours
@@ -436,6 +441,13 @@ const hourlyCost = calculateCreditsUsed({
   offlineStorageGb: offlineGB / HOURS_PER_MONTH
 });
 ```
+
+The collector runs two passes per cluster:
+1. **Pass 1 (Compute + Storage):** Namespaces reported by OpenCost (active pods) —
+   bills CPU/GPU/RAM hours and storage together.
+2. **Pass 2 (Storage-only):** Projects found in HDFS/NDB batch queries that were
+   not in Pass 1 — bills storage with zero compute. This covers projects where
+   data persists but the user's workloads are idle.
 
 **Example (testme project):**
 - Offline: 574 MB (0.56 GB) → $0.0168/month → $0.000023/hour
