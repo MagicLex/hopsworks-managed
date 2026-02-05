@@ -274,7 +274,7 @@ CREATE INDEX idx_stripe_processed_events_processed_at
 5. Updates `last_seen_at` for active projects
 
 ### OpenCost Collection Flow (Hourly)
-1. Cron job triggers usage collection (via Windmill → opencost-collector service)
+1. Vercel cron triggers `/api/usage/collect-opencost`
 2. Queries OpenCost via Kubernetes API service proxy (HTTPS)
 3. Collects storage batch queries (HDFS + NDB) for all projects
 4. **Pass 1 — Compute + Storage:** For namespaces with active pods:
