@@ -10,7 +10,7 @@ import Navbar from '@/components/Navbar';
 
 export default function BillingSetup() {
   const { user, loading: authLoading, synced } = useAuth();
-  const { billing, loading: billingLoading, refetch: refetchBilling } = useBilling();
+  const { billing, loading: billingLoading, error: billingError, refetch: refetchBilling } = useBilling();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -46,8 +46,9 @@ export default function BillingSetup() {
     }
   }, [authLoading, synced, billingLoading, user, billing, router]);
 
-  // Derived state
-  const isReady = synced && !billingLoading && user && !billing?.isTeamMember;
+  // Derived state - IMPORTANT: require billing to be loaded (not null) before showing interactive UI
+  // If billing API fails, we should show loading/error state, not a broken interactive form
+  const isReady = synced && !billingLoading && user && billing && !billing.isTeamMember;
   const needsTermsAcceptance = !billing?.termsAcceptedAt;
   // Only show simplified "just accept terms" view for prepaid or users with payment method
   // Free users should see the full view with both "Add Payment" and "Start for Free" options
@@ -66,8 +67,9 @@ export default function BillingSetup() {
         });
 
         if (!consentResponse.ok) {
-          console.error('Failed to save consent');
-          setError('Failed to save your preferences. Please try again.');
+          const errorData = await consentResponse.json().catch(() => ({}));
+          console.error('Failed to save consent:', errorData);
+          setError(errorData.error || 'Failed to save preferences. Please try again.');
           setLoading(false);
           return;
         }
@@ -93,6 +95,7 @@ export default function BillingSetup() {
       }
     } catch (error) {
       console.error('Error setting up payment:', error);
+      setError('Failed to set up payment. Please try again.');
       setLoading(false);
     }
   };
@@ -111,14 +114,15 @@ export default function BillingSetup() {
         });
 
         if (!response.ok) {
-          console.error('Failed to save consent');
-          setError('Failed to save your preferences. Please try again.');
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Failed to save consent:', errorData);
+          setError(errorData.error || 'Failed to save preferences. Please try again.');
           setSavingConsent(false);
           return;
         }
       } catch (consentErr) {
         console.error('Error saving consent:', consentErr);
-        setError('Failed to save your preferences. Please try again.');
+        setError('Network error. Please check your connection and try again.');
         setSavingConsent(false);
         return;
       }
@@ -132,17 +136,30 @@ export default function BillingSetup() {
       });
 
       if (!response.ok) {
-        const data = await response.json();
+        const data = await response.json().catch(() => ({ error: 'Server error' }));
         console.error('Failed to start free:', data.error);
-        // Don't block - user might already be free, just continue
+        // Block on 400 errors (business logic) - these indicate the action cannot be completed
+        // 400 = client error (e.g., prepaid user trying to switch, already free, etc.)
+        if (response.status === 400) {
+          setError(data.error || 'Cannot switch to free tier. Please contact support.');
+          setSavingConsent(false);
+          return;
+        }
+        // 500+ errors: server issue, still try to redirect (user state might be ok)
+        // If redirect fails, dashboard will handle it
       }
     } catch (err) {
       console.error('Error calling start-free:', err);
-      // Don't block navigation
+      // Network errors shouldn't block if terms were accepted - user can be redirected
     }
 
     // Refetch billing to update context before redirect
-    await refetchBilling();
+    try {
+      await refetchBilling();
+    } catch (err) {
+      console.error('Failed to refetch billing, continuing to dashboard:', err);
+      // Don't block - dashboard will sync billing context on load
+    }
     setSavingConsent(false);
 
     sessionStorage.removeItem('payment_required');
@@ -150,6 +167,9 @@ export default function BillingSetup() {
   };
 
   if (!isReady) {
+    // Show error state if billing failed to load (not just loading)
+    const showError = !billingLoading && billingError;
+
     return (
       <>
         <Head>
@@ -159,7 +179,18 @@ export default function BillingSetup() {
           <Navbar />
           <Box className="container mx-auto px-4 py-12 max-w-2xl">
             <Card className="p-8">
-              <Text>Loading...</Text>
+              {showError ? (
+                <Box className="text-center">
+                  <AlertTriangle size={32} className="text-red-500 mx-auto mb-4" />
+                  <Text className="font-semibold text-red-800 mb-2">Failed to load billing information</Text>
+                  <Text className="text-sm text-gray-600 mb-4">{billingError || 'Please try again or contact support.'}</Text>
+                  <Button onClick={() => refetchBilling()} variant="outline" disabled={billingLoading}>
+                    {billingLoading ? 'Retrying...' : 'Try Again'}
+                  </Button>
+                </Box>
+              ) : (
+                <Text>Loading...</Text>
+              )}
             </Card>
           </Box>
         </Box>
