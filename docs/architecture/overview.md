@@ -64,7 +64,7 @@ This prevents race conditions where pages redirect before the user exists in DB.
 6. Team member usage aggregated to owner's account for billing
 
 ### Cost Collection (Hourly via OpenCost)
-1. Cron job runs every hour on Vercel
+1. Windmill schedule runs hourly via Docker sidecar (Vercel cron fallback still active)
 2. For **each active cluster** (multi-cluster support):
    - Uses `kubectl exec` to query OpenCost API inside cluster
    - Gets costs per namespace for the last hour

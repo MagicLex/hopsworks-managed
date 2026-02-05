@@ -394,7 +394,7 @@ Storage tracking is **fully implemented** using batch queries:
 - Implementation: `src/lib/opencost-direct.ts`
   - `getOfflineStorageBatch()` - HDFS batch query
   - `getOnlineStorageBatch(mysqlPassword)` - NDB batch query
-- Integration: `src/pages/api/usage/collect-opencost.ts`
+- Integration: Windmill `f/opencost/collect_usage` → Docker sidecar (primary), `src/pages/api/usage/collect-opencost.ts` (Vercel fallback)
 - Storage costs included in `total_cost` calculation
 
 ### Data Collection

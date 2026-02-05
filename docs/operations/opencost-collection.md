@@ -2,11 +2,13 @@
 
 ## Overview
 
-The OpenCost collection cron job runs **every hour** to gather compute and storage metrics from all active Hopsworks clusters. It maps Kubernetes namespaces to users, calculates costs, and stores the data for billing.
+The OpenCost collection job runs **every hour** to gather compute and storage metrics from all active Hopsworks clusters. It maps Kubernetes namespaces to users, calculates costs, and stores the data for billing.
 
-**Location**: `/api/usage/collect-opencost`
+**Primary**: Windmill schedule → `f/opencost/collect_usage` → Docker sidecar (`http://172.18.0.1:8787/collect`)
+**Fallback**: Vercel cron `/api/usage/collect-opencost` (still active during migration)
 **Schedule**: `0 * * * *` (hourly, on the hour)
-**Authentication**: `Bearer ${CRON_SECRET}`
+
+The Windmill path was introduced because collection runs take ~110-160s, which exceeds Vercel's serverless timeout on larger clusters.
 
 ## Architecture
 
@@ -15,7 +17,7 @@ The OpenCost collection cron job runs **every hour** to gather compute and stora
 The job processes **all active clusters** in parallel:
 
 ```
-Vercel Cron (hourly)
+Windmill (hourly) → Docker sidecar on VM
   ↓
 Get all active clusters from DB
   ↓
