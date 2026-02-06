@@ -38,6 +38,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    // Force re-sync after payment setup (user returns from Stripe checkout)
+    if (router.query.payment === 'success') {
+      sessionStorage.removeItem('user_synced_session');
+      const { payment, ...rest } = router.query;
+      router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
+    }
+
     // Check if we've already synced this session
     const syncedThisSession = sessionStorage.getItem('user_synced_session');
     if (syncedThisSession === user.sub) {
@@ -92,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Still mark as synced so the app doesn't hang - pages will handle errors
         setSynced(true);
       });
-  }, [user, isLoading]);
+  }, [user, isLoading, router.query.payment]);
 
   const signIn = (corporateRef?: string, promoCode?: string, mode: 'login' | 'signup' = 'login') => {
     if (corporateRef) {
