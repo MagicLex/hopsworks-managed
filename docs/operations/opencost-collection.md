@@ -278,11 +278,48 @@ kubectl exec -n opencost opencost-xxx -- \
 
 ## Monitoring
 
-### Vercel Dashboard
+### Windmill (Primary)
 
-1. Go to Vercel project → Cron Jobs tab
-2. Check execution history
-3. Look for failures or long runtimes (>5min is suspicious)
+The collection runs via Windmill on `https://auto.hops.io` (workspace: `hopsworks`).
+
+**Viewer access**: `WINDMILL_VIEWER_EMAIL` / `WINDMILL_VIEWER_PASSWORD` in `.env.local`
+
+**Check recent runs**:
+```bash
+# Authenticate (token is ephemeral, ~15 min)
+TOKEN=$(curl -s -X POST https://auto.hops.io/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"'$WINDMILL_VIEWER_EMAIL'","password":"'$WINDMILL_VIEWER_PASSWORD'"}')
+
+# Or use the persistent token directly
+TOKEN=$WINDMILL_VIEWER_TOKEN
+
+# Last 10 completed runs
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://auto.hops.io/api/w/hopsworks/jobs/completed/list?per_page=10&order_desc=true&script_path_start=f/opencost" \
+  | jq '.[] | {created_at, success, duration_ms}'
+
+# Check if a job is stuck in queue
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://auto.hops.io/api/w/hopsworks/jobs/queue/list?per_page=5&order_desc=true&script_path_start=f/opencost" \
+  | jq '.[] | {created_at, running, scheduled_for}'
+
+# Get full result + logs for a specific run
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://auto.hops.io/api/w/hopsworks/jobs_u/completed/get/<JOB_ID>" \
+  | jq '{result: .result, logs: .logs}'
+```
+
+**Typical healthy run**: ~2-3 minutes, `success=true`, ~50 namespaces processed.
+
+**What to look for**:
+- `running=false` in queue for >5 min → worker is stuck or down
+- `success=false` → check logs for Docker sidecar connectivity (`http://172.18.0.1:8787/collect`)
+- Duration spike >5 min → cluster or storage query slowdown
+
+### Vercel (Fallback)
+
+Still active during migration. Check Vercel project → Cron Jobs tab.
 
 ### Database Queries
 
@@ -324,7 +361,10 @@ Navigate to `/admin47392`:
 ## Manual Triggering
 
 ```bash
-# Via API (requires CRON_SECRET)
+# Via Windmill (preferred — no timeout)
+# Trigger from Windmill UI: https://auto.hops.io → f/opencost/collect_usage → Run
+
+# Via Vercel API (fallback, 300s timeout)
 curl -X POST https://run.hopsworks.ai/api/usage/collect-opencost \
   -H "Authorization: Bearer $CRON_SECRET"
 
@@ -334,25 +374,20 @@ curl -X POST https://run.hopsworks.ai/api/usage/collect-opencost \
 
 ## Performance Considerations
 
-### Current Performance
+### Current Performance (Windmill + Docker sidecar)
 
-- Single cluster: ~30-60 seconds
+- Single cluster (eu-west, ~50 namespaces): **~2-3 minutes**
 - Storage queries: ~3-5 seconds (batch mode)
 - Per namespace processing: ~100-200ms
+- HDFS `du` command: 70-90 seconds on clusters with many projects
 
 ### Scale Limits
 
-**Tested**: 1 cluster, ~10 namespaces
+**Current**: 1 cluster, ~50 namespaces, ~42 billable users
 **Expected**: 10 clusters, ~500 namespaces total
-**Timeout**: Vercel functions have 10-minute limit (300 seconds)
 
-**Estimated runtime for 10 clusters**:
-- 10 clusters × 60 seconds = ~10 minutes (at edge of timeout)
-
-**If you hit timeouts**:
-1. Process clusters in batches (5 at a time)
-2. Split into multiple cron jobs per region/cluster
-3. Move to queue-based architecture (e.g., Inngest, BullMQ)
+The Docker sidecar has no serverless timeout — it runs until completion.
+Vercel fallback has a 300s limit and will timeout on larger workloads.
 
 ## Namespace Uniqueness
 
@@ -380,9 +415,11 @@ user_projects_namespace_key UNIQUE (namespace)
 
 | Symptom | Likely Cause | Fix |
 |---------|--------------|-----|
-| No data for last hour | Cron job failed | Check Vercel logs |
+| No data for last hour | Windmill job failed or stuck | Check queue (see Monitoring above), then Vercel fallback logs |
+| Job stuck `running=false` in queue | Windmill worker down | Ask admin to check worker health on the VM |
+| `success=false` with 0ms duration | Docker sidecar unreachable | Check `http://172.18.0.1:8787` on the VM |
 | Missing namespaces | Cache stale | Run `/api/cron/sync-projects` |
 | Wrong user billed | Cross-cluster mapping bug | Code verifies cluster now (fixed) |
-| Cluster timeout | Too many namespaces | Batch processing or queue |
 | Storage metrics zero | MySQL password missing or pods not running | Update `hopsworks_clusters.mysql_password`. Storage is now collected even without active pods. |
 | OpenCost connection error | Pod not running | `kubectl get pods -n opencost` |
+| Duration spike >5 min | HDFS du slow or cluster overloaded | Check namenode pod health |
