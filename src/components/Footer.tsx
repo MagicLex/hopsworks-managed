@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Box, Flex, Text } from 'tailwind-quartz';
 import { Slack, Linkedin, Twitter } from 'lucide-react';
+import { StatusIndicator } from './StatusIndicator';
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -90,6 +91,7 @@ const Footer: React.FC = () => {
             >
               Support
             </a>
+            <StatusIndicator />
           </Flex>
         </Flex>
       </Box>
