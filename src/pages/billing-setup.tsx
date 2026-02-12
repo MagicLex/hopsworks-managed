@@ -184,7 +184,7 @@ export default function BillingSetup() {
                   <AlertTriangle size={32} className="text-red-500 mx-auto mb-4" />
                   <Text className="font-semibold text-red-800 mb-2">Failed to load billing information</Text>
                   <Text className="text-sm text-gray-600 mb-4">{billingError || 'Please try again or contact support.'}</Text>
-                  <Button onClick={() => refetchBilling()} variant="outline" disabled={billingLoading}>
+                  <Button onClick={() => refetchBilling()} intent="secondary" disabled={billingLoading}>
                     {billingLoading ? 'Retrying...' : 'Try Again'}
                   </Button>
                 </Box>
