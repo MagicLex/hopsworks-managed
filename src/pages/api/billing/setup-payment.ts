@@ -132,11 +132,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   .single();
 
                 if (cluster) {
-                  await updateUserProjectLimit(
+                  // Only bump UP - quota workaround may have set it higher than 5
+                  const { getHopsworksUserById } = await import('../../../lib/hopsworks-api');
+                  const hwUser = await getHopsworksUserById(
                     { apiUrl: cluster.api_url, apiKey: cluster.api_key },
-                    assignment.hopsworks_user_id,
-                    5
+                    assignment.hopsworks_user_id
                   );
+                  if (hwUser && (hwUser.maxNumProjects ?? 0) < 5) {
+                    await updateUserProjectLimit(
+                      { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+                      assignment.hopsworks_user_id,
+                      5
+                    );
+                  }
                 }
               }
             } catch (e) {

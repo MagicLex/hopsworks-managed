@@ -94,7 +94,49 @@ npm run start
 
 ## Hopsworks Integration
 
-### 1. SSO Configuration
+### 1. Project Quota Counts Created, Not Active (Workaround Active)
+
+**Status**: Workaround active, pending Hopsworks fix
+
+**Issue**: Hopsworks counts **created** projects against `maxNumProjects` quota, not **active** ones. When a user deletes a project, the quota slot is permanently consumed. A free user (limit=1) who creates and deletes a project can never create another one.
+
+**Root cause**: No Hopsworks -> SaaS webhook exists. The bridge only discovers deletions by polling.
+
+**Workaround**: Three changes work together:
+
+1. **`project-sync.ts`** — When the cron detects a project was deleted (marked inactive), it bumps `maxNumProjects` by the number of deleted projects via `updateUserProjectLimit`.
+
+2. **One-way ratchet on `maxNumProjects`** — Every call site that writes `maxNumProjects` now uses a `<` guard instead of `!==`. This means the value can only go UP, never be reset down. This prevents Health Check 5, cluster assignment, Stripe webhooks, and billing APIs from undoing the workaround bump.
+
+   **Files with the ratchet guard** (11 call sites total):
+   - `src/pages/api/auth/sync-user.ts` — Health Check 5
+   - `src/lib/cluster-assignment.ts` — 2 locations
+   - `src/pages/api/webhooks/stripe.ts` — 3 locations (upgrade, sub deleted, payment removed)
+   - `src/pages/api/billing.ts` — 2 locations (upgrade, downgrade)
+   - `src/pages/api/billing/setup-payment.ts` — 1 location
+   - `src/lib/project-sync.ts` — workaround bump (structurally additive)
+   - `src/pages/api/admin/fix-project-quotas.ts` — one-off fix
+
+3. **`hopsworks-info.ts`** — Always fetches projects fresh from Hopsworks instead of using cache, so deleted projects never show in the UI.
+
+**Important for future developers**: If you add a new call to `updateUserProjectLimit`, you **MUST** follow the ratchet pattern:
+```typescript
+const hwUser = await getHopsworksUserById(credentials, userId);
+if (hwUser && (hwUser.maxNumProjects ?? 0) < desiredLimit) {
+  await updateUserProjectLimit(credentials, userId, desiredLimit);
+}
+```
+Never use `!==` — it will reset the workaround and lock users out of creating projects.
+
+**One-off fix for existing users**: `POST /api/admin/fix-project-quotas`
+- Finds all users with inactive (deleted) projects
+- Computes `baseLimit + deletedCount` (idempotent — safe to run multiple times)
+- Supports `{ "dryRun": true }` to preview before applying
+- See [Admin Tools](#fix-project-quotas) below
+
+**TODO**: Remove workaround when Hopsworks counts active projects instead of created.
+
+### 2. SSO Configuration
 Hopsworks Identity Provider needs:
 - Connection URL: `https://dev-fur3a3gej0xmnk7f.eu.auth0.com`
 - Email claim: `email`

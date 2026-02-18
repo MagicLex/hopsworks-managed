@@ -303,12 +303,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               .single();
 
             if (cluster) {
-              await updateUserProjectLimit(
+              // Only bump UP - quota workaround may have set it higher than 5
+              const { getHopsworksUserById } = await import('../../lib/hopsworks-api');
+              const hwUser = await getHopsworksUserById(
                 { apiUrl: cluster.api_url, apiKey: cluster.api_key },
-                assignment.hopsworks_user_id,
-                5
+                assignment.hopsworks_user_id
               );
-              console.log(`[Billing API] Updated maxNumProjects to 5 for user ${userId}`);
+              if (hwUser && (hwUser.maxNumProjects ?? 0) < 5) {
+                await updateUserProjectLimit(
+                  { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+                  assignment.hopsworks_user_id,
+                  5
+                );
+                console.log(`[Billing API] Updated maxNumProjects to 5 for user ${userId}`);
+              }
             }
           }
         } catch (upgradeError) {
@@ -416,12 +424,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               .single();
 
             if (cluster) {
-              await updateUserProjectLimit(
+              // Only bump UP - quota workaround may have set it higher than 1
+              const { getHopsworksUserById } = await import('../../lib/hopsworks-api');
+              const hwUser = await getHopsworksUserById(
                 { apiUrl: cluster.api_url, apiKey: cluster.api_key },
-                assignment.hopsworks_user_id,
-                1
+                assignment.hopsworks_user_id
               );
-              console.log(`[Billing API] Updated maxNumProjects to 1 for user ${userId}`);
+              if (hwUser && (hwUser.maxNumProjects ?? 0) < 1) {
+                await updateUserProjectLimit(
+                  { apiUrl: cluster.api_url, apiKey: cluster.api_key },
+                  assignment.hopsworks_user_id,
+                  1
+                );
+                console.log(`[Billing API] Updated maxNumProjects to 1 for user ${userId}`);
+              }
             }
           }
         } catch (downgradeError) {

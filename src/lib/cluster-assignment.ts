@@ -126,8 +126,10 @@ export async function assignUserToCluster(
                 assignment.hopsworks_user_id
               );
 
-              if (hopsworksUser && hopsworksUser.maxNumProjects !== expectedMaxProjects) {
-                console.log(`[Cluster Assignment] Correcting maxNumProjects from ${hopsworksUser.maxNumProjects} to ${expectedMaxProjects} for user ${userId}`);
+              // Only bump UP, never reset down - the quota workaround in project-sync
+              // bumps maxNumProjects above the base when users delete projects
+              if (hopsworksUser && (hopsworksUser.maxNumProjects ?? 0) < expectedMaxProjects) {
+                console.log(`[Cluster Assignment] Bumping maxNumProjects from ${hopsworksUser.maxNumProjects} to ${expectedMaxProjects} for user ${userId}`);
                 await updateUserProjectLimit(
                   { apiUrl: cluster.api_url, apiKey: cluster.api_key },
                   assignment.hopsworks_user_id,
@@ -413,8 +415,9 @@ export async function assignUserToCluster(
           
           // Check and update maxNumProjects if needed
           const expectedMaxProjects = isFree ? 1 : (user.stripe_subscription_id || isPrepaid) ? 5 : 0;
-          if (existingHopsworksUser.maxNumProjects !== expectedMaxProjects) {
-            console.log(`Updating maxNumProjects from ${existingHopsworksUser.maxNumProjects} to ${expectedMaxProjects} for ${user.email}`);
+          // Only bump UP, never reset down - quota workaround bumps above base on project deletion
+          if ((existingHopsworksUser.maxNumProjects ?? 0) < expectedMaxProjects) {
+            console.log(`Bumping maxNumProjects from ${existingHopsworksUser.maxNumProjects} to ${expectedMaxProjects} for ${user.email}`);
             await updateUserProjectLimit(
               { apiUrl: clusterDetails.api_url, apiKey: clusterDetails.api_key },
               existingHopsworksUser.id,

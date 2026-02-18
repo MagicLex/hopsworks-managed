@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { getHopsworksUserByEmail, getUserProjects } from './hopsworks-api';
+import { getHopsworksUserByEmail, getUserProjects, updateUserProjectLimit } from './hopsworks-api';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -140,11 +140,13 @@ export async function syncUserProjects(userId: string): Promise<ProjectSyncResul
         .eq('status', 'inactive');
     }
 
-    // Get existing project IDs for this user
+    // Get existing ACTIVE project IDs for this user
+    // Only active so we don't re-process already-deactivated projects (and re-bump quota)
     const { data: existingProjects } = await supabaseAdmin
       .from('user_projects')
       .select('project_id')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('status', 'active');
 
     const existingProjectIds = new Set(existingProjects?.map(p => p.project_id) || []);
     const currentProjectIds = new Set(validProjects.map(p => p.id));
@@ -154,14 +156,28 @@ export async function syncUserProjects(userId: string): Promise<ProjectSyncResul
     if (projectsToDeactivate.length > 0) {
       await supabaseAdmin
         .from('user_projects')
-        .update({ 
+        .update({
           status: 'inactive',
           updated_at: new Date().toISOString()
         })
         .eq('user_id', userId)
         .in('project_id', projectsToDeactivate);
-      
+
       console.log(`Marked ${projectsToDeactivate.length} projects as inactive for user ${userId}`);
+
+      // WORKAROUND: Hopsworks quota counts created projects, not active ones.
+      // When a user deletes a project, they can't create a new one because the quota
+      // is already "used". We bump maxNumProjects to compensate.
+      // TODO: Remove when Hopsworks counts active projects instead of created.
+      if (hopsworksUser.maxNumProjects != null) {
+        const newLimit = hopsworksUser.maxNumProjects + projectsToDeactivate.length;
+        try {
+          await updateUserProjectLimit(credentials, hopsworksUser.id, newLimit);
+          console.log(`[WORKAROUND] Bumped maxNumProjects ${hopsworksUser.maxNumProjects} -> ${newLimit} for user ${userId} (${projectsToDeactivate.length} projects deleted)`);
+        } catch (error) {
+          console.error(`[WORKAROUND] Failed to bump maxNumProjects for user ${userId}:`, error);
+        }
+      }
     }
 
     // Upsert current projects

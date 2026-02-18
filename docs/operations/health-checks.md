@@ -59,14 +59,15 @@ The system performs these checks on every login (`/api/auth/sync-user`):
 - **Timing**: sync-user also triggered 2 seconds after "Access Hopsworks" button click
 
 ### 4. Project Limits (maxNumProjects)
-- **Checks**: Correct project limit set in Hopsworks
-- **Auto-repair**: Updates to correct value
-- **Values**:
+- **Checks**: Project limit is not below the expected base value
+- **Auto-repair**: Only bumps UP to the base value, never resets down
+- **Base values**:
   - **Postpaid account owners**: 5 projects (if Stripe customer exists)
   - **Prepaid/Corporate account owners**: 5 projects (always)
   - **Team members**: 0 projects (use owner's projects)
   - **Users without billing**: 0 projects (trial/restricted)
 - **Important**: Users with payment method get 5 projects even without active subscription
+- **One-way ratchet**: The quota workaround (see [Known Issues](../troubleshooting/known-issues.md#1-project-quota-counts-created-not-active-workaround-active)) bumps `maxNumProjects` above the base when users delete projects. Health Check 5 uses `<` (not `!==`) to avoid resetting workaround bumps. A user with `maxNumProjects=7` (base 5 + 2 deleted) will NOT be reset to 5.
 
 ### 5. Team Membership
 - **Checks**: Team members on same cluster as account owner
@@ -144,6 +145,40 @@ Bulk resolve failures:
 }
 ```
 
+#### POST `/api/admin/fix-project-quotas`
+One-off fix for users stuck because Hopsworks counts created projects, not active ones.
+
+Dry run (preview only):
+```bash
+curl -X POST https://run.hopsworks.ai/api/admin/fix-project-quotas \
+  -H "Cookie: appSession=SESSION_COOKIE" \
+  -H "Content-Type: application/json" \
+  -d '{"dryRun": true}'
+```
+
+Apply fix:
+```bash
+curl -X POST https://run.hopsworks.ai/api/admin/fix-project-quotas \
+  -H "Cookie: appSession=SESSION_COOKIE" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+Response:
+```json
+{
+  "dryRun": false,
+  "message": "Fixed 3, skipped 1, failed 0",
+  "results": {
+    "fixed": [{ "email": "user@example.com", "oldLimit": 1, "newLimit": 2, "deletedProjects": 1 }],
+    "skipped": [{ "email": "other@example.com", "reason": "Already at 7, computed 7" }],
+    "failed": []
+  }
+}
+```
+
+**Idempotent**: Computes `baseLimit + deletedProjectCount` from scratch. Safe to run multiple times — users already at or above the computed limit are skipped.
+
 ## Monitoring
 
 ### Check System Health
@@ -169,6 +204,7 @@ GROUP BY check_type;
 | Missing Stripe subscription | Price IDs incorrect | Update `stripe_products` table |
 | No Hopsworks user ID | Only username stored | System retrieves ID on login |
 | Can't create projects | maxNumProjects = 0 | Auto-fixed 2 seconds after clicking "Access Hopsworks" |
+| Can't create projects after deletion | Hopsworks quota counts created, not active | Run `POST /api/admin/fix-project-quotas` (see [Known Issues](../troubleshooting/known-issues.md#1-project-quota-counts-created-not-active-workaround-active)) |
 | Team member no cluster | Owner not assigned yet | Owner must login first |
 
 ## Manual Verification

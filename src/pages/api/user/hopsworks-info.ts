@@ -103,73 +103,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }));
         console.log(`Found ${projects.length} team projects for ${userData.email}`);
       } else {
-        // Try to get owned projects from cache
-        const { data: cachedProjects } = await supabaseAdmin
-          .from('user_projects')
-          .select('project_id, project_name, namespace')
-          .eq('user_id', userId)
-          .eq('status', 'active');
-
-        // Use cache only if count matches Hopsworks (avoids stale data after project deletion)
-        const cacheIsValid = cachedProjects &&
-          cachedProjects.length > 0 &&
-          cachedProjects.length === hopsworksUser.numActiveProjects;
-
-        if (cacheIsValid) {
-          projects = cachedProjects.map(p => ({
-            id: p.project_id,
-            name: p.project_name,
-            namespace: p.namespace,
-            owner: hopsworksUser.username,
-            created: new Date().toISOString()
-          }));
-          console.log(`Using ${projects.length} cached projects for ${userData.email}`);
-        } else {
-          // Cache mismatch or empty - invalidate stale entries and fetch fresh
-          if (cachedProjects && cachedProjects.length !== hopsworksUser.numActiveProjects) {
-            console.log(`Cache mismatch for ${userData.email}: cached=${cachedProjects.length}, actual=${hopsworksUser.numActiveProjects} - refetching`);
-            // Mark all cached projects as potentially stale
-            await supabaseAdmin
-              .from('user_projects')
-              .update({ status: 'pending_verification' })
-              .eq('user_id', userId)
-              .eq('status', 'active');
-          }
-          // Fallback to API if no cached projects
-          try {
-            const apiProjects = await getUserProjects(credentials, hopsworksUser.username, hopsworksUser.id);
-            projects = apiProjects;
-
-            // Cache these projects for next time (filter out any without namespace)
-            const validProjects = apiProjects.filter((p: any) => {
-              if (!p.namespace) {
-                console.error(`[BILLING] Project ${p.name} (id: ${p.id}) missing namespace field - skipping cache`);
-                return false;
-              }
-              return true;
-            });
-
-            if (validProjects.length > 0) {
-              const projectsToCache = validProjects.map((p: any) => ({
-                user_id: userId,
-                project_id: p.id,
-                project_name: p.name,
-                namespace: p.namespace,
-                status: 'active'
-              }));
-
-              await supabaseAdmin
-                .from('user_projects')
-                .upsert(projectsToCache, {
-                  onConflict: 'user_id,project_id',
-                  ignoreDuplicates: false
-                });
-
-              console.log(`Cached ${validProjects.length} projects for ${userData.email}`);
-            }
-          } catch (error) {
-            console.error('Error fetching projects from API:', error);
-          }
+        // Always fetch fresh from Hopsworks - no webhook exists to notify us of deletions
+        try {
+          const apiProjects = await getUserProjects(credentials, hopsworksUser.username, hopsworksUser.id);
+          projects = apiProjects;
+        } catch (error) {
+          console.error('Error fetching projects from Hopsworks:', error);
         }
       }
 

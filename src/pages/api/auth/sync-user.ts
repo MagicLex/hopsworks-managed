@@ -608,20 +608,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           
           const currentMaxProjects = hopsworksUser.maxNumProjects ?? 0;
           
-          if (currentMaxProjects !== expectedMaxProjects) {
-            console.log(`[Health Check] User ${email} has incorrect maxNumProjects (${currentMaxProjects} vs expected ${expectedMaxProjects}) - fixing`);
+          // Only bump UP, never reset down. The quota workaround in project-sync
+          // bumps maxNumProjects above the base when users delete projects (because
+          // Hopsworks counts created projects, not active ones). Resetting down
+          // would undo that workaround.
+          if (currentMaxProjects < expectedMaxProjects) {
+            console.log(`[Health Check] User ${email} has maxNumProjects too low (${currentMaxProjects} vs expected ${expectedMaxProjects}) - fixing`);
             try {
               await updateUserProjectLimit(credentials, hopsworksUserId, expectedMaxProjects);
               healthCheckResults.maxNumProjectsCorrect = true;
               console.log(`[Health Check] Successfully updated maxNumProjects to ${expectedMaxProjects} for ${email}`);
             } catch (error) {
-              await logHealthCheckFailure(userId, email, 'maxnumprojects_update', 
+              await logHealthCheckFailure(userId, email, 'maxnumprojects_update',
                 `Failed to update maxNumProjects from ${currentMaxProjects} to ${expectedMaxProjects}`, error);
               console.error(`[Health Check] Failed to update maxNumProjects for ${email}:`, error);
             }
           } else {
             healthCheckResults.maxNumProjectsCorrect = true;
-            console.log(`[Health Check] User ${email} already has correct maxNumProjects: ${currentMaxProjects}`);
           }
           
           // Sync username if needed - update BOTH tables
