@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@auth0/nextjs-auth0';
 import { createClient } from '@supabase/supabase-js';
 import { DEFAULT_RATES } from '@/config/billing-rates';
+import { syncUserProjects } from '@/lib/project-sync';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -362,31 +363,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const reason = !hasPaymentMethod ? 'no payment method' : 'no active subscription';
         console.log(`[Billing API] Lazy downgrading user ${userId} from postpaid to free (${reason})`);
 
-        // Get project count from Hopsworks
+        // Sync projects before counting — user_projects may be stale (last synced at login)
+        try {
+          const syncResult = await syncUserProjects(userId);
+          if (!syncResult.success) {
+            console.error(`[Billing API] Project sync failed for ${userId}: ${syncResult.error} — proceeding with stale data`);
+          }
+        } catch (e) {
+          console.error(`[Billing API] Project sync threw for ${userId}:`, e);
+        }
+
+        // Get project count from our DB — Hopsworks numActiveProjects includes deleted projects
         let projectCount = 0;
         try {
-          const { getHopsworksUserByEmail } = await import('@/lib/hopsworks-api');
-          const { data: assignment } = await supabaseAdmin
-            .from('user_hopsworks_assignments')
-            .select('hopsworks_cluster_id')
+          const { data: activeProjects } = await supabaseAdmin
+            .from('user_projects')
+            .select('project_id')
             .eq('user_id', userId)
-            .single();
-
-          if (assignment?.hopsworks_cluster_id) {
-            const { data: cluster } = await supabaseAdmin
-              .from('hopsworks_clusters')
-              .select('api_url, api_key')
-              .eq('id', assignment.hopsworks_cluster_id)
-              .single();
-
-            if (cluster && user.email) {
-              const hopsworksUser = await getHopsworksUserByEmail(
-                { apiUrl: cluster.api_url, apiKey: cluster.api_key },
-                user.email
-              );
-              projectCount = hopsworksUser?.numActiveProjects || 0;
-            }
-          }
+            .eq('status', 'active');
+          projectCount = activeProjects?.length || 0;
         } catch (e) {
           console.error('[Billing API] Failed to get project count:', e);
         }
@@ -471,31 +466,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (user?.billing_mode === 'free' && user?.downgrade_deadline && user?.status !== 'suspended') {
       const deadline = new Date(user.downgrade_deadline);
       if (deadline < new Date()) {
-        // Check project count
+        // Sync projects before counting — user_projects may be stale (last synced at login)
+        try {
+          const syncResult = await syncUserProjects(userId);
+          if (!syncResult.success) {
+            console.error(`[Billing API] Project sync failed for ${userId}: ${syncResult.error} — proceeding with stale data`);
+          }
+        } catch (e) {
+          console.error(`[Billing API] Project sync threw for ${userId}:`, e);
+        }
+
+        // Check project count from our DB — Hopsworks numActiveProjects includes deleted projects
         let currentProjectCount = 0;
         try {
-          const { getHopsworksUserByEmail } = await import('@/lib/hopsworks-api');
-          const { data: assignment } = await supabaseAdmin
-            .from('user_hopsworks_assignments')
-            .select('hopsworks_cluster_id')
+          const { data: activeProjects } = await supabaseAdmin
+            .from('user_projects')
+            .select('project_id')
             .eq('user_id', userId)
-            .single();
-
-          if (assignment?.hopsworks_cluster_id) {
-            const { data: cluster } = await supabaseAdmin
-              .from('hopsworks_clusters')
-              .select('api_url, api_key')
-              .eq('id', assignment.hopsworks_cluster_id)
-              .single();
-
-            if (cluster && user.email) {
-              const hopsworksUser = await getHopsworksUserByEmail(
-                { apiUrl: cluster.api_url, apiKey: cluster.api_key },
-                user.email
-              );
-              currentProjectCount = hopsworksUser?.numActiveProjects || 0;
-            }
-          }
+            .eq('status', 'active');
+          currentProjectCount = activeProjects?.length || 0;
         } catch (e) {
           console.error('[Billing API] Failed to get project count for suspension check:', e);
         }

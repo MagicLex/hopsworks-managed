@@ -8,6 +8,7 @@ import { reactivateUser } from '../../../lib/user-status';
 import { handleApiError, alertBillingFailure } from '../../../lib/error-handler';
 import { updateUserProjectLimit } from '../../../lib/hopsworks-api';
 import { sendPlanUpdated } from '../../../lib/marketing-webhooks';
+import { syncUserProjects } from '../../../lib/project-sync';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -379,31 +380,25 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     }
 
     // Downgrade to free tier instead of suspending
-    // Get project count from Hopsworks
+    // Sync projects before counting — user_projects may be stale (last synced at login)
+    try {
+      const syncResult = await syncUserProjects(user.id);
+      if (!syncResult.success) {
+        await alertBillingFailure('sync_projects', user.email, new Error(syncResult.error || 'unknown'), { userId: user.id, trigger: 'subscription_deleted' });
+      }
+    } catch (e) {
+      await alertBillingFailure('sync_projects', user.email, e, { userId: user.id, trigger: 'subscription_deleted' });
+    }
+
+    // Get project count from our DB — Hopsworks numActiveProjects includes deleted projects
     let projectCount = 0;
     try {
-      const { data: assignment } = await supabaseAdmin
-        .from('user_hopsworks_assignments')
-        .select('hopsworks_cluster_id')
+      const { data: activeProjects } = await supabaseAdmin
+        .from('user_projects')
+        .select('project_id')
         .eq('user_id', user.id)
-        .single();
-
-      if (assignment?.hopsworks_cluster_id) {
-        const { data: cluster } = await supabaseAdmin
-          .from('hopsworks_clusters')
-          .select('api_url, api_key')
-          .eq('id', assignment.hopsworks_cluster_id)
-          .single();
-
-        if (cluster && user.email) {
-          const { getHopsworksUserByEmail } = await import('../../../lib/hopsworks-api');
-          const hopsworksUser = await getHopsworksUserByEmail(
-            { apiUrl: cluster.api_url, apiKey: cluster.api_key },
-            user.email
-          );
-          projectCount = hopsworksUser?.numActiveProjects || 0;
-        }
-      }
+        .eq('status', 'active');
+      projectCount = activeProjects?.length || 0;
     } catch (e) {
       await alertBillingFailure('get_project_count', user.email, e, { userId: user.id, trigger: 'subscription_deleted' });
     }
@@ -567,6 +562,16 @@ async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, 
         if (paymentMethods.data.length === 0) {
           console.log(`User ${user.id} lost last payment method - downgrading to free tier`);
 
+          // Sync projects before counting — user_projects may be stale (last synced at login)
+          try {
+            const syncResult = await syncUserProjects(user.id);
+            if (!syncResult.success) {
+              await alertBillingFailure('sync_projects', user.email, new Error(syncResult.error || 'unknown'), { userId: user.id, trigger: 'payment_method_detached' });
+            }
+          } catch (e) {
+            await alertBillingFailure('sync_projects', user.email, e, { userId: user.id, trigger: 'payment_method_detached' });
+          }
+
           // Cancel subscription if exists (to avoid failed payment attempts)
           if (user.stripe_subscription_id) {
             try {
@@ -577,31 +582,15 @@ async function handlePaymentMethodDetached(paymentMethod: Stripe.PaymentMethod, 
             }
           }
 
-          // Get project count from Hopsworks
+          // Get project count from our DB — Hopsworks numActiveProjects includes deleted projects
           let projectCount = 0;
           try {
-            const { data: assignment } = await supabaseAdmin
-              .from('user_hopsworks_assignments')
-              .select('hopsworks_cluster_id')
+            const { data: activeProjects } = await supabaseAdmin
+              .from('user_projects')
+              .select('project_id')
               .eq('user_id', user.id)
-              .single();
-
-            if (assignment?.hopsworks_cluster_id) {
-              const { data: cluster } = await supabaseAdmin
-                .from('hopsworks_clusters')
-                .select('api_url, api_key')
-                .eq('id', assignment.hopsworks_cluster_id)
-                .single();
-
-              if (cluster && user.email) {
-                const { getHopsworksUserByEmail } = await import('../../../lib/hopsworks-api');
-                const hopsworksUser = await getHopsworksUserByEmail(
-                  { apiUrl: cluster.api_url, apiKey: cluster.api_key },
-                  user.email
-                );
-                projectCount = hopsworksUser?.numActiveProjects || 0;
-              }
-            }
+              .eq('status', 'active');
+            projectCount = activeProjects?.length || 0;
           } catch (e) {
             await alertBillingFailure('get_project_count', user.email, e, { userId: user.id, trigger: 'payment_method_detached' });
           }

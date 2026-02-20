@@ -95,45 +95,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('id', userId)
       .single();
     
-    let projectsCount = 0;
     let modelsCount = 0;
 
-    // If user has a cluster assignment, fetch real data from Hopsworks
-    if (userData?.user_hopsworks_assignments?.[0]?.hopsworks_clusters) {
-      const clusterData = userData.user_hopsworks_assignments[0].hopsworks_clusters;
-      // Handle both array and single object response from Supabase
-      const cluster = Array.isArray(clusterData) ? clusterData[0] : clusterData;
-      
-      if (!cluster) {
-        projectsCount = 0;
-      } else {
-        try {
-          const { getHopsworksUserByEmail, getUserProjects } = await import('../../lib/hopsworks-api');
-          
-          const credentials = {
-            apiUrl: cluster.api_url,
-            apiKey: cluster.api_key
-          };
-
-          // Get Hopsworks user
-          const hopsworksUser = await getHopsworksUserByEmail(credentials, userData.email);
-          
-          if (hopsworksUser) {
-            // Get actual projects count
-            projectsCount = hopsworksUser.numActiveProjects || 0;
-            
-            // Model deployments tracking not yet implemented in Hopsworks API
-            modelsCount = 0;
-          }
-        } catch (error) {
-          console.error('Error fetching Hopsworks data:', error);
-          // Fall back to database values
-          projectsCount = 0;
-        }
-      }
-    } else {
-      // No cluster assigned, use database values
-      projectsCount = 0;
+    // Use our user_projects table — Hopsworks numActiveProjects includes deleted projects
+    let projectsCount = 0;
+    try {
+      const { data: activeProjects } = await supabaseAdmin
+        .from('user_projects')
+        .select('project_id')
+        .eq('user_id', userId)
+        .eq('status', 'active');
+      projectsCount = activeProjects?.length || 0;
+    } catch (e) {
+      console.error('[Usage] Failed to get project count:', e);
     }
 
     return res.status(200).json({

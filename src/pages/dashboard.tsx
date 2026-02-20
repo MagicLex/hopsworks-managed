@@ -42,7 +42,7 @@ interface HopsworksInfo {
     accountType: string;
     status: number;
     maxNumProjects: number;
-    numActiveProjects: number;
+
     activated: string;
   };
   projects?: Array<{
@@ -187,7 +187,7 @@ export default function Dashboard() {
   // Show downgrade modal for free users with >1 project and a deadline
   useEffect(() => {
     if (!billingLoading && billing && hopsworksInfo) {
-      const projectCount = hopsworksInfo.hopsworksUser?.numActiveProjects || 0;
+      const projectCount = hopsworksInfo.projects?.length || 0;
       if (billing.billingMode === 'free' && billing.downgradeDeadline && projectCount > 1) {
         setShowDowngradeModal(true);
       } else {
@@ -531,7 +531,7 @@ export default function Dashboard() {
                             <Text className="text-sm text-gray-600">Projects</Text>
                           </IconLabel>
                           <Text className="text-xl font-semibold">
-                            {hopsworksInfo?.hopsworksUser?.numActiveProjects || '0'}
+                            {hopsworksInfo?.projects?.length || '0'}
                           </Text>
                           <Text className="text-xs text-gray-500">Active projects</Text>
                           {
@@ -1894,7 +1894,7 @@ mr = project.get_model_registry()`;
                 </Text>
                 <Text className="text-sm text-amber-700">
                   Free plan includes <strong>1 project only</strong>. You currently have{' '}
-                  <strong>{hopsworksInfo?.hopsworksUser?.numActiveProjects || 0} projects</strong>.
+                  <strong>{hopsworksInfo?.projects?.length || 0} projects</strong>.
                 </Text>
               </Box>
             </Flex>
@@ -1912,7 +1912,7 @@ mr = project.get_model_registry()`;
                 })}
               </Text>
               <Text className="text-xs text-gray-500 mt-1">
-                Delete {(hopsworksInfo?.hopsworksUser?.numActiveProjects || 0) - 1} project(s) by this date or your account will be suspended.
+                Delete {(hopsworksInfo?.projects?.length || 0) - 1} project(s) by this date or your account will be suspended.
               </Text>
             </Box>
           )}

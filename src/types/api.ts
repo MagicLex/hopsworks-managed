@@ -25,7 +25,7 @@ export interface HopsworksUser {
   email: string;
   firstName?: string;
   lastName?: string;
-  numActiveProjects?: number;
+
 }
 
 // Kubernetes Metrics Types

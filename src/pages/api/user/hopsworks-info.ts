@@ -63,7 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     
     try {
-      const { getHopsworksUserByEmail, getUserProjects } = await import('../../../lib/hopsworks-api');
+      const { getHopsworksUserByEmail } = await import('../../../lib/hopsworks-api');
       
       const credentials = {
         apiUrl: cluster.api_url,
@@ -98,17 +98,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id: p.project_id,
           name: p.project_name,
           role: p.role,
-          owner: 'team', // Team project
+          owner: 'team',
           created: new Date().toISOString()
         }));
         console.log(`Found ${projects.length} team projects for ${userData.email}`);
       } else {
-        // Always fetch fresh from Hopsworks - no webhook exists to notify us of deletions
-        try {
-          const apiProjects = await getUserProjects(credentials, hopsworksUser.username, hopsworksUser.id);
-          projects = apiProjects;
-        } catch (error) {
-          console.error('Error fetching projects from Hopsworks:', error);
+        // Use our user_projects table (synced by project-sync on every login).
+        // Hopsworks API returns deleted projects as if active — our DB is the source of truth.
+        const { data: userProjects } = await supabaseAdmin
+          .from('user_projects')
+          .select('project_id, project_name')
+          .eq('user_id', userId)
+          .eq('status', 'active');
+
+        if (userProjects && userProjects.length > 0) {
+          projects = userProjects.map(p => ({
+            id: p.project_id,
+            name: p.project_name,
+            owner: hopsworksUser.username,
+            created: null
+          }));
         }
       }
 
@@ -123,7 +132,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           accountType: hopsworksUser.accountType,
           status: hopsworksUser.status,
           maxNumProjects: hopsworksUser.maxNumProjects,
-          numActiveProjects: hopsworksUser.numActiveProjects,
+
           activated: hopsworksUser.activated
         },
         projects: projects.map(p => ({
@@ -138,6 +147,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({
         hasCluster: true,
         clusterName: cluster.name,
+        projects: [],
         error: 'Failed to fetch Hopsworks data'
       });
     }
